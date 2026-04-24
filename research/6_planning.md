@@ -6,11 +6,11 @@
 
 | Week | Milestone |
 |---|---|
-| 1 | Fetch Gemma 4 E2B/E4B weights from Kaggle [67][68]; build baseline MLX Swift inference on iPhone 14 simulator and a loaner device [77][78]; benchmark raw throughput [62]. |
-| 2 | Stand up Capacitor + Next.js shell [81]; implement `GemmaPlugin` with streaming token notifications; smoke-test end-to-end prompt → token stream in the WebView UI. |
+| 1 | Fetch Gemma 4 E2B/E4B weights from Kaggle [67][68]; build baseline MLX Swift inference on iPhone 14 (iOS demo device) [77][78] and verify GGUF artifacts run via llama.cpp; benchmark raw throughput [62]. |
+| 2 | Stand up Capacitor + Next.js shell [81]; implement `GemmaPlugin` with streaming token notifications; smoke-test end-to-end prompt → token stream in the WebView UI on iOS and Android emulator. |
 | 3 | Assemble training corpus (see §4.2 in implementation_methodology.md); fine-tune E2B and E4B with Unsloth + QLoRA [72]; merge and export GGUF + MLX 4-bit artifacts [55][56]; spot-check accuracy on held-out test set. |
-| 4 | Implement six MCP servers in Swift [82][83][86]; wire Orchestrator Agent to route tasks via local A2A [88][89]; integrate grammar-constrained decoding via llama.cpp GBNF [96]. |
-| 5 | Build iOS extensions (Message Filter distilled classifier [53][80], Call Directory, Share, App Intents); implement voice-first accessibility UI and multi-language Explainer [67]. |
+| 4 | Implement six MCP servers (Swift SDK on iOS, Kotlin SDK on Android) [82][83][86]; wire Orchestrator Agent via platform-native message router; integrate grammar-constrained decoding via llama.cpp GBNF [96]. |
+| 5 | Build platform integration layer (iOS: SMS Filter [53][80], Call Directory, Share Extension, App Intents; Android: SmsRetriever, CallScreeningService, Share intent, App Actions); implement voice-first accessibility UI and multi-language Explainer [67]. |
 | 6 | User testing with ≥ 10 elders (mean age 70+) and ≥ 10 non-native speakers across at least 3 languages; iterate on UX and thresholds. |
 | 7 | Benchmarking, adversarial testing [87], hackathon submission video, TestFlight beta, final thesis edit. |
 
@@ -40,7 +40,7 @@ In the user study we expect (a) **≥ 80 % elder task-completion rate** on the S
 
 ### 6.3 Societal-Impact Projections
 
-If GemScan reaches even **1 % of the roughly 800 million iPhone-14-and-earlier users globally** and reduces victimisation in that population by **one-third** — a conservative figure relative to the **30 % false-negative reduction demonstrated by agentic systems in the literature** [52][53] — the annualised financial-loss prevention is on the order of **$2–4 billion** against GASA's $1.03 trillion global baseline [13]. The mental-health benefit, though harder to quantify, is anchored in peer-reviewed evidence (Button 2014; Lichtenberg FINCHES [31]; Sarriá 2019; Kircanski [32]) that every prevented scam is a prevented depression, anxiety, or — in the sextortion case — suicide risk. For LEP and elderly populations specifically, GemScan's multilingual voice-first UI is expected to **close the 2.8× voice-scam vulnerability gap** documented for LEP users [36] and the **38 %-vs-16 % overrepresentation of 65+ adults among voice-scam victims** [7][3].
+If GemScan reaches even **1 % of the roughly 3.5 billion mid-range and budget smartphone users globally** (the segment on which vulnerable populations predominantly rely) and reduces victimisation in that population by **one-third** — a conservative figure relative to the **30 % false-negative reduction demonstrated by agentic systems in the literature** [52][53] — the annualised financial-loss prevention is on the order of **$2–4 billion** against GASA's $1.03 trillion global baseline [13]. The mental-health benefit, though harder to quantify, is anchored in peer-reviewed evidence (Button 2014; Lichtenberg FINCHES [31]; Sarriá 2019; Kircanski [32]) that every prevented scam is a prevented depression, anxiety, or — in the sextortion case — suicide risk. For LEP and elderly populations specifically, GemScan's multilingual voice-first UI is expected to **close the 2.8× voice-scam vulnerability gap** documented for LEP users [36] and the **38 %-vs-16 % overrepresentation of 65+ adults among voice-scam victims** [7][3].
 
 ### 6.4 Comparison to Existing Solutions
 
@@ -49,15 +49,15 @@ If GemScan reaches even **1 % of the roughly 800 million iPhone-14-and-earlier u
 | Fully on-device | ✔ | ✔ (mostly) | ✘ | ✘ | ✘ | **✔** |
 | Multi-modal (text+URL+image+audio) | partial | ✔ | ✔ | partial | ✔ | **✔** |
 | Multi-language reasoning | ✘ English | ✘ 3 locales | ✘ English | UI only | input only | **✔ 140+** |
-| Agentic (MCP + A2A) | ✘ | ✘ | ✘ | ✘ | ✘ | **✔** |
-| Works on iPhone 14 | ✘ Pixel only | ✔ | ✔ | ✔ | ✔ | **✔** |
+| Agentic (MCP + actor orchestration) | ✘ | ✘ | ✘ | ✘ | ✘ | **✔** |
+| Works on mid-range iOS + Android | ✘ Pixel only | ✔ iOS only | ✔ | ✔ | ✔ | **✔ both** |
 | Explanations in user's native language | ✘ | partial | ✘ | ✘ | ✘ | **✔** |
 | Trusted-contact escalation | ✘ | ✘ | ✘ | ✘ | ✘ | **✔** |
 | Open-source weights + code | ✘ | ✘ | ✘ | ✘ | ✘ | **✔** |
 
 ### 6.5 Path to Production and Scaling
 
-Post-hackathon, the roadmap is four-fold. **Production (months 1–3):** TestFlight public beta, App Store submission, hardening of MCP permission scopes [83], App Store privacy-manifest compliance. **Cross-platform (months 3–9):** Capacitor Android build [81] targeting LiteRT-LM / MediaPipe LLM Inference runtime; Progressive Web App fallback for desktop review use cases; desktop Electron build for caregivers. **Federation (months 9–18):** Optional cloud A2A threat-intelligence agent [88][89]; DP-FedAvg federated learning for continual model improvement; partnerships with carrier scam-reporting APIs (T-Mobile Scam Shield, BT Call Protect) and banking APIs for mid-scam transaction pausing. **Research (continuous):** Collaboration with AARP Fraud Watch [27], Thorn [34], and LEP immigrant-services non-profits to release anonymised, consented scam corpora as public goods, and to co-author peer-reviewed evaluation studies following the benchmarking protocol of §4.4 (see implementation_methodology.md).
+Post-hackathon, the roadmap is four-fold. **Production (months 1–3):** iOS TestFlight public beta and App Store submission; Android Play Console internal track and Play Store submission; hardening of MCP permission scopes [83]; platform privacy-manifest compliance on both stores. **Cross-platform (months 3–9):** Capacitor Android build [81] targeting LiteRT-LM / MediaPipe LLM Inference runtime is developed in parallel with iOS and targeted for release by month 6; Progressive Web App fallback for desktop review use cases; desktop Electron build for caregivers. **Federation (months 9–18):** Optional cloud threat-intelligence agent (the Swift actor interface is serialisation-ready for promotion to a remote endpoint over A2A); DP-FedAvg federated learning for continual model improvement; partnerships with carrier scam-reporting APIs (T-Mobile Scam Shield, BT Call Protect) and banking APIs for mid-scam transaction pausing. **Research (continuous):** Collaboration with AARP Fraud Watch [27], Thorn [34], and LEP immigrant-services non-profits to release anonymised, consented scam corpora as public goods, and to co-author peer-reviewed evaluation studies following the benchmarking protocol of §4.4 (see implementation_methodology.md).
 
 ---
 
@@ -65,7 +65,7 @@ Post-hackathon, the roadmap is four-fold. **Production (months 1–3):** TestFli
 
 **Three forces have converged in 2024–2026: scams have become a trillion-dollar transnational industry [13], generative AI has trivialised their production [20][22][24], and open on-device models have matured enough to fight back [55][56][57][58].** Gemma 4 E2B and E4B — 2.3 B and 4.5 B effective parameters, multi-modal text+image+audio, 128 K context, 140+ languages, Apache 2.0 licensed, and empirically outperforming Gemma 3 27B on agentic tool-use tasks while fitting on an iPhone 14 [67][68][69] — represent the first moment at which a privacy-first, multilingual, voice-first, agentic consumer scam-defence app is technically viable on a mainstream budget device.
 
-GemScan is the concrete realisation of that opportunity. By combining (i) a two-model tiered architecture, (ii) a six-agent MCP+A2A orchestration [82][83][88][89], (iii) native-language explanations and trusted-contact escalation, and (iv) a strict on-device privacy posture, it closes the ten capability gaps that existing commercial and academic solutions collectively leave open. The hypotheses in §5 are rigorous and falsifiable; the methodology in §4 is executable within a hackathon timeline; the expected results in §6 are bold but grounded in extrapolations from published benchmarks. If validated, GemScan would establish a new class of **on-device protective agents** — ones that belong *to* and run *for* their user, not a cloud vendor — and demonstrate that the most vulnerable populations globally can finally receive first-class, equitable, culturally competent protection from the fastest-growing crime on Earth.
+GemScan is the concrete realisation of that opportunity. By combining (i) a two-model tiered architecture, (ii) a six-agent MCP-backed orchestration with a Swift actor message router [82][83], (iii) native-language explanations and trusted-contact escalation, and (iv) a strict on-device privacy posture, it closes the ten capability gaps that existing commercial and academic solutions collectively leave open. The hypotheses in §5 are rigorous and falsifiable; the methodology in §4 is executable within a hackathon timeline; the expected results in §6 are bold but grounded in extrapolations from published benchmarks. If validated, GemScan would establish a new class of **on-device protective agents** — ones that belong *to* and run *for* their user, not a cloud vendor — and demonstrate that the most vulnerable populations globally can finally receive first-class, equitable, culturally competent protection from the fastest-growing crime on Earth.
 
 *The twenty-first-century scammer has an AI. Until now, the twenty-first-century grandmother has not. GemScan changes that.*
 

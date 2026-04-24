@@ -28,7 +28,7 @@ Following Unsloth's published **Gemma 4 Fine-tuning Guide** [72], we apply **ran
 
 **Accuracy benchmarks.** Precision, recall, F1, and AUROC on held-out sets partitioned by language, region, and vulnerable group. Compare GemScan-E2B and -E4B against (a) cloud GPT-4o/Claude Opus 4.5 baselines, (b) Norton Genie and McAfee Scam Detector where APIs allow, and (c) the SpaLLM-Guard [49] and APOLLO [50] academic baselines.
 
-**Latency benchmarks.** First-token latency, full-analysis latency (text, URL, image, audio), and end-to-end user-visible response time for the Share Sheet flow, measured on **iPhone 14 (A15, 6 GB)**, iPhone 15 Pro (A17 Pro, 8 GB), and iPhone 16 Pro (A18 Pro, 8 GB) [62].
+**Latency benchmarks.** First-token latency, full-analysis latency (text, URL, image, audio), and end-to-end user-visible response time for the share-sheet flow, measured on **iPhone 14 (A15, 6 GB)** and a comparable mid-range Android device as the two reference platforms [62].
 
 **Memory benchmarks.** Peak RSS across E2B-only, E4B-only, and multi-agent pipelined modes; verify no OOM on the 6 GB baseline device [61].
 
@@ -49,7 +49,7 @@ Outcome measures include **task success rate, explanation comprehension, Net Pro
 
 ### 4.6 Deployment Pipeline and TestFlight
 
-The iOS build is produced by a **GitHub Actions workflow** that runs `next build && next export`, syncs to Capacitor [81], signs with a developer certificate, and uploads to **TestFlight** via `fastlane pilot`. Model weights are downloaded on first launch (with an Apple-compliant progress UI and user-consent screen) rather than shipped in the IPA, keeping the install footprint under 100 MB.
+The build is produced by a **GitHub Actions workflow** that runs `next build && next export`, syncs to Capacitor [81], signs with platform certificates, and uploads to **TestFlight** (iOS) or the **Play Console internal track** (Android) via `fastlane`. Model weights are downloaded on first launch (with a compliant progress UI and user-consent screen) rather than bundled in the app package, keeping the install footprint under 100 MB on both platforms.
 
 ### 4.7 Open-Source Strategy and Licensing
 
@@ -65,7 +65,7 @@ We formulate five testable hypotheses that together argue the case for GemScan.
 
 **H2. Multi-modal outperforms single-modal.** The six-agent pipeline that jointly analyses text + URL + image + audio will produce **≥ 7 % absolute F1 improvement** over any single-modal baseline on a realistic multi-modal scam corpus (synthetic pig-butchering chains with fake profile photos, deepfake voice memos, and fraudulent investment-app screenshots), reflecting the same trend observed by **PhishAgent (Wang & Hooi 2024)** [48] and **MultiPhishGuard (Chataut et al. 2025)** [51].
 
-**H3. Agentic MCP/A2A beats static rules.** Against a **multi-turn adversarial scammer corpus** simulating romance and pig-butchering campaigns over 10+ turns, the agentic architecture with MCP tool queries [82][83] and A2A debate adjudication [88][89] will reduce **false-negative rate by ≥ 30 %** compared to a static rule-based or single-shot-LLM baseline, consistent with the **PhishDebate (arXiv 2506.15656)** [52] and **ScriptMind (arXiv 2601.13581)** published gains.
+**H3. Agentic MCP orchestration beats static rules.** Against a **multi-turn adversarial scammer corpus** simulating romance and pig-butchering campaigns over 10+ turns, the agentic architecture with MCP tool queries [82][83] and multi-agent debate adjudication will reduce **false-negative rate by ≥ 30 %** compared to a static rule-based or single-shot-LLM baseline, consistent with the **PhishDebate (arXiv 2506.15656)** [52] and **ScriptMind (arXiv 2601.13581)** published gains.
 
 **H4. Privacy-first drives adoption.** In the user study, **≥ 80 % of elderly and ≥ 85 % of LEP participants** will report *greater trust* in an on-device solution than in a cloud-based equivalent, and stated willingness-to-continue-using will exceed **70 %** — a threshold above the ~45 % long-term retention reported by Truecaller analytics and comparable consumer-security apps, supported by Koning et al. (2024) findings on fraud-knowledge and self-efficacy.
 

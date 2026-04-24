@@ -6,14 +6,14 @@
 
 ### 3.1 System Architecture Overview
 
-GemScan is a **Next.js-plus-Capacitor iOS application** [81] that bundles a **Gemma-based agentic core** (two models, six specialist agents) with a set of **in-process MCP servers** [82][83][84][85][86] and **A2A-mediated inter-agent communication** [88][89][90], all running entirely on the user's iPhone. A single shared Swift package, **GemmaKit**, is linked by the main app target and by four iOS extensions (Message Filter, Call Directory, Share, App Intents), so the same inference pipeline powers every entry point.
+GemScan is a **Next.js-plus-Capacitor mobile application** [81] that bundles a **Gemma-based agentic core** (two models, six specialist agents) with a set of **in-process MCP servers** [82][83][84][85][86] and a **platform-native inter-agent message router**, all running entirely on the user's device. The demo build targets iOS, where a shared native package, **GemmaKit**, links the main app target and four system extensions (SMS Filter, Call Directory, Share, App Intents); the architecture is designed so the same inference pipeline and MCP server layer ports to Android with only the platform integration layer changing.
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │                 GemScan (iOS, Capacitor shell)             │
- │   Next.js UI ↔ Capacitor Bridge ↔ GemmaKit (Swift)           │
+ │            GemScan (Capacitor mobile shell)                │
+ │  Next.js UI ↔ Capacitor Bridge ↔ Native Inference Package  │
  └────────┬─────────────────────────────────────────────────────┘
-          │ A2A (local JSON-RPC 2.0 over in-proc pipes)
+          │ Swift actor message router (async/await, in-process)
    ┌──────▼──────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
    │Orchestrator │ │  Text    │ │  URL     │ │  Voice   │ │  Image   │ │ Judge /  │
    │ (Gemma 4    │ │ Agent    │ │ Agent    │ │ Agent    │ │ Agent    │ │Explainer │
@@ -29,28 +29,28 @@ GemScan is a **Next.js-plus-Capacitor iOS application** [81] that bundles a **Ge
 
 ### 3.2 Model Allocation: E2B Always-On, E4B Deep Analysis
 
-**Gemma 4 E2B (2.3 B effective / 5.1 B with embeddings, 128 K context, text+image+audio)** [67][68][69] runs as the **always-on screening tier** quantised to **Q4_K_M (~1.5–1.8 GB RAM)** [55][70]. It handles fast binary classification on SMS, call-screen transcripts, incoming notifications, and clipboard URLs. On Qualcomm Dragonwing IQ8 NPUs, Google cites **3,700 prefill / 31 decode tok/s** for E2B; projected to the **A15 Bionic's 15.8 TOPS ANE + 5-core GPU on iPhone 14 (6 GB RAM)** [62][73], the target is **15–25 decode tok/s and ≤ 400 ms first-token latency** via MLX Swift GPU inference [77][78], with **peak RSS ≤ 2.3 GB including KV cache**.
+**Gemma 4 E2B (2.3 B effective / 5.1 B with embeddings, 128 K context, text+image+audio)** [67][68][69] runs as the **always-on screening tier** quantised to **Q4_K_M (~1.5–1.8 GB RAM)** [55][70]. It handles fast binary classification on SMS, call-screen transcripts, incoming notifications, and clipboard URLs. On Qualcomm Dragonwing IQ8 NPUs, Google cites **3,700 prefill / 31 decode tok/s** for E2B; projected to the **A15 Bionic on the iPhone 14 (6 GB RAM, 15.8 TOPS ANE)** — the iOS demo reference device [62][73] — the target is **15–25 decode tok/s and ≤ 400 ms first-token latency** via MLX Swift on iOS [77][78] and LiteRT-LM on Android, with **peak RSS ≤ 2.3 GB including KV cache**.
 
-**Gemma 4 E4B (4.5 B effective / 8 B total)** [67] is the **deep-reasoning tier** quantised to **Q4_K_M (~2.8–3.2 GB)** [55], loaded on demand when E2B's confidence is below a threshold or the user explicitly requests analysis. E4B runs agentic planning, multi-turn reasoning, multimodal screenshot analysis, and audio-deepfake scoring. Because of its 6 GB RAM floor, E4B is opportunistic on iPhone 14 (6 GB) and fully resident on iPhone 14 Pro / 15 / 16 (6–8 GB). Gemma 4 E2B already outperforms **Gemma 3 27B on Tau2 agentic benchmarks (24.5 % vs 16.2 %)** [67] — the first time an on-phone model surpasses last year's cloud flagship on multi-turn tool use — which directly validates the on-device agentic thesis.
+**Gemma 4 E4B (4.5 B effective / 8 B total)** [67] is the **deep-reasoning tier** quantised to **Q4_K_M (~2.8–3.2 GB)** [55], loaded on demand when E2B's confidence is below a threshold or the user explicitly requests analysis. E4B runs agentic planning, multi-turn reasoning, multimodal screenshot analysis, and audio-deepfake scoring. Because of its 6 GB RAM floor, E4B is opportunistic on devices with 6 GB (e.g. iPhone 14, mid-range Android) and fully resident on devices with 8 GB+ (e.g. iPhone 15/16, flagship Android). Gemma 4 E2B already outperforms **Gemma 3 27B on Tau2 agentic benchmarks (24.5 % vs 16.2 %)** [67] — the first time an on-phone model surpasses last year's cloud flagship on multi-turn tool use — which directly validates the on-device agentic thesis.
 
 ### 3.3 Quantisation and Runtime Stack
 
 GemScan will ship **four model artifacts** via the Hugging Face Hub:
 
-- `GemScan/gemma-4-e2b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~1.5 GB)
-- `GemScan/gemma-4-e4b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~3.0 GB)
-- `GemScan/gemma-4-e2b-it-GemScan-mlx-4bit` — MLX native for Apple Silicon [78]
-- `GemScan/gemma-4-e4b-it-GemScan-mlx-4bit` — MLX native with TurboQuant KV-cache compression [61]
+- `GemScan/gemma-4-e2b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~1.5 GB); runs on any platform via llama.cpp [96]
+- `GemScan/gemma-4-e4b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~3.0 GB); cross-platform via llama.cpp [96]
+- `GemScan/gemma-4-e2b-it-GemScan-mlx-4bit` — MLX native for the iOS demo build [78]
+- `GemScan/gemma-4-e4b-it-GemScan-mlx-4bit` — MLX native with TurboQuant KV-cache compression for the iOS demo build [61]
 
-Runtime priority on iOS is **MLX Swift** (via `mlx-swift-examples`'s `LLMModelFactory`) [77][78] with Metal GPU backend. Core ML conversion via `coremltools` [75] is attempted but deprioritised due to **known PyTorch-to-MIL conversion bugs on Gemma 3/4** (coremltools issue #2560); ExecuTorch's Core ML backend [76] is the fallback path for ANE targeting once those bugs clear. **We deliberately do not rely on Apple's Foundation Models framework** [74], because it requires Apple Intelligence hardware (iPhone 15 Pro+) and excludes the iPhone 14 baseline.
+The **GGUF artifacts are the canonical cross-platform format**: llama.cpp runs on iOS (Metal), Android (Vulkan/OpenCL), Linux, and Windows from the same binary. For the iOS demo build, runtime priority is **MLX Swift** [77][78] for lower latency on Apple Silicon; the Android build will use **LiteRT-LM** (formerly MediaPipe LLM Inference) or llama.cpp with Vulkan backend. Core ML conversion via `coremltools` [75] is deprioritised due to known PyTorch-to-MIL conversion bugs on Gemma 3/4; ExecuTorch's Core ML backend [76] is the iOS ANE fallback once those clear. **We deliberately do not rely on Apple's Foundation Models framework** [74], which requires iPhone 15 Pro+ and would exclude the majority of target devices on both platforms.
 
 ### 3.4 Multi-Modal Capabilities
 
 Gemma 4 E2B and E4B are the **first open on-device models with native audio input** [67][68] — the family ships a **USM-style Conformer audio encoder** enabling speech-to-text, audio reasoning, and emotional-tone analysis without an external ASR step. This permits one-shot voice-scam screening: the audio stream of an answered call can be fed directly to E4B, which emits both a transcript and a scam-risk verdict. The vision encoder supports **native-aspect-ratio images with configurable token budgets (70/140/280/560/1120 tokens)**, enabling rapid screenshot analysis for fake TikTok Shop listings, phishing emails, and QR-code phishing images.
 
-### 3.5 Multi-Agent Architecture over MCP and A2A
+### 3.5 Multi-Agent Architecture over MCP
 
-Six agents share the inference runtime and communicate over an **in-process A2A bus** [88][89][91] using the canonical JSON-RPC 2.0 envelope and Agent Card discovery defined in **A2A v1.0** (hosted at `/.well-known/agent-card.json` even for local agents). Each agent exposes its skills (e.g., `classify_sms`, `score_voice_deepfake`, `analyse_screenshot`) through an Agent Card at launch, letting the Orchestrator route tasks dynamically.
+Six agents share the inference runtime and communicate via a **platform-native in-process message router** — each agent exposes a typed async `handle(task: AgentTask) -> AgentResult` interface. The Orchestrator routes tasks by capability type (`classifySMS`, `scoreVoiceDeepfake`, `analyseScreenshot`) and collects results concurrently, with no network stack and no serialisation overhead. The iOS demo implements this with Swift actors and `async`/`await`; the Android build will use Kotlin coroutines and the same `AgentTask`/`AgentResult` envelope, keeping the orchestration logic identical across platforms.
 
 - **Orchestrator Agent (E4B)** — intent classification, tool routing, task decomposition, final verdict aggregation. Implements the ReAct loop [92] via Gemma 4's native function-calling [71].
 - **Text Agent (E2B)** — SMS, email, DM, and notification content classification with queries to `scam_patterns` and `sqlite-vec` MCP servers.
@@ -63,53 +63,57 @@ This hybrid **orchestrator-worker plus debate** topology maximises interpretabil
 
 ### 3.6 MCP Server Layer
 
-Every external-world capability is exposed as an **MCP server running in-process over in-memory pipes** [82][83][84][85]. Because iOS sandboxing disallows arbitrary subprocess spawning, each MCP server is a Swift class conforming to the **official Anthropic Swift SDK** [86] (`modelcontextprotocol/swift-sdk`), registered at app launch.
+Every external-world capability is exposed as an **MCP server running in-process over in-memory pipes** [82][83][84][85]. Both mobile sandboxes disallow arbitrary subprocess spawning, so each MCP server is a native class registered at app launch — conforming to the **Anthropic Swift SDK** [86] on iOS and the MCP Kotlin SDK on Android.
 
-| MCP server | Tools | iOS surface |
-|---|---|---|
-| `scam_patterns` | `search_patterns`, `match_pattern` | Local SQLite of curated scam regex/templates |
-| `sqlite_vec` | `semantic_search`, `nearest_known_scams` | On-device vector DB (ObjectBox [97] or sqlite-vec) over labelled scam corpus |
-| `contacts` | `is_known_contact`, `contact_reputation` | `CNContactStore` |
-| `url_reputation` | `check_url`, `safe_browsing_lookup` | Google Safe Browsing v4 hash prefix (local DB, k-anonymous) [98] |
-| `whois` | `whois_lookup`, `domain_age` | Public RDAP over HTTPS |
-| `reverse_image` | `reverse_image_search` | On-device CLIP embedding similarity against curated known-scam-image DB |
-| `phone_reputation` | `phone_reputation`, `is_voip` | Local heuristics + hashed reputation DB |
-| `message_filter` | `enqueue_sms_for_analysis` | `ILMessageFilterExtension` [80] bridge via App Group |
-| `clipboard_watcher` | `scan_clipboard_url` | `UIPasteboard` (with system pill) |
-| `screen_time` | `child_device_policy` | `FamilyControls` / `ManagedSettings` |
+| MCP server | Tools | iOS surface | Android surface |
+|---|---|---|---|
+| `scam_patterns` | `search_patterns`, `match_pattern` | Local SQLite of curated scam regex/templates | Same (SQLite via Room) |
+| `sqlite_vec` | `semantic_search`, `nearest_known_scams` | On-device vector DB (ObjectBox [97] or sqlite-vec) | Same (ObjectBox Android) |
+| `contacts` | `is_known_contact`, `contact_reputation` | `CNContactStore` | `ContactsContract` |
+| `url_reputation` | `check_url`, `safe_browsing_lookup` | Google Safe Browsing v4 hash prefix (local DB, k-anonymous) [98] | Same |
+| `whois` | `whois_lookup`, `domain_age` | Public RDAP over HTTPS | Same |
+| `reverse_image` | `reverse_image_search` | On-device CLIP embedding similarity | Same |
+| `phone_reputation` | `phone_reputation`, `is_voip` | Local heuristics + hashed reputation DB | Same |
+| `message_filter` | `enqueue_sms_for_analysis` | `ILMessageFilterExtension` [80] | `SmsRetriever` / `RECEIVE_SMS` |
+| `clipboard_watcher` | `scan_clipboard_url` | `UIPasteboard` | `ClipboardManager` |
+| `screen_time` | `child_device_policy` | `FamilyControls` / `ManagedSettings` | Digital Wellbeing API |
 
 All servers are scoped by **least-privilege permission tokens** derived from MCP's 2025-06-18 OAuth 2.1 update [83], so that (for example) the `message_filter` server cannot call network tools.
 
-### 3.7 A2A as the Inter-Agent Glue — and a Future Federation Point
+### 3.7 Inter-Agent Orchestration and Future Federation
 
-At MVP, A2A [88][89][90][91] runs entirely locally. The principled reason to use A2A rather than direct function calls is **optionality**: any agent can be *promoted* to a cloud agent in the future without changing its callers. A user worried about deepfake-laden corporate video calls could, for example, opt in to a cloud-side **threat-intelligence consensus agent** that cross-votes with the on-device Judge. A2A's Agent Card signatures and OAuth scopes give us a clean trust boundary when that day comes.
+The in-process native router is the right primitive for a mobile MVP: it requires no HTTP stack, respects both iOS and Android sandboxing with zero friction, and keeps latency in the microsecond range. On iOS the implementation uses Swift actors with structured concurrency; on Android it uses Kotlin coroutines with `Flow`-based result streaming — both conforming to the same `AgentTask`/`AgentResult` contract.
+
+Federation is preserved as a future option. The `AgentTask` / `AgentResult` envelope is designed to be serialisable, so any agent can be promoted to a remote endpoint later without changing its callers — the Orchestrator simply swaps the local actor call for an HTTPS request to a cloud agent. When that path is pursued (e.g., an opt-in threat-intelligence consensus agent), the A2A protocol becomes the natural wire format, since the agent interface already maps cleanly onto A2A's skill-and-task model.
 
 ### 3.8 Tool Use and Function Calling
 
-Gemma 4 ships **first-class JSON-schema function calling** [71] via `processor.apply_chat_template(messages, tools=...)`. GemScan wraps every agent call and every MCP tool invocation in **grammar-constrained decoding** using **llama.cpp GBNF** [96] (converted from JSON Schema) to guarantee syntactically valid tool outputs even from quantised E2B. Apple **App Intents** are enumerated at launch and presented to the agent as additional tools — `BlockSenderIntent`, `ReportSpamIntent`, `ReadLastNotificationIntent`, `CallTrustedContactIntent` — so system-level actions become first-class members of the agent's toolbox. This extends the Toolformer [93] and AutoGen [94] paradigms to the iOS platform.
+Gemma 4 ships **first-class JSON-schema function calling** [71] via `processor.apply_chat_template(messages, tools=...)`. GemScan wraps every agent call and every MCP tool invocation in **grammar-constrained decoding** using **llama.cpp GBNF** [96] (converted from JSON Schema) to guarantee syntactically valid tool outputs even from quantised E2B. Platform system actions are enumerated at launch and presented to the agent as additional tools — `BlockSenderIntent`, `ReportSpamIntent`, `ReadLastNotificationIntent`, `CallTrustedContactIntent` — so OS-level actions become first-class members of the agent's toolbox (App Intents on iOS; Android App Actions / `Intent` dispatch on Android). This extends the Toolformer [93] and AutoGen [94] paradigms to mobile platforms using native concurrency primitives rather than a network-layer agent protocol.
 
 ### 3.9 Privacy-First Architecture
 
-By default, **no message content, call audio, screenshot, or contact record ever leaves the device**. Network calls are restricted to three narrow endpoints: (a) **Safe Browsing hash-prefix queries** (k-anonymous) [98], (b) **RDAP WHOIS** over HTTPS, and (c) **optional, user-initiated escalation** to a cloud A2A agent. Vector-DB keys are sealed in the **Secure Enclave** [61]. An **encrypted iCloud sync** option lets users restore their scam-report history across devices; the key never leaves local hardware. **Federated learning with local DP noise (DP-FedAvg)** is the long-term path for improving the shared model without ever collecting raw messages.
+By default, **no message content, call audio, screenshot, or contact record ever leaves the device**. Network calls are restricted to three narrow endpoints: (a) **Safe Browsing hash-prefix queries** (k-anonymous) [98], (b) **RDAP WHOIS** over HTTPS, and (c) **optional, user-initiated escalation** to a cloud A2A agent. Vector-DB keys are sealed in **device secure storage** (Secure Enclave on iOS; Android Keystore on Android) [61]. An **encrypted cross-device sync** option lets users restore their scam-report history; the encryption key never leaves local hardware. **Federated learning with local DP noise (DP-FedAvg)** is the long-term path for improving the shared model without ever collecting raw messages.
 
 ### 3.10 Accessibility for Elders and Non-Native Speakers
 
-Gemma 4's **140+-language support** [67][68] is the linchpin of GemScan's accessibility plan. The UI launches with **voice-first interaction** in the user's OS language, a **high-contrast large-type visual mode**, and **single-button "Check this for me"** affordance invoked via Siri Shortcut, Share Sheet, or a lock-screen widget. When E4B produces a verdict, the Explainer Agent renders the reasoning in the user's native language at a sixth-grade reading level, with **culturally-aware warnings** (e.g., the Judge knows that an "RBI call" impersonation has a different shape in Hindi than a "CBI digital arrest" framing, and that the Japanese ore-ore pattern differs from the US grandparent scam). A **Trusted Contact Escalation** feature lets the user nominate an adult child or grandchild who receives a push notification when a high-risk event is detected, closing the social-proof loop that scammers deliberately isolate. This directly operationalises the LEP-vulnerability findings of Olivares-Pasillas [36] and AARP's multicultural fraud surveys [27][99].
+Gemma 4's **140+-language support** [67][68] is the linchpin of GemScan's accessibility plan. The UI launches with **voice-first interaction** in the user's OS language, a **high-contrast large-type visual mode**, and **single-button "Check this for me"** affordance invoked via the system share sheet, a home-screen widget, or a voice assistant shortcut (Siri on iOS; Google Assistant on Android). When E4B produces a verdict, the Explainer Agent renders the reasoning in the user's native language at a sixth-grade reading level, with **culturally-aware warnings** (e.g., the Judge knows that an "RBI call" impersonation has a different shape in Hindi than a "CBI digital arrest" framing, and that the Japanese ore-ore pattern differs from the US grandparent scam). A **Trusted Contact Escalation** feature lets the user nominate an adult child or grandchild who receives a push notification when a high-risk event is detected, closing the social-proof loop that scammers deliberately isolate. This directly operationalises the LEP-vulnerability findings of Olivares-Pasillas [36] and AARP's multicultural fraud surveys [27][99].
 
-### 3.11 iOS Extension Integration Points
+### 3.11 Platform Integration Points
 
-GemScan ships four extensions, each linking **GemmaKit**:
+GemScan hooks into four OS-level surfaces on each platform. The iOS demo build uses:
 
-1. **Message Filter Extension (`ILMessageFilterExtension`)** [80] — triggered only on SMS from non-contacts. Because the extension has a **~50 MB memory ceiling**, it cannot run E2B; it instead uses a **distilled DistilBERT Core ML classifier ≤ 5 MB** for the real-time allow/junk/promotion/transaction decision, following the distillation approach of ElZemity [53], and hands flagged messages to the main app via App Group for full E2B/E4B re-analysis.
-2. **Call Directory Extension (`CXCallDirectoryExtension`)** — periodically regenerates a blocked-number list from the `phone_reputation` MCP server.
-3. **Share Extension** — users can share any URL, message, or screenshot to GemScan; the extension defers to the main app via `NSFileCoordinator`.
-4. **App Intents Extension** — exposes `CheckWithGemScanIntent`, `ReportScamIntent`, `BlockSenderIntent` to Siri, Shortcuts, and the system Action Button.
+1. **SMS Filter** (`ILMessageFilterExtension` [80]) — triggered only on SMS from non-contacts. Because the extension has a **~50 MB memory ceiling**, it cannot run E2B; it instead uses a **distilled DistilBERT on-device classifier ≤ 5 MB** for the real-time allow/junk/promotion/transaction decision [53], and hands flagged messages to the main app for full E2B/E4B re-analysis.
+2. **Call Directory** (`CXCallDirectoryExtension`) — periodically regenerates a blocked-number list from the `phone_reputation` MCP server.
+3. **Share Extension** — users can share any URL, message, or screenshot to GemScan for immediate analysis.
+4. **Voice Assistant / App Intents** — exposes `CheckWithGemScanIntent`, `ReportScamIntent`, `BlockSenderIntent` to the system assistant and shortcut surfaces.
 
-A **Safari Content Blocker** extension consumes declarative JSON rules generated by the main app from the user's flagged URLs.
+A **browser content blocker** extension consumes declarative JSON rules generated by the main app from the user's flagged URLs (Safari Content Blocker on iOS; Chrome Custom Tabs / WebView rule injection on Android).
+
+The Android build maps to the same four surfaces: `SmsRetriever` / `RECEIVE_SMS` broadcast for SMS filtering; `CallScreeningService` for call blocking; the system Share intent for content sharing; and Android App Actions for voice assistant integration. All four share the same MCP server layer and inference pipeline — only the OS binding layer differs.
 
 ### 3.12 Real-Time vs On-Demand Modes
 
-GemScan has three screening modes. **Passive mode** runs the Message Filter extension and Call Directory only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** (requires user consent and is intended for elders or teens) additionally monitors inbound notifications via the **Focus/Notification Content Extension**, answers unknown calls with Siri-powered screening, and pre-scores clipboard URLs — while still never transmitting content off-device.
+GemScan has three screening modes applicable on both platforms. **Passive mode** runs the SMS filter and call-blocking extension only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** (requires user consent and is intended for elders or teens) additionally monitors inbound notifications via platform notification APIs, answers unknown calls with AI-powered screening, and pre-scores clipboard URLs — while still never transmitting content off-device.
 
 ---
 
@@ -138,16 +142,12 @@ GemScan has three screening modes. **Passive mode** runs the Message Filter exte
 77. Swift.org. "On-device ML research with MLX and Swift." 2024. https://www.swift.org/blog/mlx-swift/
 78. Apple ml-explore. "mlx-swift." https://github.com/ml-explore/mlx-swift
 80. Apple Developer. "ILMessageFilterExtension." https://developer.apple.com/documentation/sms_and_call_reporting/ilmessagefilterextension
-81. Capacitor Documentation. "Custom Native iOS Code." https://capacitorjs.com/docs/ios/custom-code
+81. Capacitor Documentation. "Custom Native Code." https://capacitorjs.com/docs/plugins/creating-plugins
 82. Anthropic. "Introducing the Model Context Protocol." November 2024. https://www.anthropic.com/news/model-context-protocol
 83. Model Context Protocol Specification (2025-06-18 and November 2025 revisions). https://modelcontextprotocol.io/
 84. Model Context Protocol Architecture. https://modelcontextprotocol.io/docs/learn/architecture
 85. Model Context Protocol Transports. https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
 86. Anthropic. "MCP Swift SDK." https://github.com/modelcontextprotocol/swift-sdk
-88. Google Developers Blog. "Announcing the Agent2Agent Protocol (A2A)." April 2025. https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/
-89. A2A Protocol. Version 1.0 Specification. https://a2a-protocol.org/latest/specification/
-90. A2A Project. GitHub Repository. https://github.com/a2aproject/A2A
-91. Linux Foundation. "Linux Foundation Launches the Agent2Agent Protocol Project." June 2025. https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents
 92. Yao, S., et al. "ReAct: Synergizing Reasoning and Acting in Language Models." ICLR 2023. https://arxiv.org/abs/2210.03629
 93. Schick, T., et al. "Toolformer: Language Models Can Teach Themselves to Use Tools." NeurIPS 2023. https://arxiv.org/abs/2302.04761
 94. Wu, Q., et al. "AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation Framework." arXiv:2308.08155, 2023.

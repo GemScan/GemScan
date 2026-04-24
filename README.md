@@ -1,6 +1,6 @@
 # GemScan
 
-On-device AI safety app that protects elders and youth from scams, sextortion, and fraud — without sending data to the cloud.
+On-device AI safety app that protects elders and youth from scams, sextortion, and fraud — without sending data to the cloud. iOS-first demo; Android-compatible architecture.
 
 ## Why this exists
 
@@ -22,7 +22,7 @@ GemScan analyzes calls, SMS, emails, URLs, screenshots, and voice messages in re
 
 ## Architecture
 
-A six-agent pipeline built on A2A (Agent-to-Agent) orchestration with MCP (Model Context Protocol) servers:
+A six-agent pipeline with a Swift actor-based orchestrator and MCP (Model Context Protocol) servers:
 
 - **Screening Agent (E2B ~2.3B)** — always-on lightweight triage
 - **Reasoning Agent (E4B ~4.5B)** — deeper multi-turn analysis for complex cases
@@ -31,12 +31,12 @@ A six-agent pipeline built on A2A (Agent-to-Agent) orchestration with MCP (Model
 
 ## Tech stack
 
-- Next.js + Capacitor (iOS)
-- Apple MLX Swift for on-device inference
-- Gemma 4 E2B / E4B models
+- Next.js + Capacitor (iOS demo; Android build targets LiteRT-LM)
+- MLX Swift on iOS / llama.cpp GGUF as cross-platform fallback
+- Gemma 4 E2B / E4B models (Apache 2.0)
 
 ## Targets
 
 - ≥ 92% F1 on scam-detection benchmarks
-- < 3 GB RAM and < 6% hourly battery drain on iPhone 14
-- Multilingual, voice-first UX for vulnerable populations
+- < 3 GB RAM and < 6% hourly battery drain on a 6 GB reference device
+- Multilingual, voice-first UX for vulnerable populations on both platforms
