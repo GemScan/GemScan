@@ -1,4 +1,4 @@
-# ScamGuard: On-Device Agentic Defense With Gemma 4
+# GemScan: On-Device Agentic Defense With Gemma 4
 
 **A Hackathon Thesis for the Gemma 4 Good Hackathon (Google / Kaggle)**
 
@@ -10,7 +10,7 @@
 
 **Scams now steal more than US$1 trillion globally every year, and generative AI has industrialised the production of convincing fakes in every major language.** The FTC logged **$12.5 billion in 2024 US fraud losses (+25% YoY)**, the FBI IC3 recorded **$16.6 billion (+33% YoY)**, and elder-fraud losses jumped **43% to $4.885 billion**. Meanwhile, youth sextortion drove at least **20 documented suicides of minors** between October 2021 and March 2023, and Southeast-Asian pig-butchering compounds — staffed by **220,000–300,000 trafficked workers** — generated an estimated **$63.9 billion in 2023 alone**. Current defences are fragmented, English-centric, cloud-dependent, single-modal, and reactive. **No consumer solution today combines on-device reasoning, multi-modal analysis, agentic orchestration, and native-language coaching for both elders and youth on budget iPhones.**
 
-This thesis proposes **ScamGuard**, a Next.js-plus-Capacitor iOS application that ships Gemma 4 E2B (~2.3 B effective parameters) as an always-on screening agent and Gemma 4 E4B (~4.5 B effective parameters) as a deeper-reasoning agent, both running entirely on-device via Apple's MLX Swift framework. A six-agent architecture communicating over a local A2A bus and querying in-process MCP servers unifies call, SMS, email, URL, screenshot, and voice analysis under one explainable, multilingual, voice-first user interface. We hypothesise — and plan to demonstrate — that ScamGuard's E4B agent can reach ≥ 92 % F1 on composite scam-detection benchmarks while consuming ≤ 3 GB RAM and preserving battery at a cost of < 6 % per hour of active screening on an A15 iPhone 14. By proving that a 2–4 B-parameter open model running fully offline can match cloud-scale defensive systems, this work establishes a new paradigm for equitable, culturally competent scam protection.
+This thesis proposes **GemScan**, a Next.js-plus-Capacitor iOS application that ships Gemma 4 E2B (~2.3 B effective parameters) as an always-on screening agent and Gemma 4 E4B (~4.5 B effective parameters) as a deeper-reasoning agent, both running entirely on-device via Apple's MLX Swift framework. A six-agent architecture communicating over a local A2A bus and querying in-process MCP servers unifies call, SMS, email, URL, screenshot, and voice analysis under one explainable, multilingual, voice-first user interface. We hypothesise — and plan to demonstrate — that GemScan's E4B agent can reach ≥ 92 % F1 on composite scam-detection benchmarks while consuming ≤ 3 GB RAM and preserving battery at a cost of < 6 % per hour of active screening on an A15 iPhone 14. By proving that a 2–4 B-parameter open model running fully offline can match cloud-scale defensive systems, this work establishes a new paradigm for equitable, culturally competent scam protection.
 
 ---
 
@@ -96,7 +96,7 @@ The consumer-app landscape is crowded and deeply fragmented. A representative co
 | Aura | English | Calls + SMS + data-broker removal + AV + VPN | Cloud | $12–32/mo | U.S.-centric |
 | Incogni | 34 countries | Broker removal only | Cloud | $4.19–14.99/mo | Not a live detector |
 
-**Truecaller serves 450 million monthly active users on Android** and works by aggregating uploaded address books into a crowdsourced database — an approach that has drawn 2025 privacy-regulator probes in Nigeria and Sweden. **Norton Genie has 1 million+ installs and claims 90 %+ accuracy**, but sends message content to AWS. **McAfee Scam Detector — launched at CES January 2025 with on-device text analysis (>99 % accuracy) and deepfake-video detection (96 %) — is the closest current analogue to ScamGuard**, but lives behind McAfee+ subscriptions and supports only three English locales. **Bitdefender Scamio** accepts multilingual input but answers English-only, crippling its utility for LEP users.
+**Truecaller serves 450 million monthly active users on Android** and works by aggregating uploaded address books into a crowdsourced database — an approach that has drawn 2025 privacy-regulator probes in Nigeria and Sweden. **Norton Genie has 1 million+ installs and claims 90 %+ accuracy**, but sends message content to AWS. **McAfee Scam Detector — launched at CES January 2025 with on-device text analysis (>99 % accuracy) and deepfake-video detection (96 %) — is the closest current analogue to GemScan**, but lives behind McAfee+ subscriptions and supports only three English locales. **Bitdefender Scamio** accepts multilingual input but answers English-only, crippling its utility for LEP users.
 
 ### 2.4 AI-based detectors at the frontier (2024–2026)
 
@@ -127,19 +127,19 @@ Ten capability gaps persist:
 9. **Banking-API integration** that can pause a transfer mid-scam conversation.
 10. **Adversarial robustness** against prompt injection and novel TTS/voice-clone engines.
 
-**ScamGuard is designed to close all ten.**
+**GemScan is designed to close all ten.**
 
 ---
 
-## Section 3 — Proposed solution: ScamGuard
+## Section 3 — Proposed solution: GemScan
 
 ### 3.1 System architecture overview
 
-ScamGuard is a **Next.js-plus-Capacitor iOS application** that bundles a **Gemma-based agentic core** (two models, six specialist agents) with a set of **in-process MCP servers** and **A2A-mediated inter-agent communication**, all running entirely on the user's iPhone. A single shared Swift package, **GemmaKit**, is linked by the main app target and by four iOS extensions (Message Filter, Call Directory, Share, App Intents), so the same inference pipeline powers every entry point.
+GemScan is a **Next.js-plus-Capacitor iOS application** that bundles a **Gemma-based agentic core** (two models, six specialist agents) with a set of **in-process MCP servers** and **A2A-mediated inter-agent communication**, all running entirely on the user's iPhone. A single shared Swift package, **GemmaKit**, is linked by the main app target and by four iOS extensions (Message Filter, Call Directory, Share, App Intents), so the same inference pipeline powers every entry point.
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │                 ScamGuard (iOS, Capacitor shell)             │
+ │                 GemScan (iOS, Capacitor shell)             │
  │   Next.js UI ↔ Capacitor Bridge ↔ GemmaKit (Swift)           │
  └────────┬─────────────────────────────────────────────────────┘
           │ A2A (local JSON-RPC 2.0 over in-proc pipes)
@@ -164,12 +164,12 @@ ScamGuard is a **Next.js-plus-Capacitor iOS application** that bundles a **Gemma
 
 ### 3.3 Quantisation and runtime stack
 
-ScamGuard will ship **four model artifacts** via the Hugging Face Hub:
+GemScan will ship **four model artifacts** via the Hugging Face Hub:
 
-- `scamguard/gemma-4-e2b-it-scamguard-q4km.gguf` — LoRA-merged and quantised (~1.5 GB)
-- `scamguard/gemma-4-e4b-it-scamguard-q4km.gguf` — LoRA-merged and quantised (~3.0 GB)
-- `scamguard/gemma-4-e2b-it-scamguard-mlx-4bit` — MLX native for Apple Silicon
-- `scamguard/gemma-4-e4b-it-scamguard-mlx-4bit` — MLX native with TurboQuant KV-cache compression
+- `GemScan/gemma-4-e2b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~1.5 GB)
+- `GemScan/gemma-4-e4b-it-GemScan-q4km.gguf` — LoRA-merged and quantised (~3.0 GB)
+- `GemScan/gemma-4-e2b-it-GemScan-mlx-4bit` — MLX native for Apple Silicon
+- `GemScan/gemma-4-e4b-it-GemScan-mlx-4bit` — MLX native with TurboQuant KV-cache compression
 
 Runtime priority on iOS is **MLX Swift** (via `mlx-swift-examples`'s `LLMModelFactory`) with Metal GPU backend. Core ML conversion via `coremltools` is attempted but deprioritised due to **known PyTorch-to-MIL conversion bugs on Gemma 3/4** (coremltools issue #2560); ExecuTorch's Core ML backend is the fallback path for ANE targeting once those bugs clear. **We deliberately do not rely on Apple's Foundation Models framework**, because it requires Apple Intelligence hardware (iPhone 15 Pro+) and excludes the iPhone 14 baseline.
 
@@ -215,7 +215,7 @@ At MVP, A2A runs entirely locally. The principled reason to use A2A rather than 
 
 ### 3.8 Tool use and function calling
 
-Gemma 4 ships **first-class JSON-schema function calling** via `processor.apply_chat_template(messages, tools=...)`. ScamGuard wraps every agent call and every MCP tool invocation in **grammar-constrained decoding** using **llama.cpp GBNF** (converted from JSON Schema) to guarantee syntactically valid tool outputs even from quantised E2B. Apple **App Intents** are enumerated at launch and presented to the agent as additional tools — `BlockSenderIntent`, `ReportSpamIntent`, `ReadLastNotificationIntent`, `CallTrustedContactIntent` — so system-level actions become first-class members of the agent's toolbox.
+Gemma 4 ships **first-class JSON-schema function calling** via `processor.apply_chat_template(messages, tools=...)`. GemScan wraps every agent call and every MCP tool invocation in **grammar-constrained decoding** using **llama.cpp GBNF** (converted from JSON Schema) to guarantee syntactically valid tool outputs even from quantised E2B. Apple **App Intents** are enumerated at launch and presented to the agent as additional tools — `BlockSenderIntent`, `ReportSpamIntent`, `ReadLastNotificationIntent`, `CallTrustedContactIntent` — so system-level actions become first-class members of the agent's toolbox.
 
 ### 3.9 Privacy-first architecture
 
@@ -223,22 +223,22 @@ By default, **no message content, call audio, screenshot, or contact record ever
 
 ### 3.10 Accessibility for elders and non-native speakers
 
-Gemma 4's **140+-language support** is the linchpin of ScamGuard's accessibility plan. The UI launches with **voice-first interaction** in the user's OS language, a **high-contrast large-type visual mode**, and **single-button \"Check this for me\"** affordance invoked via Siri Shortcut, Share Sheet, or a lock-screen widget. When E4B produces a verdict, the Explainer Agent renders the reasoning in the user's native language at a sixth-grade reading level, with **culturally-aware warnings** (e.g., the Judge knows that an \"RBI call\" impersonation has a different shape in Hindi than a \"CBI digital arrest\" framing, and that the Japanese ore-ore pattern differs from the US grandparent scam). A **Trusted Contact Escalation** feature lets the user nominate an adult child or grandchild who receives a push notification when a high-risk event is detected, closing the social-proof loop that scammers deliberately isolate.
+Gemma 4's **140+-language support** is the linchpin of GemScan's accessibility plan. The UI launches with **voice-first interaction** in the user's OS language, a **high-contrast large-type visual mode**, and **single-button \"Check this for me\"** affordance invoked via Siri Shortcut, Share Sheet, or a lock-screen widget. When E4B produces a verdict, the Explainer Agent renders the reasoning in the user's native language at a sixth-grade reading level, with **culturally-aware warnings** (e.g., the Judge knows that an \"RBI call\" impersonation has a different shape in Hindi than a \"CBI digital arrest\" framing, and that the Japanese ore-ore pattern differs from the US grandparent scam). A **Trusted Contact Escalation** feature lets the user nominate an adult child or grandchild who receives a push notification when a high-risk event is detected, closing the social-proof loop that scammers deliberately isolate.
 
 ### 3.11 iOS extension integration points
 
-ScamGuard ships four extensions, each linking **GemmaKit**:
+GemScan ships four extensions, each linking **GemmaKit**:
 
 1. **Message Filter Extension (`ILMessageFilterExtension`)** — triggered only on SMS from non-contacts. Because the extension has a **~50 MB memory ceiling**, it cannot run E2B; it instead uses a **distilled DistilBERT Core ML classifier ≤ 5 MB** for the real-time allow/junk/promotion/transaction decision, and hands flagged messages to the main app via App Group for full E2B/E4B re-analysis.
 2. **Call Directory Extension (`CXCallDirectoryExtension`)** — periodically regenerates a blocked-number list from the `phone_reputation` MCP server.
-3. **Share Extension** — users can share any URL, message, or screenshot to ScamGuard; the extension defers to the main app via `NSFileCoordinator`.
-4. **App Intents Extension** — exposes `CheckWithScamGuardIntent`, `ReportScamIntent`, `BlockSenderIntent` to Siri, Shortcuts, and the system Action Button.
+3. **Share Extension** — users can share any URL, message, or screenshot to GemScan; the extension defers to the main app via `NSFileCoordinator`.
+4. **App Intents Extension** — exposes `CheckWithGemScanIntent`, `ReportScamIntent`, `BlockSenderIntent` to Siri, Shortcuts, and the system Action Button.
 
 A **Safari Content Blocker** extension consumes declarative JSON rules generated by the main app from the user's flagged URLs.
 
 ### 3.12 Real-time vs on-demand modes
 
-ScamGuard has three screening modes. **Passive mode** runs the Message Filter extension and Call Directory only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** (requires user consent and is intended for elders or teens) additionally monitors inbound notifications via the **Focus/Notification Content Extension**, answers unknown calls with Siri-powered screening, and pre-scores clipboard URLs — while still never transmitting content off-device.
+GemScan has three screening modes. **Passive mode** runs the Message Filter extension and Call Directory only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** (requires user consent and is intended for elders or teens) additionally monitors inbound notifications via the **Focus/Notification Content Extension**, answers unknown calls with Siri-powered screening, and pre-scores clipboard URLs — while still never transmitting content off-device.
 
 ---
 
@@ -278,7 +278,7 @@ Following Unsloth's published **Gemma 4 Fine-tuning Guide**, we apply **rank-16 
 
 ### 4.4 Benchmarking protocol
 
-**Accuracy benchmarks.** Precision, recall, F1, and AUROC on held-out sets partitioned by language, region, and vulnerable group. Compare ScamGuard-E2B and -E4B against (a) cloud GPT-4o/Claude Opus 4.5 baselines, (b) Norton Genie and McAfee Scam Detector where APIs allow, and (c) the SpaLLM-Guard (2501.04985) and APOLLO (2502.04759) academic baselines.
+**Accuracy benchmarks.** Precision, recall, F1, and AUROC on held-out sets partitioned by language, region, and vulnerable group. Compare GemScan-E2B and -E4B against (a) cloud GPT-4o/Claude Opus 4.5 baselines, (b) Norton Genie and McAfee Scam Detector where APIs allow, and (c) the SpaLLM-Guard (2501.04985) and APOLLO (2502.04759) academic baselines.
 
 **Latency benchmarks.** First-token latency, full-analysis latency (text, URL, image, audio), and end-to-end user-visible response time for the Share Sheet flow, measured on **iPhone 14 (A15, 6 GB)**, iPhone 15 Pro (A17 Pro, 8 GB), and iPhone 16 Pro (A18 Pro, 8 GB).
 
@@ -293,7 +293,7 @@ Following Unsloth's published **Gemma 4 Fine-tuning Guide**, we apply **rank-16 
 In collaboration with a local senior centre and an immigrant-services non-profit, we will recruit **≥ 10 elders (mean age 70+) and ≥ 10 non-native speakers across at least 3 languages (Spanish, Mandarin, Hindi)**. Each participant completes a structured protocol:
 
 1. Pre-survey on scam concern and digital confidence.
-2. Hands-on walkthrough of ScamGuard's Share Sheet, voice-first flow, and Trusted Contact setup.
+2. Hands-on walkthrough of GemScan's Share Sheet, voice-first flow, and Trusted Contact setup.
 3. Realistic scam scenario (scripted SMS, deepfake voice memo, fake TikTok Shop screenshot) — does the participant notice the warning, understand the explanation, and choose correctly?
 4. Post-survey on trust, perceived clarity of explanation, and willingness to continue using.
 
@@ -305,13 +305,13 @@ The iOS build is produced by a **GitHub Actions workflow** that runs `next build
 
 ### 4.7 Open-source strategy and licensing
 
-ScamGuard will be released under the **Apache 2.0 license**, matching Gemma 4's own Apache 2.0 licensing. All code (Swift, TypeScript, fine-tuning scripts) lives on GitHub; weights and GGUF/MLX artifacts live on Hugging Face. Data annotations derived from public datasets inherit their upstream licenses. We will submit the work to the **Gemma 4 Good Hackathon** on Kaggle, accompany the submission with the thesis in this document, and — win or lose — maintain the project as a public good aligned with the hackathon's social-impact framing.
+GemScan will be released under the **Apache 2.0 license**, matching Gemma 4's own Apache 2.0 licensing. All code (Swift, TypeScript, fine-tuning scripts) lives on GitHub; weights and GGUF/MLX artifacts live on Hugging Face. Data annotations derived from public datasets inherit their upstream licenses. We will submit the work to the **Gemma 4 Good Hackathon** on Kaggle, accompany the submission with the thesis in this document, and — win or lose — maintain the project as a public good aligned with the hackathon's social-impact framing.
 
 ---
 
 ## Section 5 — Hypotheses
 
-We formulate five testable hypotheses that together argue the case for ScamGuard.
+We formulate five testable hypotheses that together argue the case for GemScan.
 
 **H1. On-device accuracy parity.** A LoRA-fine-tuned Gemma 4 E4B running **Q4_K_M on-device** will achieve **≥ 92 % F1 on a composite English scam-detection benchmark** (SMS, email, URL, screenshot), **within 3 points** of a cloud GPT-4o baseline, and **outperform the Salman 2025 SpaLLM-Guard zero-shot baseline by ≥ 10 F1 points**.
 
@@ -349,11 +349,11 @@ In the user study we expect (a) **≥ 80 % elder task-completion rate** on the S
 
 ### 6.3 Societal-impact projections
 
-If ScamGuard reaches even **1 % of the roughly 800 million iPhone-14-and-earlier users globally** and reduces victimisation in that population by **one-third** — a conservative figure relative to the **30 % false-negative reduction demonstrated by agentic systems in the literature** — the annualised financial-loss prevention is on the order of **$2–4 billion** against GASA's $1.03 trillion global baseline. The mental-health benefit, though harder to quantify, is anchored in peer-reviewed evidence (Button 2014; Lichtenberg FINCHES; Sarriá 2019) that every prevented scam is a prevented depression, anxiety, or — in the sextortion case — suicide risk. For LEP and elderly populations specifically, ScamGuard's multilingual voice-first UI is expected to **close the 2.8× voice-scam vulnerability gap** documented for LEP users and the **38 %-vs-16 % overrepresentation of 65+ adults among voice-scam victims**.
+If GemScan reaches even **1 % of the roughly 800 million iPhone-14-and-earlier users globally** and reduces victimisation in that population by **one-third** — a conservative figure relative to the **30 % false-negative reduction demonstrated by agentic systems in the literature** — the annualised financial-loss prevention is on the order of **$2–4 billion** against GASA's $1.03 trillion global baseline. The mental-health benefit, though harder to quantify, is anchored in peer-reviewed evidence (Button 2014; Lichtenberg FINCHES; Sarriá 2019) that every prevented scam is a prevented depression, anxiety, or — in the sextortion case — suicide risk. For LEP and elderly populations specifically, GemScan's multilingual voice-first UI is expected to **close the 2.8× voice-scam vulnerability gap** documented for LEP users and the **38 %-vs-16 % overrepresentation of 65+ adults among voice-scam victims**.
 
 ### 6.4 Comparison to existing solutions
 
-| Dimension | Pixel Scam Det. | McAfee SD | Norton Genie | Truecaller | Bitdefender Scamio | **ScamGuard** |
+| Dimension | Pixel Scam Det. | McAfee SD | Norton Genie | Truecaller | Bitdefender Scamio | **GemScan** |
 |---|---|---|---|---|---|---|
 | Fully on-device | ✔ | ✔ (mostly) | ✘ | ✘ | ✘ | **✔** |
 | Multi-modal (text+URL+image+audio) | partial | ✔ | ✔ | partial | ✔ | **✔** |
@@ -374,9 +374,9 @@ Post-hackathon, the roadmap is four-fold. **Production (months 1–3):** TestFli
 
 **Three forces have converged in 2024–2026: scams have become a trillion-dollar transnational industry, generative AI has trivialised their production, and open on-device models have matured enough to fight back.** Gemma 4 E2B and E4B — 2.3 B and 4.5 B effective parameters, multi-modal text+image+audio, 128 K context, 140+ languages, Apache 2.0 licensed, and empirically outperforming Gemma 3 27B on agentic tool-use tasks while fitting on an iPhone 14 — represent the first moment at which a privacy-first, multilingual, voice-first, agentic consumer scam-defence app is technically viable on a mainstream budget device.
 
-ScamGuard is the concrete realisation of that opportunity. By combining (i) a two-model tiered architecture, (ii) a six-agent MCP+A2A orchestration, (iii) native-language explanations and trusted-contact escalation, and (iv) a strict on-device privacy posture, it closes the ten capability gaps that existing commercial and academic solutions collectively leave open. The hypotheses in §5 are rigorous and falsifiable; the methodology in §4 is executable within a hackathon timeline; the expected results in §6 are bold but grounded in extrapolations from published benchmarks. If validated, ScamGuard would establish a new class of **on-device protective agents** — ones that belong *to* and run *for* their user, not a cloud vendor — and demonstrate that the most vulnerable populations globally can finally receive first-class, equitable, culturally competent protection from the fastest-growing crime on Earth.
+GemScan is the concrete realisation of that opportunity. By combining (i) a two-model tiered architecture, (ii) a six-agent MCP+A2A orchestration, (iii) native-language explanations and trusted-contact escalation, and (iv) a strict on-device privacy posture, it closes the ten capability gaps that existing commercial and academic solutions collectively leave open. The hypotheses in §5 are rigorous and falsifiable; the methodology in §4 is executable within a hackathon timeline; the expected results in §6 are bold but grounded in extrapolations from published benchmarks. If validated, GemScan would establish a new class of **on-device protective agents** — ones that belong *to* and run *for* their user, not a cloud vendor — and demonstrate that the most vulnerable populations globally can finally receive first-class, equitable, culturally competent protection from the fastest-growing crime on Earth.
 
-*The twenty-first-century scammer has an AI. Until now, the twenty-first-century grandmother has not. ScamGuard changes that.*
+*The twenty-first-century scammer has an AI. Until now, the twenty-first-century grandmother has not. GemScan changes that.*
 
 ---
 
