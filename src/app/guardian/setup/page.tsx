@@ -1,75 +1,124 @@
 'use client'
 
-import { useGemScanStore } from '@/lib/store'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useLocale } from '@/lib/i18n/strings'
-import ContactPicker from '@/components/ContactPicker'
-import GuardianStatusBar from '@/components/GuardianStatusBar'
+import { useGemScanStore } from '@/lib/store'
+
+const mockContacts = [
+  { id: 'c1', name: 'Alice Smith', phone: '***-***-1234', email: 'a***@mail.com' },
+  { id: 'c2', name: 'Bob Johnson', phone: '***-***-5678', email: 'b***@mail.com' },
+  { id: 'c3', name: 'Carol Williams', phone: '***-***-9012', email: 'c***@mail.com' },
+]
 
 export default function GuardianSetupPage() {
   const router = useRouter()
-  const guardianModeEnabled = useGemScanStore((s) => s.guardianModeEnabled)
-  const setGuardianModeEnabled = useGemScanStore((s) => s.setGuardianModeEnabled)
   const setTrustedContactId = useGemScanStore((s) => s.setTrustedContactId)
+  const setGuardianModeEnabled = useGemScanStore((s) => s.setGuardianModeEnabled)
   const trustedContactId = useGemScanStore((s) => s.trustedContactId)
-  const { t } = useLocale()
 
-  const handleContactSelect = (contactId: string) => {
-    setTrustedContactId(contactId)
-  }
+  const [search, setSearch] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(trustedContactId)
 
-  const handleSave = () => {
+  const filtered = useMemo(
+    () => mockContacts.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
+    [search]
+  )
+
+  const handleEnable = () => {
+    if (selectedId) {
+      setTrustedContactId(selectedId)
+      setGuardianModeEnabled(true)
+    }
     router.push('/')
   }
 
   return (
-    <>
-      <GuardianStatusBar />
+    <main
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 'var(--padding-page)',
+        gap: 'var(--gap-section)',
+        minHeight: '100vh',
+      }}
+    >
+      <button
+        className="text-body"
+        onClick={() => router.back()}
+        style={{
+          color: 'var(--text)',
+          background: 'none',
+          border: 'none',
+          padding: '8px 0',
+          cursor: 'pointer',
+          alignSelf: 'flex-start',
+          minHeight: 44,
+          minWidth: 44,
+        }}
+      >
+        ← Back
+      </button>
 
-      <main className="flex min-h-screen flex-col items-center px-6 py-12">
-        <h1 className="text-2xl font-bold mb-4">{t('guardianMode')}</h1>
+      <h1 className="text-title" style={{ color: 'var(--text)' }}>
+        Guardian Mode
+      </h1>
 
-        <p className="text-center text-gray-600 max-w-sm mb-8">{t('guardianDescription')}</p>
+      <p className="text-body" style={{ color: 'var(--text)' }}>
+        If GemScan detects a high-risk scam, it will alert your trusted contact.
+      </p>
 
-        <div className="w-full max-w-sm mb-6">
-          <label className="flex items-center justify-between p-4 rounded-lg border">
-            <span className="font-medium">{t('enableGuardian')}</span>
-            <button
-              role="switch"
-              aria-checked={guardianModeEnabled}
-              aria-label={t('enableGuardian')}
-              onClick={() => setGuardianModeEnabled(!guardianModeEnabled)}
-              className={`relative w-12 h-7 rounded-full transition-colors min-h-[44px] min-w-[44px] ${
-                guardianModeEnabled ? 'bg-blue-500' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform ${
-                  guardianModeEnabled ? 'translate-x-5' : ''
-                }`}
-              />
-            </button>
-          </label>
-        </div>
+      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        Trusted contact
+      </span>
 
-        {guardianModeEnabled && (
-          <div className="w-full max-w-sm mb-6">
-            <h2 className="text-sm font-semibold mb-3">{t('trustedContact')}</h2>
-            {trustedContactId && (
-              <p className="text-sm text-green-600 mb-3">Selected: {trustedContactId}</p>
-            )}
-            <ContactPicker onSelect={handleContactSelect} />
-          </div>
-        )}
+      <input
+        type="text"
+        className="text-body"
+        placeholder="Search contacts…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-input)',
+          height: 44,
+          padding: '0 12px',
+          width: '100%',
+          backgroundColor: 'var(--surface)',
+          color: 'var(--text)',
+        }}
+      />
 
-        <button
-          onClick={handleSave}
-          aria-label={t('save')}
-          className="rounded-xl bg-blue-500 px-8 py-4 text-white font-semibold text-lg min-h-[44px] min-w-[44px] mt-4"
-        >
-          {t('save')}
-        </button>
-      </main>
-    </>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {filtered.map((contact) => (
+          <button
+            key={contact.id}
+            onClick={() => setSelectedId(contact.id)}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              height: 'var(--height-row)',
+              width: '100%',
+              background: selectedId === contact.id ? 'var(--surface)' : 'none',
+              border: 'none',
+              padding: '0 var(--gap-element)',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <span className="text-body" style={{ color: 'var(--text)' }}>
+              {contact.name}
+            </span>
+            <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+              {contact.phone} · {contact.email}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <button className="btn-primary" onClick={handleEnable} disabled={!selectedId}>
+        Turn on Guardian
+      </button>
+    </main>
   )
 }

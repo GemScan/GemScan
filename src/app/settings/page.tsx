@@ -1,8 +1,9 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useGemScanStore } from '@/lib/store'
-import { useLocale } from '@/lib/i18n/strings'
 import { useLocale as useLocaleHook } from '@/hooks/useLocale'
+import SettingsRow from '@/components/SettingsRow'
 
 const languages = [
   { code: 'en', label: 'English' },
@@ -15,85 +16,111 @@ const languages = [
 const screeningModes = ['passive', 'active', 'guardian'] as const
 
 export default function SettingsPage() {
+  const router = useRouter()
   const screeningMode = useGemScanStore((s) => s.screeningMode)
   const setScreeningMode = useGemScanStore((s) => s.setScreeningMode)
-  const guardianModeEnabled = useGemScanStore((s) => s.guardianModeEnabled)
-  const setGuardianModeEnabled = useGemScanStore((s) => s.setGuardianModeEnabled)
-  const { t } = useLocale()
+  const trustedContactId = useGemScanStore((s) => s.trustedContactId)
   const { locale, setLocale } = useLocaleHook()
 
+  const currentLanguageName = languages.find((l) => l.code === locale)?.label ?? locale
+
+  const cycleLanguage = () => {
+    const idx = languages.findIndex((l) => l.code === locale)
+    const next = languages[(idx + 1) % languages.length]
+    setLocale(next.code)
+  }
+
   return (
-    <main className="flex min-h-screen flex-col px-6 py-12 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-8">{t('settings')}</h1>
+    <main
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 'var(--padding-page)',
+        gap: 'var(--gap-section)',
+        minHeight: '100vh',
+      }}
+    >
+      <button
+        className="text-body"
+        onClick={() => router.back()}
+        style={{
+          color: 'var(--text)',
+          background: 'none',
+          border: 'none',
+          padding: '8px 0',
+          cursor: 'pointer',
+          alignSelf: 'flex-start',
+          minHeight: 44,
+          minWidth: 44,
+        }}
+      >
+        ← Back
+      </button>
 
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-          {t('language')}
-        </h2>
-        <select
-          value={locale}
-          onChange={(e) => setLocale(e.target.value)}
-          className="w-full rounded-lg border p-3 text-base"
-          aria-label={t('language')}
-        >
-          {languages.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.label}
-            </option>
-          ))}
-        </select>
-      </section>
+      <h1 className="text-title" style={{ color: 'var(--text)' }}>
+        Settings
+      </h1>
 
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-          {t('screeningMode')}
-        </h2>
-        <div className="space-y-2">
-          {screeningModes.map((mode) => (
-            <label
-              key={mode}
-              className={`flex items-center p-3 rounded-lg border cursor-pointer min-h-[44px] ${
-                screeningMode === mode ? 'border-blue-500 bg-blue-50' : ''
-              }`}
-            >
-              <input
-                type="radio"
-                name="screeningMode"
-                value={mode}
-                checked={screeningMode === mode}
-                onChange={() => setScreeningMode(mode)}
-                className="mr-3"
-                aria-label={`${t('screeningMode')}: ${mode}`}
-              />
-              <span className="capitalize">{mode}</span>
-            </label>
-          ))}
-        </div>
-      </section>
+      <SettingsRow
+        label="Language"
+        value={currentLanguageName}
+        showChevron
+        onClick={cycleLanguage}
+      />
 
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-          {t('guardianMode')}
-        </h2>
-        <label className="flex items-center justify-between p-4 rounded-lg border">
-          <span className="font-medium">{t('enableGuardian')}</span>
-          <button
-            role="switch"
-            aria-checked={guardianModeEnabled}
-            aria-label={t('enableGuardian')}
-            onClick={() => setGuardianModeEnabled(!guardianModeEnabled)}
-            className={`relative w-12 h-7 rounded-full transition-colors min-h-[44px] min-w-[44px] ${
-              guardianModeEnabled ? 'bg-blue-500' : 'bg-gray-300'
-            }`}
+      <hr className="divider" />
+
+      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        Screening mode
+      </span>
+
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {screeningModes.map((mode) => (
+          <label
+            key={mode}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              height: 'var(--height-row)',
+              cursor: 'pointer',
+              gap: 'var(--gap-element)',
+            }}
           >
-            <span
-              className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform ${
-                guardianModeEnabled ? 'translate-x-5' : ''
-              }`}
+            <input
+              type="radio"
+              name="screeningMode"
+              value={mode}
+              checked={screeningMode === mode}
+              onChange={() => setScreeningMode(mode)}
             />
-          </button>
-        </label>
-      </section>
+            <span className="text-body" style={{ textTransform: 'capitalize' }}>
+              {mode}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <hr className="divider" />
+
+      <SettingsRow
+        label="Guardian mode"
+        value={trustedContactId ? 'Contact set' : 'None'}
+        showChevron
+        onClick={() => router.push('/guardian/setup')}
+      />
+
+      <hr className="divider" />
+
+      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        About
+      </span>
+
+      <p className="text-caption" style={{ color: 'var(--text)' }}>
+        Version 1.0.0
+      </p>
+      <p className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        All processing on-device
+      </p>
     </main>
   )
 }

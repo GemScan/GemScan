@@ -1,49 +1,102 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGemScanStore } from '@/lib/store'
-import { useLocale } from '@/lib/i18n/strings'
-
-const verdictColor: Record<string, string> = {
-  safe: 'text-green-500',
-  suspicious: 'text-amber-500',
-  scam: 'text-red-500',
-}
+import InputArea from '@/components/InputArea'
+import ResultRow from '@/components/ResultRow'
 
 export default function HomePage() {
   const router = useRouter()
   const recentResults = useGemScanStore((s) => s.recentResults)
-  const { t } = useLocale()
+  const [input, setInput] = useState('')
+
+  const handleSubmit = () => {
+    if (!input.trim()) return
+    router.push(`/analyse?q=${encodeURIComponent(input.trim())}`)
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-6 py-12">
-      <h1 className="text-3xl font-bold mb-8">{t('appName')}</h1>
+    <main
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 'var(--padding-page)',
+        gap: 'var(--gap-section)',
+        minHeight: '100vh',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          minHeight: 44,
+        }}
+      >
+        <button
+          className="text-body"
+          onClick={() => router.push('/settings')}
+          style={{
+            color: 'var(--text-muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '8px 0',
+          }}
+          aria-label="Settings"
+        >
+          Settings
+        </button>
+      </div>
+
+      <h1 className="text-title" style={{ color: 'var(--text)', textAlign: 'center' }}>
+        GemScan
+      </h1>
+
+      <p className="text-body" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+        What would you like me to check?
+      </p>
+
+      <InputArea
+        value={input}
+        onChange={setInput}
+        onSubmit={handleSubmit}
+        placeholder="Paste a message to check…"
+      />
 
       <button
-        onClick={() => router.push('/analyse')}
-        aria-label={t('checkButton')}
-        className="rounded-xl bg-blue-500 px-8 py-4 text-white font-semibold text-lg min-h-[44px] min-w-[44px]"
+        className="btn-secondary"
+        onClick={() => {
+          /* TODO: scan image */
+        }}
       >
-        {t('checkButton')}
+        Scan image
       </button>
 
-      {recentResults.length > 0 && (
-        <section className="mt-12 w-full max-w-md">
-          <h2 className="text-xl font-semibold mb-4">{t('recentResults')}</h2>
-          <ul className="space-y-3">
-            {recentResults.map((result) => (
-              <li
-                key={result.taskId}
-                className="rounded-lg border p-4 flex justify-between items-center"
-              >
-                <span className="text-sm truncate mr-4">{result.taskId}</span>
-                <span className={`font-semibold capitalize ${verdictColor[result.verdict] ?? ''}`}>
-                  {result.verdict}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <hr className="divider" />
+
+      <h2 className="text-heading" style={{ color: 'var(--text)' }}>
+        Recent checks
+      </h2>
+
+      {recentResults.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {recentResults.map((result) => (
+            <ResultRow
+              key={result.taskId}
+              input={result.taskId}
+              verdict={result.verdict}
+              onClick={() => {
+                /* noop for now */
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-caption" style={{ color: 'var(--text-muted)' }}>
+          No checks yet.
+        </p>
       )}
     </main>
   )

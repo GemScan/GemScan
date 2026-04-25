@@ -1,22 +1,23 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { getGemmaPlugin } from '@/lib/gemma'
 import { useTokenStream } from '@/hooks/useTokenStream'
 import { useGemScanStore } from '@/lib/store'
-import { useLocale } from '@/lib/i18n/strings'
 import type { AgentTask, AgentResult } from '@/lib/gemma/types'
-import ScamWarningCard from '@/components/ScamWarningCard'
-import StreamingReasoningView from '@/components/StreamingReasoningView'
+import VerdictCard from '@/components/VerdictCard'
+import StreamingText from '@/components/StreamingText'
 
 export default function AnalysePage() {
+  const router = useRouter()
+
   const [input, setInput] = useState('')
   const [taskId, setTaskId] = useState<string | null>(null)
   const [result, setResult] = useState<AgentResult | null>(null)
   const [isAnalysing, setIsAnalysing] = useState(false)
   const addResult = useGemScanStore((s) => s.addResult)
   const trustedContactId = useGemScanStore((s) => s.trustedContactId)
-  const { t } = useLocale()
 
   const { tokens, isStreaming, isDone } = useTokenStream(taskId)
 
@@ -50,51 +51,71 @@ export default function AnalysePage() {
   }, [input, isAnalysing, addResult])
 
   const handleDismiss = useCallback(() => {
-    setResult(null)
-    setTaskId(null)
-    setInput('')
-  }, [])
+    router.push('/')
+  }, [router])
 
   const handleShare = useCallback(() => {
     if (trustedContactId && result) {
-      // In a real app this would send to the trusted contact
       console.log(`Sharing result ${result.taskId} with contact ${trustedContactId}`)
     }
   }, [trustedContactId, result])
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-6 py-12">
-      <h1 className="text-2xl font-bold mb-6">{t('analyseMessage')}</h1>
+    <main
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: 'var(--padding-page)',
+        gap: 'var(--gap-section)',
+        minHeight: '100vh',
+      }}
+    >
+      <button
+        className="text-body"
+        onClick={() => router.back()}
+        style={{
+          color: 'var(--text)',
+          background: 'none',
+          border: 'none',
+          padding: '8px 0',
+          cursor: 'pointer',
+          alignSelf: 'flex-start',
+          minHeight: 44,
+          minWidth: 44,
+        }}
+      >
+        ← Back
+      </button>
 
       <textarea
+        className="text-body"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder={t('pastePrompt')}
-        className="w-full max-w-md rounded-lg border p-4 text-base resize-none h-32"
+        placeholder="Paste a message to check…"
         disabled={isAnalysing}
-        aria-label={t('pastePrompt')}
+        style={{
+          height: 'var(--height-input)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-input)',
+          padding: 16,
+          resize: 'none',
+          width: '100%',
+          backgroundColor: 'var(--surface)',
+          color: 'var(--text)',
+        }}
       />
 
       <button
+        className="btn-primary"
         onClick={handleSubmit}
         disabled={isAnalysing || !input.trim()}
-        aria-label={isAnalysing ? t('analysing') : t('analyse')}
-        className="mt-4 rounded-xl bg-blue-500 px-8 py-4 text-white font-semibold text-lg disabled:opacity-50 min-h-[44px] min-w-[44px]"
       >
-        {isAnalysing ? t('analysing') : t('analyse')}
+        {isAnalysing ? 'Analysing…' : 'Check this'}
       </button>
 
-      {(isStreaming || (tokens && !isDone)) && (
-        <div className="mt-6 w-full max-w-md">
-          <StreamingReasoningView tokens={tokens} isDone={isDone} />
-        </div>
-      )}
+      {(isStreaming || (tokens && !isDone)) && <StreamingText tokens={tokens} isDone={isDone} />}
 
-      {result && (
-        <div className="mt-6 w-full flex justify-center">
-          <ScamWarningCard result={result} onDismiss={handleDismiss} onShare={handleShare} />
-        </div>
-      )}
+      {result && <VerdictCard result={result} onShare={handleShare} onDismiss={handleDismiss} />}
     </main>
   )
 }
