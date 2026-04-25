@@ -1,189 +1,49 @@
 import UIKit
-import os
+import Capacitor
 
-/// GemScan application delegate.
-///
-/// Handles the `gemscan://` URL scheme for deep links from extensions
-/// (Share Extension, Shortcuts, notifications) and configures app-level
-/// services at launch.
-@main
+@UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    /// Logger for app-level events.
-    private let logger = GemScanLogger.ui
+    var window: UIWindow?
 
-    // MARK: - UIApplicationDelegate
-
-    func application(
-        _ application: UIApplication,
-        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-    ) -> Bool {
-        logger.info("GemScan: didFinishLaunchingWithOptions")
-
-        // Process any pending analysis tasks from extensions
-        processPendingExtensionTasks()
-
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Override point for customization after application launch.
         return true
     }
 
-    /// Handles incoming URLs for the `gemscan://` scheme.
-    ///
-    /// Supported routes:
-    /// - `gemscan://analyse?task=<taskId>` — Analyse a shared item from an extension
-    /// - `gemscan://scan?url=<encodedURL>` — Direct URL scan
-    /// - `gemscan://verdict?id=<resultId>` — View a previous verdict
-    func application(
-        _ app: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        logger.info("GemScan: open URL — \(url.scheme ?? "nil")://\(url.host ?? "nil")")
-
-        guard url.scheme == "gemscan" else {
-            logger.warning("GemScan: unsupported URL scheme: \(url.scheme ?? "nil")")
-            return false
-        }
-
-        guard let host = url.host else {
-            logger.warning("GemScan: URL has no host component")
-            return false
-        }
-
-        let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        let params = Dictionary(
-            uniqueKeysWithValues: queryItems.compactMap { item in
-                guard let value = item.value else { return nil }
-                return (item.name, value)
-            }
-        )
-
-        switch host {
-        case "analyse":
-            return handleAnalyseDeepLink(params: params)
-        case "scan":
-            return handleScanDeepLink(params: params)
-        case "verdict":
-            return handleVerdictDeepLink(params: params)
-        default:
-            logger.warning("GemScan: unknown deep link route: \(host)")
-            return false
-        }
+    func applicationWillResignActive(_ application: UIApplication) {
+        // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
+        // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.
     }
 
-    // MARK: - UISceneSession
-
-    func application(
-        _ application: UIApplication,
-        configurationForConnecting connectingSceneSession: UISceneSession,
-        options: UIScene.ConnectionOptions
-    ) -> UISceneConfiguration {
-        return UISceneConfiguration(
-            name: "Default Configuration",
-            sessionRole: connectingSceneSession.role
-        )
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
+        // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
     }
 
-    // MARK: - Deep Link Handlers
-
-    /// Handles the `gemscan://analyse?task=<taskId>` deep link.
-    ///
-    /// Retrieves the pending analysis task from the shared container
-    /// and dispatches it to the agent pipeline.
-    private func handleAnalyseDeepLink(params: [String: String]) -> Bool {
-        guard let taskId = params["task"] else {
-            logger.warning("analyse deep link: missing 'task' parameter")
-            return false
-        }
-
-        logger.info("analyse deep link: task=\(taskId)")
-
-        guard let defaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId) else {
-            logger.error("analyse deep link: App Group defaults not available")
-            return false
-        }
-
-        // Find and remove the pending task
-        var pending = defaults.array(forKey: SharedContainerSchema.pendingAnalysisTasks) as? [[String: Any]] ?? []
-        guard let taskIndex = pending.firstIndex(where: { ($0["id"] as? String) == taskId }) else {
-            logger.warning("analyse deep link: task \(taskId) not found in pending list")
-            return false
-        }
-
-        let taskPayload = pending[taskIndex]
-        pending.remove(at: taskIndex)
-        defaults.set(pending, forKey: SharedContainerSchema.pendingAnalysisTasks)
-
-        // Post notification for the UI layer to pick up
-        NotificationCenter.default.post(
-            name: .gemScanAnalyseTaskReceived,
-            object: nil,
-            userInfo: taskPayload
-        )
-
-        return true
+    func applicationWillEnterForeground(_ application: UIApplication) {
+        // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
-    /// Handles the `gemscan://scan?url=<encodedURL>` deep link.
-    private func handleScanDeepLink(params: [String: String]) -> Bool {
-        guard let urlString = params["url"] else {
-            logger.warning("scan deep link: missing 'url' parameter")
-            return false
-        }
-
-        logger.info("scan deep link: url length=\(urlString.count)")
-
-        NotificationCenter.default.post(
-            name: .gemScanScanURLReceived,
-            object: nil,
-            userInfo: ["url": urlString]
-        )
-
-        return true
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
     }
 
-    /// Handles the `gemscan://verdict?id=<resultId>` deep link.
-    private func handleVerdictDeepLink(params: [String: String]) -> Bool {
-        guard let resultId = params["id"] else {
-            logger.warning("verdict deep link: missing 'id' parameter")
-            return false
-        }
-
-        logger.info("verdict deep link: id=\(resultId)")
-
-        NotificationCenter.default.post(
-            name: .gemScanVerdictViewRequested,
-            object: nil,
-            userInfo: ["resultId": resultId]
-        )
-
-        return true
+    func applicationWillTerminate(_ application: UIApplication) {
+        // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
-    // MARK: - Extension Task Processing
-
-    /// Processes any pending analysis tasks left by extensions.
-    private func processPendingExtensionTasks() {
-        guard let defaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId) else {
-            return
-        }
-
-        let pending = defaults.array(forKey: SharedContainerSchema.pendingAnalysisTasks) as? [[String: Any]] ?? []
-
-        if !pending.isEmpty {
-            logger.info("Found \(pending.count) pending extension task(s)")
-        }
-
-        // Tasks will be processed when the UI layer is ready and observes the notification
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        // Called when the app was launched with a url. Feel free to add additional processing here,
+        // but if you want the App API to support tracking app url opens, make sure to keep this call
+        return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
-}
 
-// MARK: - Notification Names
+    func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+        // Called when the app was launched with an activity, including Universal Links.
+        // Feel free to add additional processing here, but if you want the App API to support
+        // tracking app url opens, make sure to keep this call
+        return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
 
-extension Notification.Name {
-    /// Posted when an analyse task is received via deep link from an extension.
-    static let gemScanAnalyseTaskReceived = Notification.Name("com.gemscan.analyseTaskReceived")
-    /// Posted when a direct URL scan is requested via deep link.
-    static let gemScanScanURLReceived = Notification.Name("com.gemscan.scanURLReceived")
-    /// Posted when a verdict view is requested via deep link.
-    static let gemScanVerdictViewRequested = Notification.Name("com.gemscan.verdictViewRequested")
 }
