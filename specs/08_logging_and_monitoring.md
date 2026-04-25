@@ -298,7 +298,9 @@ import { GemmaPlugin } from '@/lib/gemma'
 import type { DeviceStatus } from '@/lib/gemma/types'
 
 export function DebugOverlay() {
-  if (process.env.NODE_ENV !== 'development') return null
+  // Stripped from production builds: Next.js replaces NODE_ENV at build time,
+  // and tree-shaking removes this entire component when the condition is false.
+  if (process.env.NODE_ENV === 'production') return null
 
   const [visible, setVisible] = useState(false)
   const [status, setStatus] = useState<DeviceStatus | null>(null)

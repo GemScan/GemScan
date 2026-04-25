@@ -315,6 +315,14 @@ jobs:
             --apiKey "${{ secrets.ASC_API_KEY_ID }}" \
             --apiIssuer "${{ secrets.ASC_ISSUER_ID }}"
 
+      - name: Distribute to internal TestFlight group
+        run: |
+          # After upload processes (~5 min), add build to the "GemScan Internal" group
+          # Group name in App Store Connect: "GemScan Internal" (internal testers only)
+          # External TestFlight review is triggered manually after internal sign-off
+          echo "TestFlight group: GemScan Internal (internal only)"
+          echo "External group promotion: manual via App Store Connect UI"
+
 ```
 
 ---
@@ -322,6 +330,8 @@ jobs:
 ## 5. Model Download Pipeline
 
 Model weights are **never committed to git**. They are downloaded at runtime (first launch) or via a background prefetch. The model download URLs and SHA-256 checksums are stored in a signed manifest.
+
+> **Hosting:** For the hackathon submission, model artifacts are hosted directly on Hugging Face Hub (`huggingface.co/GemScan/`). The `manifest.json` is served from `https://huggingface.co/GemScan/manifest/resolve/main/manifest.json`. For production, this moves to a CDN-backed URL with cryptographic signing (ed25519). The SHA-256 verification step is mandatory regardless of hosting provider.
 
 ### 5.1 Model Manifest
 

@@ -43,12 +43,53 @@ actor MCPClient {
     private let logger = Logger(subsystem: "com.gemscan", category: "MCPClient")
     private var registry: [String: any MCPServer] = [:]
 
+    // MARK: - Access Control
+
+    /// Defines which tools each agent is permitted to call.
+    /// Enforcement happens in `call()` — any unlisted combination is rejected.
+    private static let allowlist: [String: Set<String>] = [
+        AgentID.textAgent:    ["scam_patterns/match_patterns", "scam_patterns/get_pattern_detail",
+                               "sqlite_vec/semantic_search", "contacts/is_known_sender",
+                               "url_reputation/check_url", "phone_reputation/check",
+                               "message_filter/check_sender_history"],
+        AgentID.urlAgent:     ["sqlite_vec/semantic_search", "url_reputation/check_url",
+                               "whois/lookup"],
+        AgentID.imageAgent:   ["sqlite_vec/semantic_search", "url_reputation/check_url",
+                               "reverse_image/extract_text_urls", "reverse_image/compute_phash"],
+        AgentID.voiceAgent:   ["sqlite_vec/semantic_search", "phone_reputation/check"],
+        AgentID.judgeAgent:   ["scam_patterns/match_patterns", "scam_patterns/get_pattern_detail",
+                               "sqlite_vec/semantic_search"],
+        AgentID.orchestrator: ["sqlite_vec/store_embedding", "contacts/is_known_sender",
+                               "message_filter/check_sender_history",
+                               "clipboard_watcher/get_clipboard_signals",
+                               "screen_time/get_session_context"],
+    ]
+
     func register(server: any MCPServer) {
         registry[server.name] = server
         logger.info("Registered MCP server: \(server.name)")
     }
 
-    func call(server serverName: String, tool toolName: String, input: [String: String]) async throws -> MCPToolResult {
+    /// Call a tool on a named server.
+    /// - Parameters:
+    ///   - server: Server name (e.g. `"url_reputation"`)
+    ///   - tool:   Tool name (e.g. `"check_url"`)
+    ///   - input:  Key-value string dict. All values are strings; numeric/bool values are
+    ///             encoded as strings and parsed by the server (e.g. `"top_k": "5"`).
+    ///   - callerAgentId: The `AgentID` constant of the calling agent. Used for access control.
+    func call(
+        server serverName: String,
+        tool toolName: String,
+        input: [String: String],
+        callerAgentId: String
+    ) async throws -> MCPToolResult {
+        // Access control check
+        let key = "\(serverName)/\(toolName)"
+        guard let allowed = MCPClient.allowlist[callerAgentId], allowed.contains(key) else {
+            logger.error("Access denied: \(callerAgentId) → \(key)")
+            throw MCPError.accessDenied(agent: callerAgentId, tool: key)
+        }
+
         guard let server = registry[serverName] else {
             throw GemScanError.mcpToolFailed(server: serverName, tool: toolName, underlying: MCPError.unknownServer)
         }
@@ -83,10 +124,29 @@ actor MCPClient {
         }
     }
 
+    /// Convenience overload for tool calls emitted by the LLM in `RawToolCall` form.
+    /// The `callerAgentId` must still be provided by the agent so access control is enforced.
+    func call(
+        tool: RawToolCall,
+        callerAgentId: String
+    ) async throws -> MCPToolResult {
+        try await call(
+            server: tool.server,
+            tool: tool.tool,
+            input: tool.input,
+            callerAgentId: callerAgentId
+        )
+    }
+
     private func summariseInput(_ input: [String: String]) -> String {
-        // Never log values that could contain PII
         "{\(input.keys.sorted().joined(separator: ", "))}"
     }
+}
+
+enum MCPError: Error {
+    case unknownServer
+    case unknownTool(String)
+    case accessDenied(agent: String, tool: String)
 }
 
 protocol MCPServer: Actor {
@@ -95,6 +155,13 @@ protocol MCPServer: Actor {
     func execute(tool: String, input: [String: String]) async throws -> [String: String]
 }
 
+/// All MCP inputs and outputs use `[String: String]` maps for simplicity across the
+/// Capacitor bridge. Type coercion rules:
+/// - Numbers are passed as decimal strings (e.g. `"top_k": "5"`, `"risk_score": "0.85"`)
+/// - Booleans are passed as `"true"` / `"false"`
+/// - Optional absent fields are simply omitted from the input dict
+/// Servers must parse numeric and boolean values from strings using `Int()`, `Double()`,
+/// or `Bool()` with a documented fallback (e.g. `Int(input["top_k"] ?? "5") ?? 5`).
 struct MCPToolDefinition {
     let name: String
     let description: String
@@ -183,7 +250,7 @@ actor SqliteVecServer: MCPServer {
     let tools: [MCPToolDefinition] = [
         MCPToolDefinition(
             name: "semantic_search",
-            description: "Find semantically similar known scam messages. Input: embedding vector (float array as JSON string). Returns top-k matches with similarity scores.",
+            description: "Find semantically similar known scam messages. Input: a 128-dimensional float embedding as a JSON array string (generated by TextEmbedder.shared.embed() in GemmaKit). Returns top-k matches with similarity scores.",
             inputSchema: ["embedding_json": .string, "top_k": .optional_string],
             outputSchema: ["matches": .string, "top_similarity": .number]
         ),
@@ -216,6 +283,8 @@ actor SqliteVecServer: MCPServer {
     }
 }
 ```
+
+> **Note:** Callers must generate embeddings using `TextEmbedder.shared.embed(text:)` (see Spec 02 §8) before calling this tool. The server stores a 128-dimensional vector internally; embeddings generated by a different method or dimension will produce meaningless similarity scores.
 
 **Tool access:** Available to all agents.
 
@@ -275,6 +344,8 @@ actor ContactsServer: MCPServer {
     }
 }
 ```
+
+> **Permission:** `ContactsServer` requires `NSContactsUsageDescription` in `Info.plist`. Permission is requested once during first-launch onboarding by calling `CNContactStore().requestAccess(for: .contacts)`. If the user denies permission, all calls to `is_known_sender` return `{ "is_known": "false", "contact_count": "0" }` silently — the degraded result is used as-is and no alert is shown.
 
 **Tool access:** Available to `text-agent` and `orchestrator` only.
 
@@ -542,7 +613,7 @@ actor MessageFilterServer: MCPServer {
     private let sharedDefaults: UserDefaults?   // App Group shared defaults
 
     init() {
-        sharedDefaults = UserDefaults(suiteName: "group.com.gemscan")
+        sharedDefaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId)
     }
 
     func execute(tool: String, input: [String: String]) async throws -> [String: String] {
@@ -671,6 +742,15 @@ All servers are registered at app startup in `AppDelegate` / the Capacitor plugi
 ```swift
 // ios/App/Plugins/GemmaPlugin.swift (continued from Spec 01)
 extension GemmaPlugin {
+
+    /// Called from `GemmaPlugin.load()` — the Capacitor lifecycle hook that fires
+    /// immediately after the plugin is instantiated (before any JS calls).
+    /// All servers must be registered before the first `analyse()` call.
+    override public func load() {
+        setupMCP()
+        Task { try? await InferenceEngine.shared.warmUpE2B() }
+    }
+
     func setupMCP() {
         let client = MCPClient.shared
         Task {
@@ -684,6 +764,7 @@ extension GemmaPlugin {
             await client.register(server: MessageFilterServer())
             await client.register(server: ClipboardWatcherServer())
             await client.register(server: ScreenTimeServer())
+            GemScanLogger.plugin.info("All 10 MCP servers registered")
         }
     }
 }

@@ -19,8 +19,10 @@ GemScan/gemma-4-e2b-it-GemScan-q4km.gguf        (~1.5 GB, llama.cpp fallback)
 GemScan/gemma-4-e4b-it-GemScan-q4km.gguf        (~3.0 GB, llama.cpp fallback)
 GemScan/gemma-4-e2b-it-GemScan-mlx-4bit         (MLX native, primary iOS runtime)
 GemScan/gemma-4-e4b-it-GemScan-mlx-4bit         (MLX native + TurboQuant KV cache)
-GemScan/sms-triage-distilbert.mlpackage          (Core ML, iOS SMS Filter extension)
+GemScan/sms-triage-distilbert.mlpackage          (Core ML source package — compiled to .mlmodelc at build time via Xcode)
 ```
+
+> **Build note:** The `.mlpackage` artifact is the human-readable source. Xcode compiles it to an optimised `.mlmodelc` bundle at build time. Both the main app and the SMS Filter extension link against the compiled `.mlmodelc`. The generated Swift class `SmsTriage` is produced by Xcode's Core ML code generation.
 
 ---
 
@@ -40,6 +42,49 @@ ios/App/GemmaKit/Sources/
 ├── MCP/                             # See spec 04
 ├── Router/                          # See spec 03
 └── Extensions/                      # Extension bridges — see spec 05
+```
+
+### Package.swift
+
+```swift
+// ios/App/GemmaKit/Package.swift
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "GemmaKit",
+    platforms: [.iOS(.v16)],
+    products: [
+        .library(name: "GemmaKit", targets: ["GemmaKit"]),
+    ],
+    dependencies: [
+        // MLX Swift — primary inference backend on Apple Silicon
+        .package(url: "https://github.com/ml-explore/mlx-swift-examples", exact: "1.18.0"),
+        // llama.cpp — fallback backend for simulator and older devices
+        .package(url: "https://github.com/ggerganov/llama.cpp", exact: "b3442"),
+        // sqlite-vec — vector similarity search for MCP sqlite_vec server
+        .package(url: "https://github.com/asg017/sqlite-vec-swift", exact: "0.1.1"),
+    ],
+    targets: [
+        .target(
+            name: "GemmaKit",
+            dependencies: [
+                .product(name: "MLXLLM", package: "mlx-swift-examples"),
+                .product(name: "llama", package: "llama.cpp"),
+                .product(name: "SQLiteVec", package: "sqlite-vec-swift"),
+            ],
+            path: "Sources",
+            swiftSettings: [
+                .unsafeFlags(["-O"], .when(configuration: .release)),
+            ]
+        ),
+        .testTarget(
+            name: "GemmaKitTests",
+            dependencies: ["GemmaKit"],
+            path: "Tests"
+        ),
+    ]
+)
 ```
 
 ---
@@ -106,6 +151,19 @@ public actor InferenceEngine {
         let latencyMs = Int(ContinuousClock.now - start, in: .milliseconds)
         logger.info("generate: tier=\(tier), latency=\(latencyMs)ms, tokens=\(output.split(separator: " ").count)")
         return output
+    }
+
+    /// Encoder-only forward pass on E2B to produce a normalised embedding vector.
+    /// Used by `TextEmbedder` to generate float vectors for sqlite_vec semantic search.
+    /// - Parameters:
+    ///   - text:       The input text to embed.
+    ///   - dimensions: Expected output dimensionality. Must match the E2B projection head (128).
+    public func encode(text: String, dimensions: Int) async throws -> [Float] {
+        let backend = try backend(for: .e2b)
+        guard let mlxBackend = backend as? MLXInferenceBackend else {
+            throw GemScanError.grammarViolation(raw: "encode() requires MLXInferenceBackend")
+        }
+        return try await mlxBackend.encode(text: text, dimensions: dimensions)
     }
 
     // MARK: - Private
@@ -205,6 +263,21 @@ actor MLXInferenceBackend: InferenceBackend {
         }
         return output
     }
+
+    /// Encoder-only forward pass: embeds `text` into a `dimensions`-dimensional float vector.
+    /// Uses the E2B model's last hidden state (no autoregressive decoding).
+    /// Called by `InferenceEngine.encode()` → `TextEmbedder.embed()`.
+    func encode(text: String, dimensions: Int) async throws -> [Float] {
+        let tokens = tokenizer.encode(text)
+        let hiddenStates = try await model.encode(tokens: tokens)
+        // Pool to `dimensions` via mean-pooling + linear projection head compiled into the model
+        guard hiddenStates.count >= dimensions else {
+            throw GemScanError.grammarViolation(raw: "Encoder output dimension mismatch: got \(hiddenStates.count), expected ≥\(dimensions)")
+        }
+        let vector = Array(hiddenStates.prefix(dimensions))
+        let norm = sqrt(vector.map { $0 * $0 }.reduce(0, +))
+        return norm > 0 ? vector.map { $0 / norm } : vector
+    }
 }
 ```
 
@@ -270,10 +343,31 @@ Handles download, SHA-256 verification, and local caching.
 
 ```swift
 actor ModelLoader {
+    static let shared = ModelLoader()
+
     private let cacheDirectory: URL = {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("GemScanModels")
     }()
+
+    /// Returns the local URL for a named model artifact (e.g. `"whisper-small-mlx"`).
+    /// Throws `GemScanError.modelNotLoaded` if the artifact has not been downloaded yet.
+    func cachedURL(for modelName: String) throws -> URL {
+        let url = cacheDirectory.appendingPathComponent(modelName)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw GemScanError.modelNotLoaded(tier: .e2b)  // tier is informational only here
+        }
+        return url
+    }
+
+    /// After download completes, write the model's local path into the App Group shared
+    /// container so extensions (ILMessageFilterExtension) can locate DistilBERT.
+    /// Called automatically at the end of `download(tier:progress:)` for `.distilbert`.
+    private func syncPathToAppGroup(tier: ModelTier, localURL: URL) {
+        guard tier == .distilbert else { return }
+        let defaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId)
+        defaults?.set(localURL.path, forKey: SharedContainerSchema.distilbertModelPath)
+    }
 
     func load(tier: ModelTier) async throws -> InferenceBackend {
         let artifact = tier.preferredArtifact  // .mlx or .gguf depending on availability
@@ -298,10 +392,20 @@ actor ModelLoader {
         let destination = cacheDirectory.appendingPathComponent(artifact.filename)
         try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
-        // Resume-capable download via URLSession with background configuration
-        let session = URLSession(configuration: .background(withIdentifier: "com.gemscan.model-download"))
-        try await session.download(from: artifact.remoteURL, to: destination, progress: progress)
+        // Resume-capable download via background URLSession.
+        // Resume data is persisted to `cacheDirectory/resumeData/<filename>.resumedata`
+        // and loaded at the start of each download attempt.
+        let resumeDataURL = cacheDirectory.appendingPathComponent("resumeData/\(artifact.filename).resumedata")
+        let session = URLSession(configuration: .background(withIdentifier: "com.gemscan.model-download.\(artifact.filename)"))
+        if let resumeData = try? Data(contentsOf: resumeDataURL) {
+            try await session.downloadResuming(resumeData: resumeData, to: destination, progress: progress)
+        } else {
+            try await session.download(from: artifact.remoteURL, to: destination, progress: progress)
+        }
+        // On success: remove resume data
+        try? FileManager.default.removeItem(at: resumeDataURL)
         try verify(destination, expectedSHA256: artifact.sha256)
+        syncPathToAppGroup(tier: tier, localURL: destination)
     }
 
     private func verify(_ url: URL, expectedSHA256: String) throws {
@@ -354,7 +458,12 @@ print("✅ Chat template matches")
 
 ## 8. DistilBERT SMS Triage (Extension-Only Path)
 
-DistilBERT runs **only** in the iOS SMS Filter extension. It is not part of `InferenceEngine` — it has its own tight, memory-constrained path.
+DistilBERT runs in two contexts:
+
+1. **SMS Filter extension** (`ILMessageFilterExtension`): The primary use case — classifies unknown-sender SMS messages in real time within the 50 MB process ceiling.
+2. **Main app — TextAgent fast path**: The same `SMSTriage` class is also linked into the main app target. When a text message is analysed in the main app, `TextAgent` calls `SMSTriage.shared.classify()` as a cheap pre-filter before invoking E2B. The same compiled `.mlmodelc` is used; it is copied to the main app bundle via a shared build phase, not loaded from the App Group container.
+
+`SMSTriage` is **not** part of `InferenceEngine` — it has its own lightweight, synchronous path and is instantiated independently in each process.
 
 ```swift
 // ios/App/Extensions/SMSFilter/SMSTriage.swift
@@ -377,6 +486,173 @@ class SMSTriage {
         return (output.label == "scam", Float(output.labelProbability["scam"] ?? 0))
     }
 }
+```
+
+### WhisperASR
+
+On-device speech-to-text using a distilled Whisper model via MLX. Converts the user's audio recording to text before passing to the VoiceAgent.
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/WhisperASR.swift
+import Foundation
+import MLX
+
+/// On-device ASR wrapping a distilled Whisper model (whisper-small or whisper-base.en)
+/// loaded via MLX. Returns a transcript with detected language.
+actor WhisperASR {
+    static let shared = WhisperASR()
+
+    private let logger = Logger(subsystem: "com.gemscan", category: "WhisperASR")
+    private var model: WhisperModel?   // MLX-loaded Whisper model
+
+    /// Transcribes base64-encoded audio (AAC, 16 kHz mono, PCM float32 after decode).
+    /// Returns a `Transcript` with `text` and `language` (BCP-47).
+    func transcribe(base64Audio: String, durationSeconds: Double) async throws -> Transcript {
+        guard durationSeconds > 0, durationSeconds <= 300 else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Duration out of range: \(durationSeconds)s")
+        }
+        guard let audioData = Data(base64Encoded: base64Audio) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Invalid base64 audio data")
+        }
+
+        if model == nil { try await loadModel() }
+
+        // Decode AAC → float32 PCM at 16 kHz via AVAudioEngine
+        let pcm = try AudioDecoder.decode(aacData: audioData, targetSampleRate: 16_000)
+        let result = try await model!.transcribe(pcm: pcm)
+        logger.info("WhisperASR: transcribed \(Int(durationSeconds))s → \(result.text.count) chars lang=\(result.language)")
+        return result
+    }
+
+    private func loadModel() async throws {
+        logger.info("WhisperASR: loading model")
+        // Model artifact: GemScan/whisper-small-mlx (≈150 MB, downloaded alongside E2B)
+        let modelDir = ModelLoader.shared.cachedURL(for: "whisper-small-mlx")
+        model = try await WhisperModel.load(directory: modelDir)
+    }
+}
+
+struct Transcript {
+    let text: String
+    let language: String   // BCP-47, e.g. "en", "hi"
+}
+```
+
+### AudioSealDetector
+
+On-device AI watermark and deepfake detector. Scores the probability that audio was synthesised by a generative model. Uses the Meta AudioSeal detector model compiled to MLX.
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/AudioSealDetector.swift
+import Foundation
+import MLX
+
+/// Runs the AudioSeal detector to produce a deepfake probability score.
+/// Model: GemScan/audioseal-detector-mlx (≈30 MB, downloaded alongside distilbert)
+actor AudioSealDetector {
+    static let shared = AudioSealDetector()
+
+    private let logger = Logger(subsystem: "com.gemscan", category: "AudioSealDetector")
+    private var model: AudioSealModel?
+
+    /// Returns 0.0 (human voice) → 1.0 (AI-synthesised).
+    /// Input: base64-encoded audio in AAC format, decoded internally to float32 PCM.
+    func score(base64Audio: String) async throws -> Double {
+        guard let audioData = Data(base64Encoded: base64Audio) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Invalid base64 audio data")
+        }
+        if model == nil { try await loadModel() }
+
+        let pcm = try AudioDecoder.decode(aacData: audioData, targetSampleRate: 16_000)
+        let score = try await model!.detectScore(pcm: pcm)
+        logger.info("AudioSealDetector: score=\(String(format: "%.3f", score))")
+        return score
+    }
+
+    private func loadModel() async throws {
+        let modelDir = ModelLoader.shared.cachedURL(for: "audioseal-detector-mlx")
+        model = try await AudioSealModel.load(directory: modelDir)
+    }
+}
+```
+
+### AudioDecoder Utility
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/AudioDecoder.swift
+import AVFoundation
+
+enum AudioDecoder {
+    /// Decodes AAC-encoded audio data to float32 PCM samples at the specified sample rate.
+    /// Used by WhisperASR and AudioSealDetector.
+    static func decode(aacData: Data, targetSampleRate: Double) throws -> [Float] {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".aac")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        try aacData.write(to: tempURL)
+
+        let file = try AVAudioFile(forReading: tempURL)
+        let format = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: targetSampleRate,
+            channels: 1,
+            interleaved: false
+        )!
+
+        guard let buffer = AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: AVAudioFrameCount(file.length)
+        ) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Could not allocate PCM buffer")
+        }
+
+        let converter = AVAudioConverter(from: file.processingFormat, to: format)!
+        var error: NSError?
+        converter.convert(to: buffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return buffer
+        }
+
+        if let error { throw error }
+        guard let channelData = buffer.floatChannelData else {
+            throw GemScanError.audioIngestionUnavailable(reason: "No channel data in PCM buffer")
+        }
+        return Array(UnsafeBufferPointer(start: channelData[0], count: Int(buffer.frameLength)))
+    }
+}
+```
+
+### Text Embedding for sqlite_vec
+
+The `sqlite_vec/semantic_search` MCP tool requires a float vector embedding of the input text. Embeddings are generated using the **E2B model's hidden-state encoder** — a 128-dimensional projection of the last encoder layer, invoked via a separate forward pass without autoregressive decoding.
+
+```swift
+// GemmaKit/Sources/Inference/TextEmbedder.swift
+actor TextEmbedder {
+    static let shared = TextEmbedder()
+
+    /// Generates a 128-dimensional normalised embedding for the input text.
+    /// Uses the E2B encoder (no generation step — encoder-only forward pass).
+    func embed(text: String) async throws -> [Float] {
+        let engine = InferenceEngine.shared
+        return try await engine.encode(text: text, dimensions: 128)
+    }
+
+    /// Serialises a float vector to a JSON string for MCP tool input.
+    static func toJSON(_ vector: [Float]) -> String {
+        "[" + vector.map { String(format: "%.6f", $0) }.joined(separator: ",") + "]"
+    }
+}
+```
+
+Agents call this before invoking the `sqlite_vec/semantic_search` tool:
+```swift
+let embedding = try await TextEmbedder.shared.embed(text: sha256(messageContent))
+let embeddingJSON = TextEmbedder.toJSON(embedding)
+let result = try await mcpClient.call(server: "sqlite_vec", tool: "semantic_search",
+    input: ["embedding_json": embeddingJSON, "top_k": "5"],
+    callerAgentId: AgentID.orchestrator)  // Orchestrator routes this call; adjust per actual calling agent
 ```
 
 ---

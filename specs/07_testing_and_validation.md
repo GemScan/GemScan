@@ -49,6 +49,8 @@ export default defineConfig({
 })
 ```
 
+> **File naming:** All TypeScript test files use the `.test.ts` / `.test.tsx` suffix (not `.spec.ts`). Vitest is configured to find both, but `.test.ts` is the project standard.
+
 ```typescript
 // src/test/setup.ts
 import '@testing-library/jest-dom'
@@ -208,6 +210,55 @@ describe('useGemScanStore', () => {
 
 ## 3. XCTest — Swift Unit and Integration Tests
 
+### 3.0 Test Helpers
+
+```swift
+// GemmaKit/Tests/TestHelpers.swift
+
+extension AgentTask {
+    /// Creates a minimal valid AgentTask for test use.
+    static func fixture(
+        id: String = UUID().uuidString,
+        type: AgentTaskType = .classifySMS,
+        content: String = "Test message content",
+        language: String = "en",
+        priority: TaskPriority = .realtime,
+        timeoutMs: Int = 10_000
+    ) -> AgentTask {
+        AgentTask(
+            id: id,
+            type: type,
+            payload: .text(content, language: language),
+            priority: priority,
+            createdAt: Int64(Date().timeIntervalSince1970 * 1000),
+            timeoutMs: timeoutMs
+        )
+    }
+}
+
+extension AgentResult {
+    /// Creates a minimal valid AgentResult for test assertions.
+    static func fixture(
+        taskId: String = "test-task",
+        verdict: ScamVerdict = .suspicious,
+        confidence: Double = 0.75
+    ) -> AgentResult {
+        AgentResult(
+            taskId: taskId,
+            agentId: AgentID.orchestrator,
+            verdict: verdict,
+            confidence: confidence,
+            reasoning: ["Test reasoning bullet 1.", "Test reasoning bullet 2."],
+            language: "en",
+            toolCallsLog: [],
+            latencyMs: 100,
+            modelTier: .e2b,
+            escalatedToE4B: false
+        )
+    }
+}
+```
+
 ### 3.1 Agent Round-Trip Tests
 
 ```swift
@@ -356,6 +407,7 @@ final class MCPServerTests: XCTestCase {
         }
     }
 
+    // GrammarValidator is defined in GemmaKit/Sources/Agents/Grammars/GrammarConstraint.swift (Spec 03 §5)
     func testGrammarConstraintRejectsMalformedOutput() throws {
         let grammar = GrammarConstraint.textAgentGrammar
         let malformedOutput = """{"verdict": "maybe", "confidence": "high", "reasoning": "bad"}"""
@@ -732,13 +784,11 @@ final class AdversarialTests: XCTestCase {
 
         var correct = 0
         for (text, expectedVerdict) in adversarialSamples {
-            let task = AgentTask(
-                id: UUID().uuidString,
+            let task = AgentTask.fixture(
                 type: .classifySMS,
-                payload: .text(text, language: "en"),
-                priority: .realtime,
-                createdAt: Date().millisecondsSince1970,
-                timeoutMs: 10000
+                content: text,
+                language: "en",
+                timeoutMs: 10_000
             )
             let result = try await agent.handle(task)
 

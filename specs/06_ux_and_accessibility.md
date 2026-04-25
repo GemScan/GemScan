@@ -276,6 +276,97 @@ export function ModelDownloadProgress() {
 }
 ```
 
+### 3.4 ContactPicker
+
+Used in the Guardian Mode setup flow to let the user select a trusted contact from their address book.
+
+```tsx
+// src/components/ContactPicker.tsx
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Contacts } from '@capacitor-community/contacts'
+import { logger } from '@/lib/logger'
+
+interface Contact {
+  id: string        // CNContact.identifier — stable iOS persistent UUID
+  displayName: string
+  phoneOrEmail: string   // Masked for display: "+1 (415) ***-2671"
+}
+
+interface Props {
+  selectedId: string | null
+  onSelect: (contactId: string) => void
+}
+
+export function ContactPicker({ selectedId, onSelect }: Props) {
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadContacts()
+  }, [])
+
+  async function loadContacts() {
+    try {
+      const result = await Contacts.getContacts({
+        projection: { name: true, phones: true, emails: true }
+      })
+      const mapped = result.contacts
+        .filter(c => c.name?.display)
+        .map(c => ({
+          id: c.contactId,
+          displayName: c.name!.display!,
+          phoneOrEmail: maskContact(c.phones?.[0]?.number ?? c.emails?.[0]?.address ?? ''),
+        }))
+        .sort((a, b) => a.displayName.localeCompare(b.displayName))
+      setContacts(mapped)
+    } catch (e: any) {
+      logger.error('ContactPicker: failed to load contacts', { error: e.message })
+      setError('Could not access contacts. Please grant permission in Settings.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <p className="text-gray-500 py-4">Loading contacts…</p>
+  if (error)   return <p className="text-red-600 text-sm">{error}</p>
+
+  return (
+    <div className="border border-gray-200 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
+      {contacts.map(contact => (
+        <button
+          key={contact.id}
+          onClick={() => onSelect(contact.id)}
+          aria-pressed={selectedId === contact.id}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-gray-100 last:border-0
+            ${selectedId === contact.id ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}
+        >
+          <div className="flex-1">
+            <p className="font-medium text-gray-900">{contact.displayName}</p>
+            <p className="text-sm text-gray-500">{contact.phoneOrEmail}</p>
+          </div>
+          {selectedId === contact.id && (
+            <span className="text-blue-600 font-bold" aria-hidden="true">✓</span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function maskContact(value: string): string {
+  if (!value) return ''
+  if (value.includes('@')) {
+    const [user, domain] = value.split('@')
+    return `${user.slice(0, 2)}***@${domain}`
+  }
+  // Mask middle digits of phone number
+  return value.replace(/(\d{3})\d+(\d{4})/, '$1-***-$2')
+}
+```
+
 ---
 
 ## 4. Guardian Mode UX
@@ -453,6 +544,37 @@ async function validateInvitationToken(token: string): Promise<string> {
 ### 4.3 Guardian Mode Status Bar (Persistent)
 
 Shown on every screen when Guardian mode is active. Provides a one-tap pause.
+
+### 4.4 Guardian Mode Alert Delivery
+
+When GemScan detects a `scam` verdict (or `suspicious` if the user set "All warnings"), it sends a **silent push notification** to the trusted contact's device via Apple Push Notification service (APNs).
+
+**Architecture:**
+
+1. The main app generates an alert payload locally (no PII — only a severity level and a one-tap deeplink).
+2. The payload is signed with the device's locally-held keypair and sent to a **minimal relay server** (`relay.gemscan.app`) whose only function is to forward the signed payload to APNs on behalf of the sending device.
+3. The trusted contact's GemScan app receives the silent push and displays a local notification: *"[First name] may have received a scam message. Tap to check in."*
+
+**Privacy contract:**
+- The relay server stores no message content, no contact names, and no verdict details.
+- The only data transmitted is: `{ "severity": "high" | "medium", "timestamp": <unix_ms>, "signature": "<ed25519>" }`.
+- The trusted contact sees only the alert — not the original message.
+
+**Trusted contact device pairing:**
+- During Guardian setup, the elder's device generates an ed25519 keypair.
+- The public key and the trusted contact's APNs device token are exchanged over a QR-code scan (local, in-person) or via an iMessage deep link.
+- Both keys are stored in the iOS Keychain (`kSecAttrAccessibleAfterFirstUnlock`).
+
+**TypeScript interface addition** (`src/lib/gemma/types.ts`):
+```typescript
+// Extend GemmaPlugin interface with guardian alert capability
+interface GemmaPlugin {
+  // ... existing methods ...
+
+  /** Send a guardian alert to the trusted contact. Called by OrchestratorAgent after high-risk verdict. */
+  sendGuardianAlert(options: { severity: 'high' | 'medium' }): Promise<{ sent: boolean; reason?: string }>
+}
+```
 
 ```tsx
 // src/components/GuardianStatusBar.tsx
@@ -648,6 +770,40 @@ export function useLocale(): Locale {
   const { preferredLanguage } = useGemScanStore()
   const supported: Locale[] = ['en', 'hi', 'ja', 'es', 'zh-Hans']
   return (supported.includes(preferredLanguage as Locale) ? preferredLanguage : 'en') as Locale
+}
+```
+
+### Language Preference → Native Side
+
+The `preferredLanguage` in the Zustand store must be synchronised to the native GemmaKit so agent prompts respond in the correct language. This happens via the Capacitor `Preferences` plugin on every language change:
+
+```typescript
+// src/hooks/useLocale.ts (extended)
+import { Preferences } from '@capacitor/preferences'
+
+export function useLocale(): Locale {
+  const { preferredLanguage, setPreferredLanguage } = useGemScanStore()
+  const supported: Locale[] = ['en', 'hi', 'ja', 'es', 'zh-Hans']
+  const locale = (supported.includes(preferredLanguage as Locale) ? preferredLanguage : 'en') as Locale
+  return locale
+}
+
+/** Call this when the user changes language in Settings. */
+export async function setLocale(locale: Locale): Promise<void> {
+  useGemScanStore.getState().setPreferredLanguage(locale)
+  // Write to native shared container so GemmaKit reads it on next inference
+  await Preferences.set({ key: 'gemscan.userLanguageCode', value: locale })
+}
+```
+
+In Swift, `InferenceEngine` reads this preference before building agent prompts:
+
+```swift
+// GemmaKit/Sources/Inference/InferenceEngine.swift (addition)
+func preferredLanguage() async -> String {
+    // Read from Capacitor Preferences (backed by UserDefaults)
+    let defaults = UserDefaults.standard
+    return defaults.string(forKey: "gemscan.userLanguageCode") ?? "en"
 }
 ```
 

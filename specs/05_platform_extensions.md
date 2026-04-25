@@ -30,17 +30,17 @@ struct SharedContainerSchema {
     static let appGroupId = "group.com.gemscan"
 
     // Keys written by main app, read by extensions
-    static let distilbertModelPath = "distilbert_model_path"    // Path to compiled .mlmodelc
-    static let scamPatternsBundlePath = "scam_patterns_path"    // Path to patterns JSON
-    static let userLanguageCode = "user_language_code"          // BCP-47
+    static let distilbertModelPath    = "gemscan.distilbertModelPath"    // Path to compiled .mlmodelc
+    static let scamPatternsBundlePath = "gemscan.scamPatternsBundlePath" // Path to patterns JSON
+    static let userLanguageCode       = "gemscan.userLanguageCode"       // BCP-47 tag
 
     // Keys written by extensions, read by main app
-    static let pendingAnalysisTasks = "pending_analysis_tasks"  // JSON array of AgentTask stubs
-    static let triageResultCache = "triage_result_cache"        // JSON dict: senderHash → TriageResult
+    static let pendingAnalysisTasks = "gemscan.pendingAnalysisTasks"     // JSON array of AgentTask stubs
+    static let triageResultCache    = "gemscan.triageResultCache"        // JSON dict: senderHash → TriageResult
 
     // Guardian mode status (read/write by main app and extensions)
-    static let guardianModeEnabled = "guardian_mode_enabled"
-    static let trustedContactId = "trusted_contact_id"
+    static let guardianModeEnabled = "gemscan.guardianModeEnabled"
+    static let trustedContactId    = "gemscan.trustedContactId"
 }
 
 struct TriageResult: Codable {
@@ -50,9 +50,8 @@ struct TriageResult: Codable {
     let timestampMs: Int64
 }
 
-enum TriageLabel: String, Codable {
-    case safe, junk, transaction, promotion, unknown
-}
+// TriageLabel and TriageResult are defined in GemmaKit/Sources/Inference/TriageLabel.swift
+// (see Spec 00 §4). Both the main app and this extension import GemmaKit.
 ```
 
 ---
@@ -180,7 +179,8 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
 }
 
 struct ScamPhoneEntry: Codable {
-    let phoneNumber: Int64    // E.164 format as integer (required by CX API)
+    let phoneNumber: Int64    // E.164 format as integer — required by CXCallDirectoryExtensionContext
+                              // which only accepts Int64 phone numbers, not strings. E.g. +14155552671 → 14155552671
     let label: String
     let shouldBlock: Bool
     let reportCount: Int

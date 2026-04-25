@@ -25,6 +25,23 @@ GemScan's intelligence layer is a **six-agent system** built on Swift actors. Ea
 
 ## 3. Swift Actor Definitions (`GemmaKit/Sources/Agents/`)
 
+### 3.0 Agent ID Constants
+
+```swift
+// GemmaKit/Sources/Agents/AgentIDs.swift
+/// Canonical agent identifier strings. Used in AgentResult.agentId, MCPClient allowlist,
+/// and all `callerAgentId` parameters. Each agent actor's `agentId` property MUST equal
+/// the corresponding constant — tests enforce this.
+enum AgentID {
+    static let orchestrator = "orchestrator"
+    static let textAgent    = "text-agent"
+    static let urlAgent     = "url-agent"
+    static let imageAgent   = "image-agent"
+    static let voiceAgent   = "voice-agent"
+    static let judgeAgent   = "judge-agent"
+}
+```
+
 ### 3.1 Base Protocol
 
 ```swift
@@ -78,7 +95,7 @@ import os
 actor OrchestratorAgent: GemScanAgent {
     static let shared = OrchestratorAgent()
 
-    let agentId = "orchestrator"
+    let agentId = AgentID.orchestrator
     let logger = Logger(subsystem: "com.gemscan", category: "OrchestratorAgent")
 
     private let inference: InferenceEngine
@@ -132,6 +149,8 @@ actor OrchestratorAgent: GemScanAgent {
 
     private func adjudicate(task: AgentTask, draft: AgentResult, start: Date) async throws -> AgentResult {
         let judgeAgent = router.judgeAgent
+        // Wrap the original payload and draft result together so JudgeAgent sees both
+        // the full message context and the prior analysis in a single AgentTask.
         let judgeTask = AgentTask(
             id: task.id,
             type: .explainVerdict,
@@ -155,7 +174,7 @@ Handles SMS, email, and chat message classification using E2B with the `classify
 ```swift
 // GemmaKit/Sources/Agents/TextAgent.swift
 actor TextAgent: GemScanAgent {
-    let agentId = "text-agent"
+    let agentId = AgentID.textAgent
     let logger = Logger(subsystem: "com.gemscan", category: "TextAgent")
 
     private let inference: InferenceEngine
@@ -207,7 +226,7 @@ actor TextAgent: GemScanAgent {
 
         // 5. Execute any tool calls the model requested
         for toolCall in parsed.toolCalls {
-            let result = try await mcpClient.call(tool: toolCall)
+            let result = try await mcpClient.call(tool: toolCall, callerAgentId: AgentID.textAgent)
             toolCallsLog.append(result.record)
         }
 
@@ -230,7 +249,7 @@ actor TextAgent: GemScanAgent {
 ```swift
 // GemmaKit/Sources/Agents/URLAgent.swift
 actor URLAgent: GemScanAgent {
-    let agentId = "url-agent"
+    let agentId = AgentID.urlAgent
     let logger = Logger(subsystem: "com.gemscan", category: "URLAgent")
 
     private let inference: InferenceEngine
@@ -247,8 +266,8 @@ actor URLAgent: GemScanAgent {
         var toolCallsLog: [ToolCallRecord] = []
 
         // Parallel: url_reputation + whois lookups
-        async let reputationResult = mcpClient.call(server: "url_reputation", tool: "check_url", input: ["url": urlString])
-        async let whoisResult = mcpClient.call(server: "whois", tool: "lookup", input: ["domain": extractDomain(urlString)])
+        async let reputationResult = mcpClient.call(server: "url_reputation", tool: "check_url", input: ["url": urlString], callerAgentId: AgentID.urlAgent)
+        async let whoisResult = mcpClient.call(server: "whois", tool: "lookup", input: ["domain": extractDomain(urlString)], callerAgentId: AgentID.urlAgent)
 
         let (reputation, whois) = try await (reputationResult, whoisResult)
         toolCallsLog += [reputation.record, whois.record]
@@ -280,7 +299,7 @@ actor URLAgent: GemScanAgent {
 ```swift
 // GemmaKit/Sources/Agents/ImageAgent.swift
 actor ImageAgent: GemScanAgent {
-    let agentId = "image-agent"
+    let agentId = AgentID.imageAgent
     let logger = Logger(subsystem: "com.gemscan", category: "ImageAgent")
 
     private let inference: InferenceEngine
@@ -300,7 +319,7 @@ actor ImageAgent: GemScanAgent {
         var toolCallsLog: [ToolCallRecord] = []
 
         // Extract URLs from image via reverse_image MCP (OCR pass)
-        let ocrResult = try await mcpClient.call(server: "reverse_image", tool: "extract_text_urls", input: ["base64": base64])
+        let ocrResult = try await mcpClient.call(server: "reverse_image", tool: "extract_text_urls", input: ["base64": base64], callerAgentId: AgentID.imageAgent)
         toolCallsLog.append(ocrResult.record)
 
         let prompt = ImageAgentPrompts.visionPrompt(mimeType: mimeType, ocrText: ocrResult.output)
@@ -328,7 +347,7 @@ Audio analysis is subject to strict iOS platform constraints (see Spec 05 §4). 
 ```swift
 // GemmaKit/Sources/Agents/VoiceAgent.swift
 actor VoiceAgent: GemScanAgent {
-    let agentId = "voice-agent"
+    let agentId = AgentID.voiceAgent
     let logger = Logger(subsystem: "com.gemscan", category: "VoiceAgent")
 
     private let inference: InferenceEngine
@@ -339,6 +358,11 @@ actor VoiceAgent: GemScanAgent {
 
     func handle(_ task: AgentTask) async throws -> AgentResult {
         let start = Date()
+        // Audio payload encoding contract:
+        // - Format:      AAC (MPEG-4 Audio, .m4a container)
+        // - Sample rate: 16 000 Hz mono (required by WhisperASR and AudioSealDetector)
+        // - Max duration: 300 seconds; recordings longer than this are rejected
+        // - base64:      Standard base64 (RFC 4648) of the raw AAC byte stream
         guard case .audio(let base64, let durationSeconds) = task.payload else {
             throw GemScanError.grammarViolation(raw: "VoiceAgent received non-audio payload")
         }
@@ -355,7 +379,7 @@ actor VoiceAgent: GemScanAgent {
         let deepfakeScore = try await checkDeepfake(base64: base64)
 
         // 3. Phone reputation lookup
-        let phoneResult = try await mcpClient.call(server: "phone_reputation", tool: "check", input: ["transcript_excerpt": String(transcript.text.prefix(100))])
+        let phoneResult = try await mcpClient.call(server: "phone_reputation", tool: "check", input: ["transcript_excerpt": String(transcript.text.prefix(100))], callerAgentId: AgentID.voiceAgent)
         toolCallsLog.append(phoneResult.record)
 
         // 4. LLM analysis with transcript + signals
@@ -396,7 +420,7 @@ The JudgeAgent implements the **PhishDebate** adversarial adjudication: it gener
 ```swift
 // GemmaKit/Sources/Agents/JudgeAgent.swift
 actor JudgeAgent: GemScanAgent {
-    let agentId = "judge-agent"
+    let agentId = AgentID.judgeAgent
     let logger = Logger(subsystem: "com.gemscan", category: "JudgeAgent")
 
     private let inference: InferenceEngine
@@ -448,6 +472,24 @@ actor JudgeAgent: GemScanAgent {
 
 ---
 
+## 3.8 MCP Tool Failure Recovery Contract
+
+When `MCPClient.call()` throws or returns a `MCPToolResult` with `success: false`, agents follow this policy:
+
+| Scenario | Agent Behaviour |
+|---|---|
+| Access denied (`MCPError.accessDenied`) | Re-throw immediately — this is a programming error, not a runtime failure. |
+| Unknown server / tool | Re-throw immediately — missing tool is a configuration error. |
+| Server-side execution error (`success: false`) | Log the error, treat the tool result as absent (empty output), and continue generation. The `ToolCallRecord` is still appended to `toolCallsLog` for post-mortem review. |
+| Timeout (task-level, via `MessageRouter.dispatch`) | The entire agent task is cancelled; `GemScanError.inferenceTimeout` propagates to the orchestrator, which returns a conservative `suspicious` verdict. |
+| Network error in `url_reputation` or `phone_reputation` | Treat as `success: false` (offline fallback) — agents must not block on network. |
+
+**Agents must not retry failed MCP calls** — retry logic belongs in the MCP server layer (e.g., URL reputation server may internally retry with exponential backoff). From the agent's perspective, the call either succeeds or it doesn't.
+
+**No tool call is mandatory for verdict generation.** Agents produce a verdict from LLM output alone if all tool calls fail. Confidence is typically lower (logged as `toolCallsLog` with `success: false` entries), which may trigger E4B escalation by the orchestrator.
+
+---
+
 ## 4. Platform-Native Message Router
 
 The `MessageRouter` eliminates the A2A bus in favour of direct Swift actor messaging. It maintains a registry of active agents and dispatches tasks based on payload type.
@@ -462,8 +504,12 @@ actor MessageRouter {
 
     let logger = Logger(subsystem: "com.gemscan", category: "MessageRouter")
 
-    private let textAgent = TextAgent()
-    private let urlAgent = URLAgent()
+    // Agent singletons — created once at router init, reused for all tasks.
+    // Each agent is a Swift actor, so concurrent calls are serialised internally.
+    // The router holds strong references; agents hold weak references back to
+    // shared singletons (InferenceEngine.shared, MCPClient.shared) to avoid cycles.
+    private let textAgent  = TextAgent()
+    private let urlAgent   = URLAgent()
     private let imageAgent = ImageAgent()
     private let voiceAgent = VoiceAgent()
     private let judgeAgent_ = JudgeAgent()
@@ -521,6 +567,10 @@ Each agent uses a **GBNF grammar** to constrain LLM output to valid JSON. This p
 
 ```swift
 // GemmaKit/Sources/Agents/Grammars/GrammarConstraint.swift
+
+/// Pre-built GBNF grammar strings for each agent's expected JSON output.
+/// These are passed to `LlamaCppInferenceBackend` to constrain decoding,
+/// and to `GrammarValidator.validate()` to check MLX outputs post-hoc.
 enum GrammarConstraint {
 
     /// Text and URL agents: verdict + confidence + reasoning + optional tool calls
@@ -541,9 +591,8 @@ enum GrammarConstraint {
     ws ::= [ \\t\\n]*
     """
 
-    static let urlAgentGrammar = textAgentGrammar   // Same schema
-
-    static let imageAgentGrammar = textAgentGrammar  // Same schema (no tool calls needed post-OCR)
+    static let urlAgentGrammar   = textAgentGrammar
+    static let imageAgentGrammar = textAgentGrammar
 
     static let voiceAgentGrammar = """
     root ::= "{" ws verdict-field "," ws confidence-field "," ws reasoning-field "," ws deepfake-field ws "}"
@@ -552,15 +601,129 @@ enum GrammarConstraint {
     confidence-field ::= "\\"confidence\\":" ws number
     reasoning-field  ::= "\\"reasoning\\":" ws string-array
     deepfake-field   ::= "\\"deepfakeProbability\\":" ws number
-    string-array ::= "[" ws string ("," ws string)* ws "]"
-    number ::= [0-9]+ "." [0-9]+
-    string ::= "\\"" ([^\\\\"] | "\\\\" .)* "\\""
-    ws ::= [ \\t\\n]*
+    string-array     ::= "[" ws string ("," ws string)* ws "]"
+    number           ::= [0-9]+ "." [0-9]+
+    string           ::= "\\"" ([^\\\\"] | "\\\\" .)* "\\""
+    ws               ::= [ \\t\\n]*
     """
 
-    static let verdictGrammar = textAgentGrammar    // JudgeAgent final render
+    static let verdictGrammar = textAgentGrammar
+    static let plainText      = ""    // No constraint — free-form generation for PhishDebate passes
+}
 
-    static let plainText = ""                        // No grammar constraint — free generation
+// MARK: - Grammar Validation (post-hoc check for MLX outputs)
+
+/// Validates that a string output conforms to a GBNF grammar by attempting
+/// to parse it as the expected JSON structure. This is used for MLX (which
+/// does not natively support GBNF) — llama.cpp enforces grammar at sampling time.
+enum GrammarValidator {
+
+    enum GrammarError: Error {
+        case malformedJSON(String)
+        case missingField(String)
+        case invalidVerdictValue(String)
+        case confidenceOutOfRange(Double)
+    }
+
+    /// Validates that `output` is valid JSON conforming to the agent verdict schema.
+    /// Throws `GemScanError.grammarViolation(raw:)` on any violation.
+    static func validate(output: String, against grammar: String) throws {
+        guard !grammar.isEmpty else { return }   // plainText — no validation
+
+        guard let data = output.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw GemScanError.grammarViolation(raw: "Output is not valid JSON: \(output.prefix(100))")
+        }
+
+        guard let verdict = json["verdict"] as? String else {
+            throw GemScanError.grammarViolation(raw: "Missing 'verdict' field")
+        }
+        guard ["safe", "suspicious", "scam"].contains(verdict) else {
+            throw GemScanError.grammarViolation(raw: "Invalid verdict value: \(verdict)")
+        }
+        guard let confidence = json["confidence"] as? Double else {
+            throw GemScanError.grammarViolation(raw: "Missing or non-numeric 'confidence' field")
+        }
+        guard (0.0...1.0).contains(confidence) else {
+            throw GemScanError.grammarViolation(raw: "Confidence \(confidence) out of range [0,1]")
+        }
+        guard json["reasoning"] is [String] else {
+            throw GemScanError.grammarViolation(raw: "Missing or non-array 'reasoning' field")
+        }
+    }
+}
+```
+
+## 5.2 Agent Output Types
+
+Each agent parses its grammar-constrained JSON output into a typed struct. These structs are internal to GemmaKit.
+
+```swift
+// GemmaKit/Sources/Agents/AgentOutputTypes.swift
+
+// Shared parsed verdict used by TextAgent, URLAgent, ImageAgent, and JudgeAgent
+struct ParsedVerdict {
+    let verdict: ScamVerdict
+    let confidence: Double
+    let reasoning: [String]
+    let toolCalls: [RawToolCall]
+
+    static func parse(_ rawOutput: String) throws -> ParsedVerdict {
+        try GrammarValidator.validate(output: rawOutput, against: GrammarConstraint.textAgentGrammar)
+        let data = rawOutput.data(using: .utf8)!
+        let json = try JSONDecoder().decode(VerdictJSON.self, from: data)
+        return ParsedVerdict(
+            verdict: json.verdict,
+            confidence: json.confidence,
+            reasoning: json.reasoning,
+            toolCalls: json.toolCalls ?? []
+        )
+    }
+
+    private struct VerdictJSON: Decodable {
+        let verdict: ScamVerdict
+        let confidence: Double
+        let reasoning: [String]
+        let toolCalls: [RawToolCall]?
+        enum CodingKeys: String, CodingKey { case verdict, confidence, reasoning, toolCalls }
+    }
+}
+
+// Alias types — all agents use ParsedVerdict internally
+typealias TextAgentOutput  = ParsedVerdict
+typealias URLAgentOutput   = ParsedVerdict
+typealias ImageAgentOutput = ParsedVerdict
+
+struct VoiceAgentOutput {
+    let verdict: ScamVerdict
+    let confidence: Double
+    let reasoning: [String]
+    let deepfakeProbability: Double
+
+    static func parse(_ rawOutput: String) throws -> VoiceAgentOutput {
+        try GrammarValidator.validate(output: rawOutput, against: GrammarConstraint.voiceAgentGrammar)
+        let data = rawOutput.data(using: .utf8)!
+        let json = try JSONDecoder().decode(VoiceJSON.self, from: data)
+        return VoiceAgentOutput(
+            verdict: json.verdict,
+            confidence: json.confidence,
+            reasoning: json.reasoning,
+            deepfakeProbability: json.deepfakeProbability
+        )
+    }
+
+    private struct VoiceJSON: Decodable {
+        let verdict: ScamVerdict
+        let confidence: Double
+        let reasoning: [String]
+        let deepfakeProbability: Double
+    }
+}
+
+struct RawToolCall: Decodable {
+    let server: String
+    let tool: String
+    let input: [String: String]
 }
 ```
 

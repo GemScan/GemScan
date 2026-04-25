@@ -135,6 +135,161 @@ type AgentPayload =
   | { type: 'multimodal'; parts: AgentPayload[] }
 ```
 
+### AgentTaskType Enum
+
+```typescript
+// TypeScript canonical definition
+export type AgentTaskType =
+  | 'classifySMS'
+  | 'classifyEmail'
+  | 'checkURL'
+  | 'analyseScreenshot'
+  | 'scoreVoice'
+  | 'explainVerdict'
+```
+
+```swift
+// Swift mirror — raw values must match TypeScript strings exactly
+enum AgentTaskType: String, Codable {
+    case classifySMS       = "classifySMS"
+    case classifyEmail     = "classifyEmail"
+    case checkURL          = "checkURL"
+    case analyseScreenshot = "analyseScreenshot"
+    case scoreVoice        = "scoreVoice"
+    case explainVerdict    = "explainVerdict"
+}
+```
+
+### ModelTier Enum
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/ModelTier.swift
+enum ModelTier: String, Codable {
+    case e2b        = "e2b"
+    case e4b        = "e4b"
+    case distilbert = "distilbert"
+
+    /// Expected resident-memory footprint at Q4_K_M
+    var expectedRAMBytes: Int {
+        switch self {
+        case .e2b:        return 1_800 * 1_024 * 1_024   // 1.8 GB
+        case .e4b:        return 3_200 * 1_024 * 1_024   // 3.2 GB
+        case .distilbert: return 5 * 1_024 * 1_024       // 5 MB
+        }
+    }
+}
+```
+
+### Swift AgentTask Struct
+
+The Swift struct is the authoritative native definition. All field names use camelCase and are JSON-key-matched to the TypeScript contract via `CodingKeys`.
+
+```swift
+// ios/App/GemmaKit/Sources/Agents/AgentTask.swift
+import Foundation
+
+struct AgentTask: Codable {
+    let id: String                  // UUID v4 string
+    let type: AgentTaskType
+    let payload: AgentPayload
+    let priority: TaskPriority
+    let createdAt: Int64            // Unix timestamp ms
+    let timeoutMs: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, type, payload, priority, createdAt, timeoutMs
+    }
+
+    /// Convenience — returns a copy with an updated modelTier hint in the payload.
+    /// Used by OrchestratorAgent when escalating from E2B to E4B.
+    func withModelTier(_ tier: ModelTier) -> AgentTask {
+        AgentTask(id: id, type: type, payload: payload, priority: priority,
+                  createdAt: createdAt, timeoutMs: timeoutMs)
+        // Note: modelTier is passed separately to InferenceEngine.generate(); it is
+        // not a field on AgentTask itself. This method is a no-op on the struct;
+        // the caller passes the desired tier directly to the inference call.
+    }
+}
+
+enum TaskPriority: String, Codable {
+    case realtime   = "realtime"
+    case background = "background"
+}
+
+enum AgentPayload: Codable {
+    case text(String, language: String?)
+    case url(String)
+    case image(String, mimeType: ImageMIMEType)
+    case audio(String, durationSeconds: Double)
+    case multimodal(parts: [AgentPayload], priorResult: AgentResult?)
+
+    var language: String? {
+        if case .text(_, let lang) = self { return lang }
+        return nil
+    }
+
+    var isMultiModal: Bool {
+        if case .multimodal = self { return true }
+        return false
+    }
+
+    enum ImageMIMEType: String, Codable {
+        case jpeg = "image/jpeg"
+        case png  = "image/png"
+    }
+
+    // Custom Codable implementation to handle discriminated union
+    private enum CodingKeys: String, CodingKey { case type, content, url, base64, mimeType, durationSeconds, parts, priorResult, language }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(String.self, forKey: .type)
+        switch type {
+        case "text":
+            let content = try c.decode(String.self, forKey: .content)
+            let language = try c.decodeIfPresent(String.self, forKey: .language)
+            self = .text(content, language: language)
+        case "url":
+            self = .url(try c.decode(String.self, forKey: .url))
+        case "image":
+            let base64 = try c.decode(String.self, forKey: .base64)
+            let mimeType = try c.decode(ImageMIMEType.self, forKey: .mimeType)
+            self = .image(base64, mimeType: mimeType)
+        case "audio":
+            let base64 = try c.decode(String.self, forKey: .base64)
+            let duration = try c.decode(Double.self, forKey: .durationSeconds)
+            self = .audio(base64, durationSeconds: duration)
+        case "multimodal":
+            let parts = try c.decode([AgentPayload].self, forKey: .parts)
+            let prior = try c.decodeIfPresent(AgentResult.self, forKey: .priorResult)
+            self = .multimodal(parts: parts, priorResult: prior)
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "Unknown payload type: \(type)")
+        }
+    }
+}
+```
+
+### TriageLabel Enum
+
+Defined here to be shared between the main app (TextAgent fast path) and the ILMessageFilterExtension.
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/TriageLabel.swift
+enum TriageLabel: String, Codable {
+    case safe        = "safe"
+    case junk        = "junk"
+    case transaction = "transaction"
+    case promotion   = "promotion"
+    case unknown     = "unknown"
+}
+
+struct TriageResult: Codable {
+    let label: TriageLabel
+    let confidence: Double
+}
+```
+
 ### AgentResult
 
 ```typescript
@@ -162,6 +317,45 @@ interface ToolCallRecord {
 }
 ```
 
+### Swift AgentResult Struct
+
+```swift
+// ios/App/GemmaKit/Sources/Agents/AgentResult.swift
+struct AgentResult: Codable {
+    let taskId: String
+    let agentId: String
+    let verdict: ScamVerdict
+    let confidence: Double
+    let reasoning: [String]
+    let language: String
+    let toolCallsLog: [ToolCallRecord]
+    let latencyMs: Int
+    let modelTier: ModelTier
+    let escalatedToE4B: Bool
+
+    func markingEscalated(latencyMs override: Int) -> AgentResult {
+        AgentResult(taskId: taskId, agentId: agentId, verdict: verdict,
+                    confidence: confidence, reasoning: reasoning, language: language,
+                    toolCallsLog: toolCallsLog, latencyMs: override,
+                    modelTier: modelTier, escalatedToE4B: true)
+    }
+}
+
+enum ScamVerdict: String, Codable {
+    case safe       = "safe"
+    case suspicious = "suspicious"
+    case scam       = "scam"
+}
+
+struct ToolCallRecord: Codable {
+    let serverName: String
+    let toolName: String
+    let inputSummary: String
+    let durationMs: Int
+    let success: Bool
+}
+```
+
 ---
 
 ## 5. Error Handling
@@ -178,7 +372,7 @@ interface ToolCallRecord {
 ```swift
 enum GemScanError: Error, CustomStringConvertible {
     case modelNotLoaded(tier: ModelTier)
-    case inferenceTimeout(taskId: String, limitMs: Int)
+    case inferenceTimeout(taskId: String, limitMs: Int)   // thrown by MessageRouter.dispatch when agent exceeds AgentTask.timeoutMs
     case oomRejected(requestedBytes: Int, availableBytes: Int)
     case grammarViolation(raw: String)
     case mcpToolFailed(server: String, tool: String, underlying: Error)

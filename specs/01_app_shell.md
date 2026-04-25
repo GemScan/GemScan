@@ -161,6 +161,31 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 ```
 
+### Capacitor Bridge Serialization Contract
+
+All values passed through the Capacitor bridge are plain JSON objects (serialized by `JSObject`). The following rules apply:
+
+1. **`AgentTask` → JavaScript → Swift:** TypeScript serializes `AgentTask` to a plain JSON object before passing to `GemmaPlugin.analyse()`. All field names are camelCase. Dates are Unix timestamps (milliseconds, `Int64`). The Swift side decodes with `JSONDecoder()` configured with `.convertFromSnakeCase = false` (camelCase is already the wire format).
+
+2. **`AgentResult` → Swift → JavaScript:** The Swift `AgentResult` is encoded with `JSONEncoder()` and returned as a `JSObject` to the TypeScript `Promise<AgentResult>`.
+
+3. **`thermalState` mapping:** Swift `ProcessInfo.ThermalState` is mapped to the TypeScript string union as follows:
+
+   | Swift enum case | TypeScript string |
+   |---|---|
+   | `.nominal` | `"nominal"` |
+   | `.fair` | `"fair"` |
+   | `.serious` | `"serious"` |
+   | `.critical` | `"critical"` |
+
+4. **`tokenStream` event — `done` field semantics:** The `done: true` token event is emitted **exactly once** at the end of generation (after all content tokens). Content tokens always have `done: false`. The `StreamingReasoningView` component relies on this: it sets `done` state only once and must not receive multiple `done: true` events.
+
+5. **`AgentTask(from: taskJSON)` error conditions:** The Swift `AgentTask` initializer throws `GemScanError.grammarViolation(raw:)` if:
+   - The `type` field contains a value not in `AgentTaskType`
+   - The `payload.type` field is missing or unrecognised
+   - The `priority` field is missing or not `"realtime"` / `"background"`
+   - Any required `Int64` field (e.g., `createdAt`) is absent or not a number
+
 ---
 
 ## 5. Web Mock Layer (`src/lib/gemma/mock.ts`)
@@ -343,7 +368,7 @@ import { persist } from 'zustand/middleware'
 interface GemScanStore {
   screeningMode: 'passive' | 'active' | 'guardian'
   guardianModeEnabled: boolean
-  trustedContactId: string | null
+  trustedContactId: string | null    // CNContact identifier from CNContact.identifier (iOS persistent UUID)
   preferredLanguage: string      // BCP-47 tag, e.g. 'en', 'hi', 'ja'
   setScreeningMode: (mode: GemScanStore['screeningMode']) => void
   setGuardianMode: (enabled: boolean) => void
