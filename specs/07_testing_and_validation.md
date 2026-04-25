@@ -213,7 +213,114 @@ describe('useGemScanStore', () => {
 
 ## 3. XCTest — Swift Unit and Integration Tests
 
-### 3.0 Test Helpers
+### 3.0 Test Infrastructure
+
+#### Mock Actors
+
+```swift
+// GemmaKit/Tests/Mocks/MockInferenceEngine.swift
+import GemmaKit
+
+/// Deterministic mock for `InferenceEngine`. Returns pre-set string outputs in order.
+/// Thread-safe via actor isolation — matches the real InferenceEngine.
+actor MockInferenceEngine {
+    /// Single-output mode: every call returns this string.
+    var nextOutput: String = """
+    {"verdict":"suspicious","confidence":0.75,"reasoning":["Mock reasoning."],"toolCalls":[]}
+    """
+
+    /// Multi-output mode: responses are consumed in order (for PhishDebate tests).
+    /// When exhausted, falls back to `nextOutput`.
+    var responses: [String] = []
+
+    func generate(
+        prompt: String,
+        grammar: GrammarConstraint?,
+        tier: ModelTier,
+        maxTokens: Int = 512,
+        onToken: @escaping (String) -> Void
+    ) async throws -> String {
+        let output = responses.isEmpty ? nextOutput : responses.removeFirst()
+        // Simulate token streaming so streaming-aware tests work
+        for word in output.split(separator: " ") {
+            onToken(String(word) + " ")
+        }
+        return output
+    }
+
+    func encode(text: String, dimensions: Int) async throws -> [Float] {
+        // Return a normalised zero vector — sufficient for embedding round-trip tests
+        return Array(repeating: 0.0, count: dimensions)
+    }
+
+    func warmUpE2B() async throws {}
+    func loadE4BIfNeeded() async throws {}
+    func unloadE4B() async {}
+}
+
+/// Deterministic mock for `MCPClient`. Returns empty-but-valid output for every tool.
+actor MockMCPClient {
+    var callLog: [(server: String, tool: String, input: [String: String])] = []
+
+    func call(
+        server serverName: String,
+        tool toolName: String,
+        input: [String: String],
+        callerAgentId: String
+    ) async throws -> MCPToolResult {
+        callLog.append((server: serverName, tool: toolName, input: input))
+        let output: [String: String]
+        switch "\(serverName)/\(toolName)" {
+        case "url_reputation/check_url":
+            output = ["risk_score": "0.1", "blocklisted": "false", "signals": "none"]
+        case "contacts/is_known_sender":
+            output = ["is_known": "false", "contact_count": "0"]
+        case "scam_patterns/match_patterns":
+            output = ["matches": "0", "top_pattern": "none", "risk_level": "low"]
+        case "sqlite_vec/semantic_search":
+            output = ["matches": "[]", "top_similarity": "0.0"]
+        case "sqlite_vec/store_embedding":
+            output = ["stored": "true", "db_size": "1"]
+        case "whois/lookup":
+            output = ["registrar": "mock-registrar", "age_days": "365", "risk_score": "0.1"]
+        case "phone_reputation/check":
+            output = ["found_numbers": "0", "max_risk_score": "0.0", "report_count": "0"]
+        case "reverse_image/extract_text_urls":
+            output = ["url_count": "0", "urls": "", "text_length": "10", "has_qr": "false"]
+        default:
+            output = ["result": "ok"]
+        }
+        return MCPToolResult(
+            output: output,
+            record: ToolCallRecord(
+                serverName: serverName,
+                toolName: toolName,
+                inputSummary: "mock",
+                durationMs: 1,
+                success: true
+            )
+        )
+    }
+
+    func call(tool: RawToolCall, callerAgentId: String) async throws -> MCPToolResult {
+        try await call(server: tool.server, tool: tool.tool, input: tool.input, callerAgentId: callerAgentId)
+    }
+}
+
+/// Mock for `MessageRouter.dispatch()` that returns a pre-set result with controllable confidence.
+actor MockMessageRouter {
+    let draftConfidence: Double
+    init(draftConfidence: Double = 0.50) {
+        self.draftConfidence = draftConfidence
+    }
+
+    func dispatch(_ task: AgentTask) async throws -> AgentResult {
+        AgentResult.fixture(taskId: task.id, verdict: .suspicious, confidence: draftConfidence)
+    }
+}
+```
+
+#### Test Helper Extensions
 
 ```swift
 // GemmaKit/Tests/TestHelpers.swift

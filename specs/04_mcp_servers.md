@@ -539,6 +539,40 @@ actor ReverseImageServer: MCPServer {
         let matches = detector?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []
         return matches.compactMap { $0.url?.absoluteString }
     }
+
+    /// Detects QR codes in the image using a VNDetectBarcodesRequest.
+    /// Returns true if any QR code is found (content not returned — only presence is signalled).
+    private func checkForQRCodes(cgImage: CGImage) -> Bool {
+        var found = false
+        let request = VNDetectBarcodesRequest { request, _ in
+            found = (request.results as? [VNBarcodeObservation])?
+                .contains(where: { $0.symbology == .qr }) ?? false
+        }
+        request.symbologies = [.qr]
+        try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
+        return found
+    }
+
+    /// Perceptual hash (pHash) of the image for near-duplicate detection.
+    /// Returns a 64-bit hex string. Two images with Hamming distance ≤ 10 are considered similar.
+    private func computePHash(cgImage: CGImage) -> String {
+        // Resize to 32×32 greyscale, apply DCT, take top-left 8×8, compare to mean
+        let size = CGSize(width: 32, height: 32)
+        let colorSpace = CGColorSpaceCreateDeviceGray()
+        guard let context = CGContext(
+            data: nil, width: 32, height: 32,
+            bitsPerComponent: 8, bytesPerRow: 32,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else { return "0000000000000000" }
+        context.draw(cgImage, in: CGRect(origin: .zero, size: size))
+        guard let data = context.data else { return "0000000000000000" }
+        let pixels = Array(UnsafeBufferPointer(start: data.bindMemory(to: UInt8.self, capacity: 1024), count: 1024))
+        let mean = Double(pixels.reduce(0, { $0 + Int($1) })) / 1024.0
+        var hash: UInt64 = 0
+        for i in 0..<64 { if Double(pixels[i]) > mean { hash |= (1 << i) } }
+        return String(format: "%016llx", hash)
+    }
 }
 ```
 

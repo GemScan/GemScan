@@ -153,6 +153,41 @@ public actor InferenceEngine {
         return output
     }
 
+    /// Multimodal generation: encode an image + text prompt together via E4B's vision encoder.
+    /// Used exclusively by `ImageAgent` for screenshot analysis.
+    /// - Parameters:
+    ///   - imageBase64: Base64-encoded PNG/JPEG image (RFC 4648, no line wrapping).
+    ///   - textPrompt:  The text instruction prompt (assembled by `ImageAgentPrompts`).
+    ///   - grammar:     Grammar constraint applied post-hoc via `GrammarValidator`.
+    ///   - task:        The originating task (for timeout enforcement).
+    ///   - maxTokens:   Maximum tokens to generate (default 512).
+    ///   - onToken:     Streaming callback — same semantics as `generate()`.
+    public func generateVision(
+        imageBase64: String,
+        textPrompt: String,
+        grammar: GrammarConstraint?,
+        task: AgentTask,
+        maxTokens: Int = 512,
+        onToken: @escaping (String) -> Void = { _ in }
+    ) async throws -> String {
+        try await loadE4BIfNeeded()
+        let backend = try backend(for: .e4b)
+        guard let mlxBackend = backend as? MLXInferenceBackend else {
+            throw GemScanError.grammarViolation(raw: "generateVision() requires MLXInferenceBackend (E4B)")
+        }
+        let start = ContinuousClock.now
+        let output = try await mlxBackend.generateVision(
+            imageBase64: imageBase64,
+            textPrompt: textPrompt,
+            grammar: grammar,
+            maxTokens: maxTokens,
+            onToken: onToken
+        )
+        let latencyMs = Int(ContinuousClock.now - start, in: .milliseconds)
+        logger.info("generateVision: latency=\(latencyMs, privacy: .public)ms")
+        return output
+    }
+
     /// Encoder-only forward pass on E2B to produce a normalised embedding vector.
     /// Used by `TextEmbedder` to generate float vectors for sqlite_vec semantic search.
     /// - Parameters:
@@ -260,6 +295,30 @@ actor MLXInferenceBackend: InferenceBackend {
             onToken(piece)
             output += piece
             if grammar?.accepts(output) == false { break }  // Grammar-constrained stop
+        }
+        return output
+    }
+
+    /// Multimodal generation with an image input.
+    /// The image is encoded by E4B's SigLIP vision tower, concatenated with text token embeddings,
+    /// then decoded autoregressively. Grammar constraints applied post-hoc.
+    func generateVision(
+        imageBase64: String,
+        textPrompt: String,
+        grammar: GrammarConstraint?,
+        maxTokens: Int,
+        onToken: @escaping (String) -> Void
+    ) async throws -> String {
+        guard let imageData = Data(base64Encoded: imageBase64) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Invalid base64 image")
+        }
+        // Use LLMModelFactory.loadVision() for multimodal models (PaliGemma/Gemma4 compatible)
+        let textTokens = tokenizer.encode(textPrompt)
+        var output = ""
+        for await token in model.generateVision(imageData: imageData, textTokens: textTokens, maxTokens: maxTokens) {
+            let piece = tokenizer.decode([token])
+            onToken(piece)
+            output += piece
         }
         return output
     }

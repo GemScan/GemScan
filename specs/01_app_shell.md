@@ -314,12 +314,166 @@ export const goldenFixtures: Record<string, AgentResult> = {
     modelTier: 'e4b',
     escalatedToE4B: true,
   },
+  // SMS agent verdicts
+  'scam-sms-bank': {
+    taskId: 'mock-scam-sms',
+    agentId: 'text-agent',
+    verdict: 'scam',
+    confidence: 0.93,
+    reasoning: [
+      'Message impersonates a bank with a fake alert.',
+      'Link domain registered 3 days ago — high risk.',
+      'Recommend: Do not click the link or call the number.',
+    ],
+    language: 'en',
+    toolCallsLog: [{ serverName: 'url_reputation', toolName: 'check_url', inputSummary: '{url}', durationMs: 12, success: true }],
+    latencyMs: 510,
+    modelTier: 'e2b',
+    escalatedToE4B: false,
+  },
+  'suspicious-sms-promo': {
+    taskId: 'mock-suspicious-sms',
+    agentId: 'text-agent',
+    verdict: 'suspicious',
+    confidence: 0.66,
+    reasoning: [
+      'Promotional offer with an unverified link.',
+      'Sender not in contacts.',
+      'Recommend: Verify the offer before clicking.',
+    ],
+    language: 'en',
+    toolCallsLog: [],
+    latencyMs: 390,
+    modelTier: 'e2b',
+    escalatedToE4B: false,
+  },
+  // URL agent verdicts
+  'scam-url-phishing': {
+    taskId: 'mock-scam-url',
+    agentId: 'url-agent',
+    verdict: 'scam',
+    confidence: 0.88,
+    reasoning: [
+      'Domain is on the known phishing blocklist.',
+      'TLD and path structure match credential-harvesting patterns.',
+      'Recommend: Do not visit this URL.',
+    ],
+    language: 'en',
+    toolCallsLog: [{ serverName: 'url_reputation', toolName: 'check_url', inputSummary: '{url}', durationMs: 8, success: true }],
+    latencyMs: 290,
+    modelTier: 'e2b',
+    escalatedToE4B: false,
+  },
+  'safe-url-known': {
+    taskId: 'mock-safe-url',
+    agentId: 'url-agent',
+    verdict: 'safe',
+    confidence: 0.95,
+    reasoning: ['Domain is a well-known legitimate service.', 'No blocklist match.'],
+    language: 'en',
+    toolCallsLog: [],
+    latencyMs: 155,
+    modelTier: 'e2b',
+    escalatedToE4B: false,
+  },
+  // Screenshot (image) agent
+  'scam-screenshot-fake-login': {
+    taskId: 'mock-scam-screenshot',
+    agentId: 'image-agent',
+    verdict: 'scam',
+    confidence: 0.91,
+    reasoning: [
+      'Screenshot shows a fake bank login page with mismatched branding.',
+      'QR code detected — leads to an unverified domain.',
+      'Recommend: Do not enter any credentials.',
+    ],
+    language: 'en',
+    toolCallsLog: [{ serverName: 'reverse_image', toolName: 'extract_text_urls', inputSummary: '{base64}', durationMs: 45, success: true }],
+    latencyMs: 1800,
+    modelTier: 'e4b',
+    escalatedToE4B: true,
+  },
+  'safe-screenshot-receipt': {
+    taskId: 'mock-safe-screenshot',
+    agentId: 'image-agent',
+    verdict: 'safe',
+    confidence: 0.89,
+    reasoning: ['Screenshot shows a standard payment receipt.', 'No suspicious links or QR codes.'],
+    language: 'en',
+    toolCallsLog: [],
+    latencyMs: 950,
+    modelTier: 'e4b',
+    escalatedToE4B: false,
+  },
+  // Email classification
+  'scam-email-lottery': {
+    taskId: 'mock-scam-email',
+    agentId: 'text-agent',
+    verdict: 'scam',
+    confidence: 0.96,
+    reasoning: [
+      'Classic lottery scam: unsolicited prize with fee-advance request.',
+      'Sender domain created recently; not matching the claimed organisation.',
+      'Recommend: Delete this email and do not respond.',
+    ],
+    language: 'en',
+    toolCallsLog: [],
+    latencyMs: 480,
+    modelTier: 'e2b',
+    escalatedToE4B: false,
+  },
+  'safe-email-receipt': {
+    taskId: 'mock-safe-email',
+    agentId: 'text-agent',
+    verdict: 'safe',
+    confidence: 0.98,
+    reasoning: ['Order confirmation from a known retailer.', 'No suspicious links detected.'],
+    language: 'en',
+    toolCallsLog: [],
+    latencyMs: 160,
+    modelTier: 'distilbert',
+    escalatedToE4B: false,
+  },
 }
 ```
 
 ---
 
-## 6. Next.js Configuration (`next.config.ts`)
+## 6. Key Dependencies (`package.json`)
+
+All versions are pinned exactly (no `^` ranges). Renovate Bot handles bump PRs.
+
+```json
+{
+  "dependencies": {
+    "next": "14.2.5",
+    "@capacitor/core": "6.1.2",
+    "@capacitor/ios": "6.1.2",
+    "@capacitor/cli": "6.1.2",
+    "@capacitor/preferences": "6.0.2",
+    "@capacitor-community/contacts": "6.0.1",
+    "@tanstack/react-query": "5.51.1",
+    "zustand": "4.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4",
+    "vitest": "2.0.5",
+    "@vitejs/plugin-react": "4.3.1",
+    "@testing-library/react": "16.0.0",
+    "@testing-library/jest-dom": "6.4.6",
+    "@playwright/test": "1.46.1",
+    "vite-tsconfig-paths": "5.0.1"
+  }
+}
+```
+
+> `@capacitor-community/contacts` is used by the `ContactPicker` component (Spec 06 §3.4). It wraps `CNContactStore` on iOS and must be installed before running `npx cap sync ios`.
+
+---
+
+## 7. Next.js Configuration (`next.config.ts`)
 
 ```typescript
 import type { NextConfig } from 'next'
@@ -400,7 +554,16 @@ export const useGemScanStore = create<GemScanStore>()(
       setGuardianMode: (enabled) => set({ guardianModeEnabled: enabled }),
       setTrustedContact: (id) => set({ trustedContactId: id }),
     }),
-    { name: 'gemscan-store' }
+    {
+      name: 'gemscan-store',
+      version: 1,
+      // Schema migration: increment version and provide migrate() when adding/renaming fields.
+      // Old persisted state that doesn't match the new schema is merged via migrate().
+      migrate: (persistedState: unknown, fromVersion: number) => {
+        // v0 → v1: no migration needed (initial schema)
+        return persistedState as GemScanStore
+      },
+    }
   )
 )
 ```

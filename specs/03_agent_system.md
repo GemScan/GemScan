@@ -383,12 +383,11 @@ actor VoiceAgent: GemScanAgent {
         toolCallsLog.append(phoneResult.record)
 
         // 4. LLM analysis with transcript + signals
-        let prompt = VoiceAgentPrompts.reactPrompt(
+        let prompt = VoiceAgentPrompts.analysisPrompt(
             transcript: transcript.text,
-            language: transcript.language,
             deepfakeScore: deepfakeScore,
             phoneReputation: phoneResult.output,
-            durationSeconds: durationSeconds
+            language: transcript.language
         )
         let rawOutput = try await inference.generate(
             prompt: prompt,
@@ -778,7 +777,77 @@ enum TextAgentPrompts {
 
 > **Privacy note:** The actual message content is passed as a separate context variable that is never logged or stored. The prompt template shown here uses a placeholder for illustration. The real implementation passes `content` directly to the inference engine's context buffer, which is zero-filled after the call.
 
-### 6.2 JudgeAgent Prompt Templates
+### 6.2 URL Agent Prompt Template
+
+```swift
+// GemmaKit/Sources/Agents/Prompts/URLAgentPrompts.swift
+enum URLAgentPrompts {
+    static func reactPrompt(url: String, reputation: [String: String], whois: [String: String]) -> String {
+        """
+        <bos><start_of_turn>system
+        You are GemScan URL Analyser. Assess whether this URL is safe, suspicious, or a scam. \
+        Use the reputation and WHOIS data provided. Output a JSON verdict.
+        <end_of_turn>
+        <start_of_turn>user
+        URL: [REDACTED — \(url.count) characters]
+        Reputation: risk_score=\(reputation["risk_score"] ?? "unknown") blocklisted=\(reputation["blocklisted"] ?? "false")
+        WHOIS: registrar=\(whois["registrar"] ?? "unknown") age_days=\(whois["age_days"] ?? "unknown")
+        <end_of_turn>
+        <start_of_turn>model
+        """
+    }
+}
+```
+
+### 6.3 Image Agent Prompt Template
+
+```swift
+// GemmaKit/Sources/Agents/Prompts/ImageAgentPrompts.swift
+enum ImageAgentPrompts {
+    static func visionPrompt(mimeType: String, ocrText: String) -> String {
+        """
+        <bos><start_of_turn>system
+        You are GemScan Screenshot Analyser. Examine this image for scam indicators: \
+        fake UI chrome, social engineering text, phishing links, QR codes. \
+        OCR pre-extraction: \(ocrText.isEmpty ? "(none)" : "[\(ocrText.count) chars extracted]"). \
+        Output a JSON verdict.
+        <end_of_turn>
+        <start_of_turn>user
+        Analyse the attached screenshot (type: \(mimeType)). \
+        Look for: fake login pages, prize notifications, fake bank alerts, \
+        urgency language, suspicious URLs in the image.
+        <end_of_turn>
+        <start_of_turn>model
+        """
+    }
+}
+```
+
+### 6.4 Voice Agent Prompt Template
+
+```swift
+// GemmaKit/Sources/Agents/Prompts/VoiceAgentPrompts.swift
+enum VoiceAgentPrompts {
+    static func analysisPrompt(transcript: String, deepfakeScore: Double, phoneReputation: [String: String], language: String) -> String {
+        """
+        <bos><start_of_turn>system
+        You are GemScan Voice Call Analyser. Evaluate whether a voice call transcript indicates a scam. \
+        Consider: voice authenticity (deepfake score), phone reputation, and linguistic patterns. \
+        Output a JSON verdict including deepfakeProbability.
+        <end_of_turn>
+        <start_of_turn>user
+        Transcript language: \(language)
+        Transcript: [\(transcript.count) characters — content redacted]
+        Deepfake score: \(String(format: "%.3f", deepfakeScore)) (0.0=human, 1.0=AI-generated)
+        Phone risk: found_numbers=\(phoneReputation["found_numbers"] ?? "0") max_risk=\(phoneReputation["max_risk_score"] ?? "0.0")
+        <end_of_turn>
+        <start_of_turn>model
+        """
+    }
+}
+```
+
+### 6.5 JudgeAgent Prompt Templates
 
 ```swift
 // GemmaKit/Sources/Agents/Prompts/JudgeAgentPrompts.swift

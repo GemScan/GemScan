@@ -388,9 +388,36 @@ Model weights are **never committed to git**. They are downloaded at runtime (fi
       "sha256": "ghi789...",
       "sizeBytes": 3006477107,
       "downloadUrl": "https://huggingface.co/GemScan/gemma-4-e4b-it-GemScan-q4km/resolve/main/gemma-4-e4b-q4_k_m.gguf"
+    },
+    {
+      "id": "whisper-small-mlx",
+      "platform": "ios",
+      "artifact": "GemScan/whisper-small-mlx",
+      "filename": "whisper-small-mlx",
+      "sha256": "jkl012...",
+      "sizeBytes": 157286400,
+      "downloadUrl": "https://huggingface.co/GemScan/whisper-small-mlx/resolve/main/whisper-small-mlx.zip",
+      "requiredFor": ["scoreVoice"],
+      "downloadPolicy": "on_demand"
+    },
+    {
+      "id": "audioseal-detector-mlx",
+      "platform": "ios",
+      "artifact": "GemScan/audioseal-detector-mlx",
+      "filename": "audioseal-detector-mlx",
+      "sha256": "mno345...",
+      "sizeBytes": 31457280,
+      "downloadUrl": "https://huggingface.co/GemScan/audioseal-detector-mlx/resolve/main/audioseal-detector-mlx.zip",
+      "requiredFor": ["scoreVoice"],
+      "downloadPolicy": "on_demand"
     }
   ]
 }
+
+// `downloadPolicy` values:
+// - "required"   → downloaded at first launch (blocks app use until complete)
+// - "on_demand"  → downloaded lazily when first feature that needs it is invoked
+// distilbert, e2b = "required"; e4b, whisper-small-mlx, audioseal-detector-mlx = "on_demand"
 ```
 
 ### 5.2 SHA-256 Verification

@@ -560,9 +560,113 @@ When GemScan detects a `scam` verdict (or `suspicious` if the user set "All warn
 - The only data transmitted is: `{ "severity": "high" | "medium", "timestamp": <unix_ms>, "signature": "<ed25519>" }`.
 - The trusted contact sees only the alert — not the original message.
 
-**Trusted contact device pairing:**
-- During Guardian setup, the elder's device generates an ed25519 keypair.
-- The public key and the trusted contact's APNs device token are exchanged over a QR-code scan (local, in-person) or via an iMessage deep link.
+**Trusted contact device pairing — key lifecycle:**
+
+```swift
+// GemmaKit/Sources/Guardian/GuardianKeyManager.swift
+import CryptoKit
+import Security
+
+enum GuardianKeyManager {
+
+    /// Keychain item labels — used to look up and replace keys.
+    static let privateKeyLabel  = "com.gemscan.guardian.signingKey"
+    static let contactTokenLabel = "com.gemscan.guardian.contactAPNsToken"
+
+    /// Generate a new ed25519 keypair and persist to Keychain.
+    /// Called once during Guardian Mode setup (`/guardian/setup` page, `handleEnable()`).
+    /// Re-calling this replaces any existing keypair — old alerts signed by the previous key
+    /// will fail verification on the trusted contact's device (treated as expired).
+    static func generateAndStoreKeypair() throws -> Curve25519.Signing.PublicKey {
+        let privateKey = Curve25519.Signing.PrivateKey()
+        let rawPrivateKey = privateKey.rawRepresentation
+
+        let query: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrLabel as String:        privateKeyLabel,
+            kSecAttrAccessible as String:   kSecAttrAccessibleAfterFirstUnlock,
+            kSecValueData as String:        rawPrivateKey,
+        ]
+        SecItemDelete(query as CFDictionary)    // Remove old key if present
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw GemScanError.grammarViolation(raw: "Keychain write failed: \(status)")
+        }
+        return privateKey.publicKey
+    }
+
+    /// Load the stored private key. Throws if no keypair has been generated yet.
+    static func loadPrivateKey() throws -> Curve25519.Signing.PrivateKey {
+        let query: [String: Any] = [
+            kSecClass as String:         kSecClassGenericPassword,
+            kSecAttrLabel as String:     privateKeyLabel,
+            kSecReturnData as String:    true,
+            kSecMatchLimit as String:    kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else {
+            throw GemScanError.modelNotLoaded(tier: .e2b)    // Reuse as "not initialised" signal
+        }
+        return try Curve25519.Signing.PrivateKey(rawRepresentation: data)
+    }
+
+    /// Sign an alert payload. Called by the Swift side of `sendGuardianAlert()`.
+    static func sign(_ payload: Data) throws -> Data {
+        let privateKey = try loadPrivateKey()
+        return try privateKey.signature(for: payload)
+    }
+
+    /// Store the trusted contact's APNs device token (received during QR / iMessage pairing).
+    static func storeTrustedContactToken(_ token: Data) throws {
+        let query: [String: Any] = [
+            kSecClass as String:            kSecClassGenericPassword,
+            kSecAttrLabel as String:        contactTokenLabel,
+            kSecAttrAccessible as String:   kSecAttrAccessibleAfterFirstUnlock,
+            kSecValueData as String:        token,
+        ]
+        SecItemDelete(query as CFDictionary)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw GemScanError.grammarViolation(raw: "Keychain write failed (contact token): \(status)")
+        }
+    }
+
+    /// Load the trusted contact's APNs device token.
+    static func loadTrustedContactToken() throws -> Data {
+        let query: [String: Any] = [
+            kSecClass as String:        kSecClassGenericPassword,
+            kSecAttrLabel as String:    contactTokenLabel,
+            kSecReturnData as String:   true,
+            kSecMatchLimit as String:   kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else {
+            throw GemScanError.grammarViolation(raw: "No trusted contact token in Keychain")
+        }
+        return data
+    }
+
+    /// Key rotation: generate a new keypair and push the new public key to the relay server
+    /// so the trusted contact's device can verify future alerts. Rotation happens:
+    /// - When the user re-runs Guardian setup (replaces existing keypair)
+    /// - Never automatically — no time-based rotation for hackathon scope
+    static func rotateKeypair() throws -> Curve25519.Signing.PublicKey {
+        return try generateAndStoreKeypair()   // Same path, relay re-registration handled by caller
+    }
+}
+```
+
+**QR code / iMessage pairing flow:**
+- The elder's device calls `GuardianKeyManager.generateAndStoreKeypair()`, encodes `{ "publicKey": <base64>, "relayToken": <uuid> }` as a QR code.
+- The trusted contact scans the QR code (or opens the iMessage deep link `gemscan://guardian/accept?...`), which registers their APNs token with the relay server associated with the elder's `relayToken`.
+- The relay server stores `{ elderRelayToken → { contactAPNsToken, elderPublicKey } }` — no PII.
+- On each alert, the elder signs `{ severity, timestamp }` with their private key; the relay forwards to APNs and the trusted contact's app verifies the signature using the stored public key.
+
+**Trusted contact device pairing — storage summary:**
+- The elder's device stores: private signing key + contact APNs token (both in Keychain)
+- The relay server stores: `relayToken → { contactAPNsToken, elderPublicKey }` (no names, no content)
 - Both keys are stored in the iOS Keychain (`kSecAttrAccessibleAfterFirstUnlock`).
 
 **TypeScript interface addition** (`src/lib/gemma/types.ts`):
