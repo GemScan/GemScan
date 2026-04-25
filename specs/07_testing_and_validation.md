@@ -35,6 +35,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Restrict to .test.ts/.test.tsx — project convention (not .spec.ts).
+    // This makes the pattern explicit rather than relying on Vitest's default glob.
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     coverage: {
       provider: 'v8',
       include: ['src/lib/**'],

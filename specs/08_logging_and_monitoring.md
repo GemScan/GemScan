@@ -48,18 +48,23 @@ enum GemScanLogger {
 
 `os.Logger` automatically redacts dynamic string interpolation in release builds unless explicitly marked `.public`.
 
+**Privacy marker policy:**
+- Mark as `.public`: task IDs (UUIDs), verdict strings, model tier names, latency/count integers, language codes, error categories
+- Leave as default (`.private`, redacted in production): message content, contact names, phone numbers, email addresses, URLs, any field from AgentTask.payload
+- Never log AgentTask payload fields at any log level, even in debug builds
+
 ```swift
-// CORRECT — dynamic values are redacted in release builds
-GemScanLogger.inference.info("Task \(task.id, privacy: .public) completed in \(latencyMs)ms")
+// CORRECT — task ID and metrics are safe to expose
+GemScanLogger.inference.info("Task \(task.id, privacy: .public) completed in \(latencyMs, privacy: .public)ms")
 
 // CORRECT — safe metadata, always public
 GemScanLogger.inference.info("Model tier: \(modelTier.rawValue, privacy: .public) verdict: \(verdict.rawValue, privacy: .public)")
 
 // WRONG — never log content
-// GemScanLogger.agents.debug("Message content: \(messageBody)")  // ← never do this
+// GemScanLogger.agents.debug("Message content: \(messageBody)")  // ← PII, caught by CI pii-scan
 
-// CORRECT — log summary stats only
-GemScanLogger.agents.debug("Processing SMS [\(messageBody.count) chars, language=\(language)]")
+// CORRECT — log summary stats, not content
+GemScanLogger.agents.debug("Processing SMS [\(messageBody.count, privacy: .public) chars, language=\(language, privacy: .public)]")
 ```
 
 ### 3.3 Structured Log Events
@@ -207,6 +212,7 @@ struct InferenceMetrics {
     let toolCallCount: Int
     let verdict: ScamVerdict
     let confidence: Double
+    let language: String      // BCP-47 tag — needed to separate latency/quality metrics by locale
     let timestamp: Date
 
     /// Emit as a structured os_signpost for Instruments time profiling.
@@ -239,7 +245,9 @@ actor MetricsStore {
     static let shared = MetricsStore()
 
     private var records: [InferenceMetrics] = []
-    private let maxRecords = 500    // Ring buffer
+    /// FIFO ring buffer: when at capacity, the oldest record (index 0) is evicted first.
+    /// 500 records ≈ 2–3 days of active use at 5 analyses/day. Exported on demand via `export()`.
+    private let maxRecords = 500
 
     private let logger = GemScanLogger.metrics
 

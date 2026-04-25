@@ -320,7 +320,7 @@ export function ContactPicker({ selectedId, onSelect }: Props) {
           displayName: c.name!.display!,
           phoneOrEmail: maskContact(c.phones?.[0]?.number ?? c.emails?.[0]?.address ?? ''),
         }))
-        .sort((a, b) => a.displayName.localeCompare(b.displayName))
+        .sort((a, b) => a.displayName.localeCompare(b.displayName, useGemScanStore.getState().preferredLanguage, { sensitivity: 'base' }))
       setContacts(mapped)
     } catch (e: any) {
       logger.error('ContactPicker: failed to load contacts', { error: e.message })
@@ -791,8 +791,16 @@ export function useLocale(): Locale {
 /** Call this when the user changes language in Settings. */
 export async function setLocale(locale: Locale): Promise<void> {
   useGemScanStore.getState().setPreferredLanguage(locale)
-  // Write to native shared container so GemmaKit reads it on next inference
-  await Preferences.set({ key: 'gemscan.userLanguageCode', value: locale })
+  // Write to native shared container so GemmaKit reads it on next inference.
+  // If the write fails (e.g., Capacitor bridge unavailable in web mode), the
+  // in-memory Zustand store is already updated — log and continue silently.
+  try {
+    await Preferences.set({ key: 'gemscan.userLanguageCode', value: locale })
+  } catch (e) {
+    logger.warn('setLocale: failed to persist to native storage', { error: String(e) })
+    // Non-fatal: GemmaKit will fall back to "en" on next cold launch, but
+    // the current session uses the correct language from the Zustand store.
+  }
 }
 ```
 

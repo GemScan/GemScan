@@ -303,10 +303,15 @@ actor LlamaCppInferenceBackend: InferenceBackend {
     }
 
     func generate(prompt: String, grammar: GrammarConstraint?, maxTokens: Int, onToken: @escaping (String) -> Void) async throws -> String {
-        // llama_tokenize → llama_decode → loop llama_sampling_sample
-        // Apply GBNF grammar via llama_grammar_init if grammar != nil
-        // Full implementation follows llama.cpp simple.cpp pattern
-        fatalError("Implement via llama.cpp C bridge")
+        // Implementation outline (stub — full impl follows llama.cpp simple.cpp pattern):
+        // 1. llama_tokenize(ctx, prompt)
+        // 2. If grammar != nil: llama_grammar_init from grammar.gbnfString
+        // 3. Loop llama_decode → llama_sampling_sample, applying grammar sampler
+        // 4. Call onToken(piece) for each token; break on EOS or maxTokens
+        // 5. llama_grammar_free on exit
+        // Note: GBNF grammar constraints are applied at sampling time (token-level),
+        //       unlike MLXInferenceBackend which does post-hoc JSON validation.
+        throw GemScanError.grammarViolation(raw: "LlamaCppInferenceBackend not yet implemented")
     }
 }
 ```
@@ -471,19 +476,53 @@ DistilBERT runs in two contexts:
 import CoreML
 
 class SMSTriage {
-    private let model: SmsTriage   // Core ML generated class from GemScan/sms-triage-distilbert.mlpackage
+    /// Main-app singleton. Loads from the compiled `.mlmodelc` in the main app bundle.
+    /// Used by `TextAgent` for the cheap pre-filter pass (Spec 03 §3.3).
+    static let shared: SMSTriage = {
+        guard let instance = try? SMSTriage(modelURL: Bundle.main.url(
+            forResource: "SmsTriage", withExtension: "mlmodelc"
+        )!) else {
+            fatalError("GemScan: SmsTriage.mlmodelc missing from main bundle — check build phases")
+        }
+        return instance
+    }()
 
-    init() throws {
-        let config = MLModelConfiguration()
-        config.computeUnits = .cpuOnly  // Stay within 50 MB extension ceiling
-        model = try SmsTriage(configuration: config)
+    /// Extension factory. Loads from the path written to the App Group container by
+    /// `ModelLoader.syncPathToAppGroup()` (Spec 02 §6). Use in `ILMessageFilterExtension`
+    /// instead of `.shared` because extensions run in a separate sandbox and cannot
+    /// access the main app bundle.
+    ///
+    /// Throws `GemScanError.modelNotLoaded` if `SharedContainerSchema.distilbertModelPath`
+    /// has not been written yet (i.e., the main app hasn't completed first-launch download).
+    static func extensionInstance() throws -> SMSTriage {
+        let defaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId)
+        guard let path = defaults?.string(forKey: SharedContainerSchema.distilbertModelPath),
+              !path.isEmpty else {
+            throw GemScanError.modelNotLoaded(tier: .distilbert)
+        }
+        return try SMSTriage(modelURL: URL(fileURLWithPath: path))
     }
 
-    /// Returns (isScam: Bool, confidence: Float) in ≤ 100 ms
-    func classify(_ text: String) throws -> (isScam: Bool, confidence: Float) {
+    private let model: SmsTriage   // Core ML generated class from GemScan/sms-triage-distilbert.mlpackage
+
+    init(modelURL: URL) throws {
+        let config = MLModelConfiguration()
+        config.computeUnits = .cpuOnly  // Stay within 50 MB extension ceiling
+        model = try SmsTriage(contentsOf: modelURL, configuration: config)
+    }
+
+    /// Returns a `TriageResult` in ≤ 100 ms.
+    func classify(text: String) throws -> TriageResult {
         let input = SmsTriage_Input(text: text)
         let output = try model.prediction(input: input)
-        return (output.label == "scam", Float(output.labelProbability["scam"] ?? 0))
+        let label = TriageLabel(rawValue: output.label) ?? .unknown
+        let confidence = Double(output.labelProbability[output.label] ?? 0)
+        return TriageResult(
+            senderHash: "",   // Filled in by callers who have the sender context
+            label: label,
+            confidence: confidence,
+            timestampMs: Int64(Date().timeIntervalSince1970 * 1000)
+        )
     }
 }
 ```
@@ -593,12 +632,14 @@ enum AudioDecoder {
         try aacData.write(to: tempURL)
 
         let file = try AVAudioFile(forReading: tempURL)
-        let format = AVAudioFormat(
+        guard let format = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: targetSampleRate,
             channels: 1,
             interleaved: false
-        )!
+        ) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Could not create PCM format at \(targetSampleRate)Hz")
+        }
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format,
@@ -607,7 +648,9 @@ enum AudioDecoder {
             throw GemScanError.audioIngestionUnavailable(reason: "Could not allocate PCM buffer")
         }
 
-        let converter = AVAudioConverter(from: file.processingFormat, to: format)!
+        guard let converter = AVAudioConverter(from: file.processingFormat, to: format) else {
+            throw GemScanError.audioIngestionUnavailable(reason: "Unsupported audio format conversion: \(file.processingFormat) → \(format)")
+        }
         var error: NSError?
         converter.convert(to: buffer, error: &error) { _, outStatus in
             outStatus.pointee = .haveData

@@ -179,8 +179,15 @@ class CallDirectoryHandler: CXCallDirectoryProvider {
 }
 
 struct ScamPhoneEntry: Codable {
-    let phoneNumber: Int64    // E.164 format as integer — required by CXCallDirectoryExtensionContext
-                              // which only accepts Int64 phone numbers, not strings. E.g. +14155552671 → 14155552671
+    /// Phone number as a plain integer — required by `CXCallDirectoryExtensionContext`.
+    /// Encoding rules:
+    /// - Strip the leading `+` (E.164 prefix character), then parse the remaining digits as `Int64`.
+    /// - Example: `"+14155552671"` → `14155552671`
+    /// - Example: `"+447911123456"` → `447911123456`
+    /// - Do NOT include country code prefix separators, spaces, or parentheses.
+    /// - The framework sorts entries ascending by this integer before passing to the system,
+    ///   so all entries must be added in ascending order (enforced in `beginRequest`).
+    let phoneNumber: Int64
     let label: String
     let shouldBlock: Bool
     let reportCount: Int

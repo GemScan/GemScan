@@ -70,6 +70,8 @@ export default config
 
 ## 4. GemmaPlugin Interface
 
+> **Type cross-reference:** The TypeScript `AgentTask` and `AgentResult` types below are the **bridge serialization contract** — they define the exact JSON shape passed through the Capacitor bridge. The canonical type definitions (including Swift structs and the full TypeScript unions) live in **Spec 00 §4**. Do not duplicate the full type bodies here.
+
 ### TypeScript Interface (`src/lib/gemma/types.ts`)
 
 ```typescript
@@ -80,7 +82,19 @@ export interface GemmaPlugin {
   /** Download model weights. Progress events streamed via addListener. */
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
 
-  /** Submit an AgentTask and receive a streamed result. */
+  /**
+   * Submit an AgentTask and receive a streamed result.
+   *
+   * **Error handling:** Rejects with a `string` error message (the Swift
+   * `error.localizedDescription`) in the following cases:
+   * - `task` is missing required fields (bridge rejects with `"Missing task"`)
+   * - `AgentTask` decoding fails (`GemScanError.grammarViolation`)
+   * - Inference timeout (`GemScanError.inferenceTimeout`)
+   * - OOM rejection (`GemScanError.oomRejected`)
+   *
+   * Callers must wrap in try/catch. On any rejection, display a conservative
+   * `suspicious` verdict rather than an error UI.
+   */
   analyse(task: AgentTask): Promise<AgentResult>
 
   /** Stream tokens as they are generated (fires repeatedly until done). */

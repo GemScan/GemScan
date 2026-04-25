@@ -297,6 +297,7 @@ Read-only access to the device address book. Returns a boolean + metadata (no na
 ```swift
 // GemmaKit/Sources/MCP/ContactsServer.swift
 import Contacts
+import CryptoKit
 
 actor ContactsServer: MCPServer {
     let name = "contacts"
@@ -337,8 +338,6 @@ actor ContactsServer: MCPServer {
     }
 
     private func sha256(_ input: String) -> String {
-        // SHA-256 via CryptoKit
-        import CryptoKit
         let digest = SHA256.hash(data: Data(input.utf8))
         return digest.compactMap { String(format: "%02x", $0) }.joined()
     }
@@ -553,6 +552,8 @@ Cross-references phone numbers against a local crowd-sourced database of known s
 
 ```swift
 // GemmaKit/Sources/MCP/PhoneReputationServer.swift
+import CryptoKit
+
 actor PhoneReputationServer: MCPServer {
     let name = "phone_reputation"
 
@@ -584,6 +585,25 @@ actor PhoneReputationServer: MCPServer {
             "max_risk_score": String(format: "%.2f", maxRisk),
             "report_count": "\(totalReports)"
         ]
+    }
+
+    /// Extract E.164 phone number strings from free text using NSDataDetector.
+    /// Returns digits-only strings (no `+` prefix, no formatting) for consistent hashing.
+    private func extractPhoneNumbers(from text: String) -> [String] {
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue
+        ) else { return [] }
+        let matches = detector.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        return matches.compactMap { result in
+            guard let phoneNumber = result.phoneNumber else { return nil }
+            // Strip all non-digit characters to normalise to digits-only E.164 integer form
+            return phoneNumber.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        }.filter { !$0.isEmpty }
+    }
+
+    private func sha256(_ input: String) -> String {
+        let digest = SHA256.hash(data: Data(input.utf8))
+        return digest.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 ```
@@ -725,7 +745,11 @@ actor ScreenTimeServer: MCPServer {
         return [
             "session_duration_min": "\(min(sessionDuration, 999))",
             "time_of_day": timeOfDay,
-            "notification_pressure": "unknown"    // Screen Time API requires Family Controls entitlement
+            // TODO (post-hackathon): read actual notification count via Family Controls entitlement
+            // (ManagedSettingsStore + AuthorizationCenter). Requires .familyControls capability in
+            // entitlements and user consent. Until then, "unknown" is the safe fallback — agents
+            // must treat "unknown" as a neutral signal (neither high nor low pressure).
+            "notification_pressure": "unknown"
         ]
     }
 }

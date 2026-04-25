@@ -101,12 +101,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Scan for PII in log statements
         run: |
-          # Fail if any Swift/TypeScript log statement contains raw message content, contact names, URLs
-          # Pattern: logger.* with common PII field names
+          # Fail if any Swift/TypeScript log statement contains raw message content, contact data, or URLs.
+          # This checks for known PII field names. It is NOT exhaustive — code review is still required.
+          # Expand this list when new PII-adjacent variable names are introduced.
           VIOLATIONS=$(grep -rn \
             -e 'logger\.\(debug\|info\|warning\|error\).*messageBody' \
             -e 'logger\.\(debug\|info\|warning\|error\).*phoneNumber' \
             -e 'logger\.\(debug\|info\|warning\|error\).*contactName' \
+            -e 'logger\.\(debug\|info\|warning\|error\).*emailAddress' \
+            -e 'logger\.\(debug\|info\|warning\|error\).*senderName' \
+            -e 'logger\.\(debug\|info\|warning\|error\).*messageContent' \
+            -e 'logger\.\(debug\|info\|warning\|error\).*payload\.text' \
+            -e 'console\.\(log\|warn\|error\).*messageBody' \
+            -e 'console\.\(log\|warn\|error\).*phoneNumber' \
             --include="*.swift" --include="*.ts" --include="*.tsx" \
             src/ GemmaKit/Sources/ 2>/dev/null || true)
           if [ -n "$VIOLATIONS" ]; then
@@ -125,6 +132,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
+        # Pin to minimum required Xcode. To update the version, change this value
+        # and the corresponding runner image in all jobs. Minimum: 15.3 (Swift 5.10, iOS 17.4 SDK).
+        # Use `ls /Applications/Xcode*.app` on macos-14 to list available versions.
         run: sudo xcode-select -s /Applications/Xcode_15.3.app
       - name: Build and test GemmaKit
         run: |
@@ -248,7 +258,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Select Xcode
+        # Same Xcode pin as ci.yml. Update in both files simultaneously.
         run: sudo xcode-select -s /Applications/Xcode_15.3.app
+
+      - name: Verify model manifest signature
+        run: |
+          # Confirm the model manifest is reachable and ed25519 signature is valid.
+          # Model weights are NOT downloaded in CI — this only verifies the signed manifest
+          # (manifest.json) that ModelLoader uses at first launch to resolve download URLs.
+          MANIFEST_URL="https://huggingface.co/GemScan/manifest/resolve/main/manifest.json"
+          curl -fsSL "$MANIFEST_URL" -o manifest.json
+          python3 scripts/verify_manifest_signature.py manifest.json \
+            --pubkey scripts/manifest_pubkey.pem
+          echo "✅ Model manifest signature verified"
 
       - uses: actions/setup-node@v4
         with:

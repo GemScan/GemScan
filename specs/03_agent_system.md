@@ -431,7 +431,11 @@ actor JudgeAgent: GemScanAgent {
         let start = Date()
         try await inference.loadE4BIfNeeded()
 
-        // PhishDebate: 3-pass adjudication
+        // PhishDebate: 3-pass adjudication.
+        // Error handling: if any pass throws, the error propagates to MessageRouter.dispatch(),
+        // which cancels the task group and returns GemScanError.inferenceTimeout or the original
+        // error to OrchestratorAgent. OrchestratorAgent then returns a conservative `suspicious`
+        // verdict at confidence 0.5. JudgeAgent does not retry internally.
         let defenceArgument = try await generateDefence(task: task)
         logger.debug("Defence: \(defenceArgument.prefix(80))…")
 
@@ -569,8 +573,16 @@ Each agent uses a **GBNF grammar** to constrain LLM output to valid JSON. This p
 // GemmaKit/Sources/Agents/Grammars/GrammarConstraint.swift
 
 /// Pre-built GBNF grammar strings for each agent's expected JSON output.
-/// These are passed to `LlamaCppInferenceBackend` to constrain decoding,
-/// and to `GrammarValidator.validate()` to check MLX outputs post-hoc.
+///
+/// **Backend-specific behaviour:**
+/// - `LlamaCppInferenceBackend`: Grammar constraints are applied **at sampling time**
+///   via `llama_grammar_init`. Invalid token sequences are blocked before they are
+///   generated. The `accepts(_:)` method is informational only in this path.
+/// - `MLXInferenceBackend`: MLX does not support GBNF sampling natively.
+///   Grammar constraints are enforced **post-hoc** via `GrammarValidator.validate()`.
+///   The `accepts(_:)` method always returns `true` for MLX outputs — rejection
+///   happens in the `parse()` call that follows generation, not during generation.
+///   This is by design; the primary runtime is MLX on Apple Silicon.
 enum GrammarConstraint {
 
     /// Text and URL agents: verdict + confidence + reasoning + optional tool calls
