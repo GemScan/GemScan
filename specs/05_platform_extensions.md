@@ -22,7 +22,65 @@ GemScan integrates with platform message-routing infrastructure via native app e
 
 All iOS extensions share data with the main app via an **App Group** container (`group.com.gemscan`). No extension can write model weights or inference results — it can only write compact triage results.
 
-### Shared Data Schema
+### 2.1 Xcode Entitlements
+
+Every target that reads or writes the App Group container **must** include the `com.apple.security.application-groups` entitlement. Create one `.entitlements` file per target:
+
+```xml
+<!-- ios/App/App/App.entitlements  (main app) -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.gemscan</string>
+    </array>
+    <key>aps-environment</key>
+    <string>production</string>          <!-- APNs for Guardian mode -->
+</dict>
+</plist>
+```
+
+```xml
+<!-- ios/App/Extensions/MessageFilter/MessageFilterExtension.entitlements -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.gemscan</string>
+    </array>
+</dict>
+</plist>
+```
+
+```xml
+<!-- ios/App/Extensions/CallDirectory/CallDirectoryExtension.entitlements -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.gemscan</string>
+    </array>
+</dict>
+</plist>
+```
+
+```xml
+<!-- ios/App/Extensions/Share/ShareExtension.entitlements -->
+<!-- ios/App/Extensions/AppIntents/AppIntentsExtension.entitlements -->
+<!-- (same structure as CallDirectory above — both need App Group access) -->
+```
+
+> **Xcode project setup:** In each target's Build Settings → Code Signing Entitlements, point to the corresponding `.entitlements` file. The App Group identifier `group.com.gemscan` must be registered in the Apple Developer portal under Identifiers → App Groups before any target will compile with these entitlements in a real signing context.
+
+### 2.2 Shared Data Schema
+
+### 2.3 Shared Data Schema
 
 ```swift
 // GemmaKit/Sources/Extensions/SharedContainerSchema.swift

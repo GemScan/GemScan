@@ -195,9 +195,14 @@ actor TextAgent: GemScanAgent {
             throw GemScanError.grammarViolation(raw: "TextAgent received non-text payload")
         }
 
-        // 1. Fast triage via DistilBERT
+        // 1. Fast triage via DistilBERT (text-content only — no sender context here).
+        // Note: SMSTriage.classify(text:) returns TriageResult with senderHash = "".
+        // The senderHash field is only meaningful when called from ILMessageFilterExtension,
+        // which has access to queryRequest.sender. TextAgent uses the label+confidence only
+        // and leaves senderHash empty — it is never written to the shared container cache
+        // from this path.
         let triage = try await SMSTriage.shared.classify(text: content)
-        logger.debug("DistilBERT triage: \(triage.label) p=\(triage.confidence)")
+        logger.debug("DistilBERT triage: \(triage.label.rawValue, privacy: .public) p=\(triage.confidence, privacy: .public)")
 
         if triage.label == .safe && triage.confidence > 0.95 {
             // Very high-confidence safe — skip LLM

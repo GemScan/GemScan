@@ -120,6 +120,10 @@ public actor InferenceEngine {
         guard e4bBackend == nil else { return }
         try checkMemory(required: ModelTier.e4b.expectedRAMBytes)
         try checkThermal()
+        // E4B has downloadPolicy "on_demand" — download if not yet present.
+        if !(try loader.isDownloaded(tier: .e4b)) {
+            try await loader.download(tier: .e4b, progress: { _ in })
+        }
         e4bBackend = try await loader.load(tier: .e4b)
         logger.info("E4B loaded on demand")
     }
@@ -162,6 +166,10 @@ public actor InferenceEngine {
     ///   - task:        The originating task (for timeout enforcement).
     ///   - maxTokens:   Maximum tokens to generate (default 512).
     ///   - onToken:     Streaming callback — same semantics as `generate()`.
+    /// **MLX-only:** Multimodal generation is not supported on `LlamaCppInferenceBackend`.
+    /// If E4B loaded via llama.cpp (simulator / non-Apple Silicon), `ImageAgent` tasks are
+    /// rejected with `GemScanError.grammarViolation` before reaching the model — the
+    /// `OrchestratorAgent` checks `InferenceEngine.isMLXAvailable` before dispatching image tasks.
     public func generateVision(
         imageBase64: String,
         textPrompt: String,
@@ -173,7 +181,9 @@ public actor InferenceEngine {
         try await loadE4BIfNeeded()
         let backend = try backend(for: .e4b)
         guard let mlxBackend = backend as? MLXInferenceBackend else {
-            throw GemScanError.grammarViolation(raw: "generateVision() requires MLXInferenceBackend (E4B)")
+            // LlamaCppInferenceBackend does not support multimodal inputs.
+            // This branch is hit on simulator or devices that fell back to gguf.
+            throw GemScanError.grammarViolation(raw: "generateVision() requires MLXInferenceBackend — not available on this device/backend")
         }
         let start = ContinuousClock.now
         let output = try await mlxBackend.generateVision(
@@ -199,6 +209,13 @@ public actor InferenceEngine {
             throw GemScanError.grammarViolation(raw: "encode() requires MLXInferenceBackend")
         }
         return try await mlxBackend.encode(text: text, dimensions: dimensions)
+    }
+
+    /// True if E2B was loaded via `MLXInferenceBackend` (Apple Silicon path).
+    /// `OrchestratorAgent` checks this before dispatching `analyseScreenshot` tasks —
+    /// on simulator or llama.cpp fallback devices, image analysis is unavailable.
+    public var isMLXAvailable: Bool {
+        e2bBackend is MLXInferenceBackend
     }
 
     // MARK: - Private
@@ -414,6 +431,38 @@ actor ModelLoader {
             .appendingPathComponent("GemScanModels")
     }()
 
+    /// Check presence of a named on-demand model (for whisper-small-mlx, audioseal-detector-mlx).
+    /// These don't have a `ModelTier` enum case; they use their artifact filename directly.
+    func isDownloadedByName(_ modelName: String) throws -> Bool {
+        let localURL = cacheDirectory.appendingPathComponent(modelName)
+        guard FileManager.default.fileExists(atPath: localURL.path) else { return false }
+        let attrs = try FileManager.default.attributesOfItem(atPath: localURL.path)
+        return (attrs[.size] as? Int ?? 0) > 0
+    }
+
+    /// Download a named on-demand model using its URL from the signed manifest.
+    /// The manifest is fetched once at app launch and cached in memory by `ModelLoader`.
+    func downloadByName(_ modelName: String, progress: @escaping (Double) -> Void) async throws {
+        guard let artifact = manifestArtifact(named: modelName) else {
+            throw GemScanError.modelNotLoaded(tier: .e2b)   // Unknown model name
+        }
+        let destination = cacheDirectory.appendingPathComponent(modelName)
+        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        let session = URLSession(configuration: .background(withIdentifier: "com.gemscan.model-download.\(modelName)"))
+        try await session.download(from: artifact.remoteURL, to: destination, progress: progress)
+        try verify(destination, expectedSHA256: artifact.sha256)
+    }
+
+    /// Returns true if the artifact for `tier` is already present on disk (verified, not corrupted).
+    func isDownloaded(tier: ModelTier) throws -> Bool {
+        let artifact = tier.preferredArtifact
+        let localURL = cacheDirectory.appendingPathComponent(artifact.filename)
+        guard FileManager.default.fileExists(atPath: localURL.path) else { return false }
+        // Quick size check — full SHA-256 is performed in verify() during load()
+        let attrs = try FileManager.default.attributesOfItem(atPath: localURL.path)
+        return (attrs[.size] as? Int ?? 0) > 0
+    }
+
     /// Returns the local URL for a named model artifact (e.g. `"whisper-small-mlx"`).
     /// Throws `GemScanError.modelNotLoaded` if the artifact has not been downloaded yet.
     func cachedURL(for modelName: String) throws -> URL {
@@ -624,8 +673,14 @@ actor WhisperASR {
 
     private func loadModel() async throws {
         logger.info("WhisperASR: loading model")
-        // Model artifact: GemScan/whisper-small-mlx (≈150 MB, downloaded alongside E2B)
-        let modelDir = ModelLoader.shared.cachedURL(for: "whisper-small-mlx")
+        // Model artifact: GemScan/whisper-small-mlx (≈150 MB, downloadPolicy: "on_demand")
+        // Download on first use if not yet present (VoiceAgent lazy-load path).
+        let loader = ModelLoader.shared
+        if !(try loader.isDownloadedByName("whisper-small-mlx")) {
+            logger.info("WhisperASR: downloading model on demand")
+            try await loader.downloadByName("whisper-small-mlx", progress: { _ in })
+        }
+        let modelDir = try loader.cachedURL(for: "whisper-small-mlx")
         model = try await WhisperModel.load(directory: modelDir)
     }
 }
@@ -668,7 +723,13 @@ actor AudioSealDetector {
     }
 
     private func loadModel() async throws {
-        let modelDir = ModelLoader.shared.cachedURL(for: "audioseal-detector-mlx")
+        // Model artifact: GemScan/audioseal-detector-mlx (≈30 MB, downloadPolicy: "on_demand")
+        let loader = ModelLoader.shared
+        if !(try loader.isDownloadedByName("audioseal-detector-mlx")) {
+            logger.info("AudioSealDetector: downloading model on demand")
+            try await loader.downloadByName("audioseal-detector-mlx", progress: { _ in })
+        }
+        let modelDir = try loader.cachedURL(for: "audioseal-detector-mlx")
         model = try await AudioSealModel.load(directory: modelDir)
     }
 }
