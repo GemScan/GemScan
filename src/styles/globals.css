@@ -17,6 +17,10 @@
   --text: #1f2328;
   --text-muted: #656d76;
   --border: #d0d7de;
+
+  /* Disabled state (iOS system grey 4) */
+  --disabled-bg: #e5e5ea;
+  --disabled-text: rgba(60, 60, 67, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +38,10 @@
     --text: #e6edf3;
     --text-muted: #8b949e;
     --border: #30363d;
+
+    /* Disabled state (iOS dark mode) */
+    --disabled-bg: #2c2c2e;
+    --disabled-text: rgba(235, 235, 245, 0.3);
   }
 }
 
@@ -115,11 +123,13 @@ body {
 }
 
 .btn-primary:active {
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  background-color: var(--disabled-bg);
+  color: var(--disabled-text);
+  opacity: 1;
   cursor: default;
 }
 

@@ -110,11 +110,11 @@ export default function TabBar() {
         right: 0,
         display: 'flex',
         justifyContent: 'space-around',
-        alignItems: 'center',
-        height: 83,
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        alignItems: 'flex-start',
+        paddingTop: 6,
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
         backgroundColor: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
+        borderTop: '0.5px solid var(--border)',
         zIndex: 100,
       }}
     >
@@ -135,12 +135,12 @@ export default function TabBar() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
+              justifyContent: 'flex-start',
+              gap: 2,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '8px 16px',
+              padding: '4px 12px',
               minWidth: 64,
               minHeight: 44,
             }}
@@ -148,10 +148,10 @@ export default function TabBar() {
             {tab.icon(active)}
             <span
               style={{
-                fontSize: 10,
-                fontWeight: active ? 600 : 400,
+                fontSize: 11,
+                fontWeight: active ? 600 : 500,
                 color: active ? 'var(--text)' : 'var(--text-muted)',
-                letterSpacing: 0.2,
+                letterSpacing: -0.08,
               }}
             >
               {tab.label}

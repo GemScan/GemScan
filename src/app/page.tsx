@@ -19,23 +19,23 @@ export default function HomePage() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
         padding: 'var(--padding-page)',
         gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
+        minHeight: '100dvh',
+        paddingTop: 32,
+        paddingBottom: 110,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/GemScan.png"
         alt="GemScan logo"
-        width={300}
-        height={300}
-        style={{ borderRadius: 16 }}
+        width={200}
+        height={200}
+        style={{ borderRadius: 16, marginTop: 8, marginBottom: 8 }}
       />
 
-      <p className="text-body" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+      <p className="text-heading" style={{ color: 'var(--text)', textAlign: 'center', marginTop: 8 }}>
         What would you like me to check?
       </p>
 
