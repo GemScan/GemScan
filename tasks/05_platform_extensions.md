@@ -16,7 +16,7 @@ Implement all five iOS extension targets — SMSFilter (`ILMessageFilterExtensio
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 14 |
+| ⬜ Not started | 16 |
 
 ---
 ## Tasks
@@ -53,12 +53,12 @@ Create five `.entitlements` XML plist files. `ios/App/App/App.entitlements` (mai
 | **Type** | IMPLEMENT |
 | **Priority** | P0 |
 | **Spec ref** | §2.2 — Shared container keys and data types |
-| **Depends on** | T-05-001 |
+| **Depends on** | T-05-001, T-00-013 |
 | **Estimated effort** | S |
 | **Files to create/modify** | `ios/App/GemmaKit/Sources/Extensions/SharedContainerSchema.swift` |
 
 **What to build:**
-Create `ios/App/GemmaKit/Sources/Extensions/SharedContainerSchema.swift`. Define `enum SharedContainerSchema` (caseless, used as namespace) with: `static let appGroupId = "group.com.gemscan"`. Define the following static UserDefaults key constants — all must begin with the prefix `"gemscan."`: `static let distilbertModelPath = "gemscan.distilbertModelPath"` (String — absolute path to the DistilBERT `.mlmodelc` directory in the shared container); `static let lastAnalysisTimestamp = "gemscan.lastAnalysisTimestamp"` (Double — Unix timestamp); `static let verdictHistory = "gemscan.verdictHistory"` (Data — JSON-encoded array of recent verdicts); `static let guardianModeEnabled = "gemscan.guardianModeEnabled"` (Bool); `static let trustedContactId = "gemscan.trustedContactId"` (String — hashed contact identifier). Define `struct ScamPhoneEntry: Codable` with `phoneNumber: Int64` (E.164 digits-only, e.g. `+14155551234` → `Int64(14155551234)`) and `riskScore: Float`. Add an inline comment on `phoneNumber` explaining: `// E.164 encoding: strip '+' and all non-decimal chars, e.g. +14155551234 → 14155551234`.
+Extend the `SharedContainerSchema` stub created in T-00-013 (which defines `appGroupId` and `distilbertModelPath`). Add the remaining keys and types. Define `enum SharedContainerSchema` (caseless, used as namespace) with: `static let appGroupId = "group.com.gemscan"`. Define the following static UserDefaults key constants — all must begin with the prefix `"gemscan."`: `static let distilbertModelPath = "gemscan.distilbertModelPath"` (String — absolute path to the DistilBERT `.mlmodelc` directory in the shared container); `static let lastAnalysisTimestamp = "gemscan.lastAnalysisTimestamp"` (Double — Unix timestamp); `static let verdictHistory = "gemscan.verdictHistory"` (Data — JSON-encoded array of recent verdicts); `static let guardianModeEnabled = "gemscan.guardianModeEnabled"` (Bool); `static let trustedContactId = "gemscan.trustedContactId"` (String — hashed contact identifier). Define `struct ScamPhoneEntry: Codable` with `phoneNumber: Int64` (E.164 digits-only, e.g. `+14155551234` → `Int64(14155551234)`) and `riskScore: Float`. Add an inline comment on `phoneNumber` explaining: `// E.164 encoding: strip '+' and all non-decimal chars, e.g. +14155551234 → 14155551234`.
 
 **Acceptance criteria:**
 - [ ] All key constants begin with `"gemscan."` — verified by unit test `testSchemaKeyNamesUseGemscanPrefix()`
@@ -376,3 +376,54 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M5 milestone. Steps:
 **Apple compliance (Spec 00 §11):**
 - [ ] §11.2 — extension memory ceilings enforced: SMSFilter < 50 MB, all others < 120 MB
 - [ ] §11.4 — entitlements in all five `.entitlements` files verified against Apple Developer portal capabilities
+
+---
+
+#### ⬜ T-05-015 · IMPLEMENT · P1 — CallKit pre-answer screening integration
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 |
+| **Spec ref** | §4.2 — Mode B: CallKit Pre-Answer Screening |
+| **Depends on** | T-05-004, T-04-008 |
+| **Estimated effort** | M |
+| **Files to create/modify** | `ios/App/Plugins/GemmaPlugin+CallKit.swift`, `ios/App/GemmaKit/Tests/CallKitScreeningTests.swift` |
+
+**What to build:**
+Create `ios/App/Plugins/GemmaPlugin+CallKit.swift` as an extension on `GemmaPlugin`. Implement `CXCallObserverDelegate` conformance to receive incoming call notifications. In `callObserver(_:callChanged:)`, when a new incoming call is detected: extract the caller's phone number from `CXCall.handle?.value`, compute `SHA256(phoneDigits)`, look up the hash in the `CallDirectoryExtension`'s scam phone list and also call `MCPClient.shared.call(server: "phone_reputation", tool: "check", input: ["text": phoneDigits], callerAgentId: .orchestrator)`. If the combined risk score exceeds 0.7, present a local notification banner via `UNUserNotificationCenter` with title "Suspected Scam Call" and the risk percentage. This is a static lookup only — no audio capture occurs. Register the `CXCallObserver` in `GemmaPlugin.load()` alongside MCP server registration. Create `CallKitScreeningTests.swift` verifying: a known scam number triggers the notification, an unknown number does not.
+
+**Acceptance criteria:**
+- [ ] `CXCallObserver` is registered during `GemmaPlugin.load()`
+- [ ] Known scam phone hash triggers a `UNUserNotificationCenter` alert
+- [ ] No audio capture or recording occurs — only static phone hash lookup
+- [ ] `callerAgentId: .orchestrator` used for all MCP calls in this path
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.3 — No raw phone number stored or logged; only SHA-256 hash used
+- [ ] §11.4 — `NSContactsUsageDescription` covers caller identification use case
+
+---
+
+#### ⬜ T-05-016 · IMPLEMENT · P0 — URL scheme handler for deep links
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P0 |
+| **Spec ref** | §3.3 — Share extension URL-scheme handoff; §3.4 — AppIntents URL handoff |
+| **Depends on** | T-05-005, T-05-006, T-01-006 |
+| **Estimated effort** | S |
+| **Files to create/modify** | `ios/App/App/AppDelegate.swift` (or `SceneDelegate.swift`), `ios/App/App/Info.plist`, `src/app/analyse/page.tsx` |
+
+**What to build:**
+Register the `gemscan://` URL scheme in `Info.plist` under `CFBundleURLTypes` with `CFBundleURLSchemes: ["gemscan"]`. In `AppDelegate` (or `SceneDelegate`), implement `application(_:open:options:)` to handle `gemscan://analyse?task=<base64url>` URLs. Decode the `task` query parameter from base64url back to `AgentTask` JSON, then route to the analyse page via Capacitor's web view navigation. On the TypeScript side, update `src/app/analyse/page.tsx` to check `window.location.search` for a `task` parameter on mount — if present, decode and auto-trigger analysis. This is the bridge that makes ShareExtension (T-05-005) and AppIntents (T-05-006) hand-offs work end-to-end.
+
+**Acceptance criteria:**
+- [ ] `Info.plist` contains `CFBundleURLSchemes: ["gemscan"]`
+- [ ] Opening `gemscan://analyse?task=<validBase64>` from Safari launches GemScan and navigates to `/analyse`
+- [ ] Invalid base64 in the `task` parameter shows an error, does not crash
+- [ ] `src/app/analyse/page.tsx` reads and decodes the `task` param on mount
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.4 — URL scheme `gemscan` registered in `Info.plist`; no conflict with system URL schemes

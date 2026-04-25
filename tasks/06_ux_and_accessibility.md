@@ -16,7 +16,7 @@ Implements all user-facing components, pages, and Guardian Mode infrastructure f
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 21 |
+| ⬜ Not started | 23 |
 
 ---
 ## Tasks
@@ -581,3 +581,55 @@ Create `ios/App/Tests/UITests/AccessibilityUITests.swift` with four XCUITest met
 - [ ] §11.5 — HIG: minimum tap target XCUITest gate passes
 - [ ] §11.6 — Keychain: tested in T-06-019
 - [ ] §11.7 — Accessibility: Dynamic Type, Dark Mode, VoiceOver all verified
+
+---
+
+#### ⬜ T-06-022 · Guardian relay integration tests
+
+| Field | Value |
+|---|---|
+| **Type** | TEST |
+| **Priority** | P1 |
+| **Spec ref** | §4.4 — Guardian Mode Alert Delivery (relay server contract, local fallback) |
+| **Depends on** | T-06-012, T-06-013 |
+| **Estimated effort** | M |
+| **Files to create/modify** | `ios/App/GemmaKit/Tests/GuardianRelayTests.swift`, `src/lib/gemma/__tests__/guardian-relay.test.ts` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Tests/GuardianRelayTests.swift` with XCTest cases. `testGuardianKeyManagerStoresAndRetrievesKeyPair()`: call `GuardianKeyManager.generateKeyPair()`, then `GuardianKeyManager.publicKeyBase64()`, assert the public key is a valid base64 string of 32 bytes (ed25519). `testSendLocalTestAlertTriggersNotification()`: call `GuardianKeyManager.sendLocalTestAlert(severity: "scam")`, assert `UNUserNotificationCenter` has a pending notification with title containing "GemScan" and body containing "scam" (use `UNUserNotificationCenter.current().getPendingNotificationRequests`). `testRelayPayloadSignatureIsValid()`: construct a relay alert payload, sign it with the stored ed25519 private key, verify the signature using the public key. `testLocalFallbackUsedWhenNoRelayToken()`: assert that when `GuardianKeyManager.relayToken()` returns `nil`, `sendAlert(severity:)` falls through to `sendLocalTestAlert()` instead of attempting an HTTP POST. Create `guardian-relay.test.ts` with Vitest: verify `GemmaPluginMock.addListener('guardianModeChanged', handler)` fires when guardian mode is toggled via the Zustand store.
+
+**Acceptance criteria:**
+- [ ] ed25519 key pair round-trips through Keychain storage
+- [ ] Local notification fires with correct severity level
+- [ ] Relay payload signature is cryptographically verifiable
+- [ ] Local fallback is used when relay token is absent (no HTTP call made)
+- [ ] TypeScript guardian mode event fires on mock toggle
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.6 — Keychain accessibility verified: `kSecAttrAccessibleAfterFirstUnlock` used for key storage
+- [ ] §11.3 — No PII in notification content (only severity level and generic alert text)
+
+---
+
+#### ⬜ T-06-023 · WCAG 2.1 unified validation checklist
+
+| Field | Value |
+|---|---|
+| **Type** | VALIDATE |
+| **Priority** | P1 |
+| **Spec ref** | §5.5 — WCAG 2.1 Checklist (9 items: 1.1.1, 1.3.1, 1.4.1, 1.4.3, 2.1.1, 2.4.3, 2.4.7, 3.1.1, 4.1.3) |
+| **Depends on** | T-06-015, T-06-016, T-06-021 |
+| **Estimated effort** | M |
+| **Files to create/modify** | `docs/wcag-checklist.md` |
+
+**What to build:**
+Create `docs/wcag-checklist.md` as a structured checklist document that maps each of the 9 WCAG 2.1 success criteria from Spec 06 §5.5 to specific test evidence. For each criterion: (1) **1.1.1 Non-text Content**: verify all images have `alt` text — evidence from axe-core Playwright test (T-06-016); (2) **1.3.1 Info and Relationships**: verify semantic HTML (`role`, `aria-*`) — evidence from component tests (T-06-015); (3) **1.4.1 Use of Colour**: verify verdict states use icons + text, not colour alone — manual review; (4) **1.4.3 Contrast (AA)**: verify axe-core AA checks pass — evidence from T-06-016; additionally note Spec §5.3 AAA requirement for verdict headings and document manual contrast check with specific hex values; (5) **2.1.1 Keyboard**: verify all interactive elements reachable via Tab — evidence from T-06-016 keyboard navigation test; (6) **2.4.3 Focus Order**: verify logical focus order — evidence from T-06-001 `useRef` focus and T-06-021 VoiceOver traversal; (7) **2.4.7 Focus Visible**: verify focus indicators present — evidence from CSS inspection (T-06-011); (8) **3.1.1 Language of Page**: verify `<html lang="en">` — evidence from T-06-016; (9) **4.1.3 Status Messages**: verify `aria-live` regions — evidence from T-06-002 and T-06-015. Each row includes: criterion ID, description, pass/fail, evidence source (task ID or test name), date verified.
+
+**Acceptance criteria:**
+- [ ] All 9 WCAG 2.1 success criteria are listed with pass/fail status
+- [ ] Each criterion cites specific test evidence (task ID and test name)
+- [ ] WCAG AAA contrast requirement for verdict headings is explicitly documented
+- [ ] Document is updated as part of the M6 PR before merge
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.5 — HIG accessibility requirements mapped to WCAG criteria

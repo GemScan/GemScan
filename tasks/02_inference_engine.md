@@ -13,7 +13,7 @@ M2 implements the full on-device inference stack inside GemmaKit: the `Inference
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 20 |
+| ⬜ Not started | 22 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -573,3 +573,53 @@ Run the full M2 compliance checklist. (1) Run Instruments Leaks template on a mo
 - [ ] §11.1 — SwiftLint `force_unwrapping` passes on `AudioDecoder.swift` (zero exceptions allowed)
 - [ ] §11.2 — Instruments Leaks: zero leaks on E2B load/infer/unload cycle
 - [ ] §11.2 — E2B RSS delta ≤ 1.8 GB confirmed by `XCTMemoryMetric`
+
+---
+
+#### ⬜ T-02-021 · Chat template verification script
+
+| Field | Value |
+|---|---|
+| **Type** | VALIDATE |
+| **Priority** | P2 (standard) |
+| **Spec ref** | §7 — Chat Template Verification |
+| **Depends on** | T-02-001 |
+| **Estimated effort** | M (1–3 hr) |
+| **Files to create/modify** | `scripts/verify-chat-template.py`, `scripts/requirements-verify.txt` |
+
+**What to build:**
+Create `scripts/verify-chat-template.py` as specified in Spec 02 §7. The script loads the model tokenizer via `transformers.AutoTokenizer.from_pretrained(model_id)`, applies the chat template with a test prompt, and compares the tokenized output against a known-good reference file. Create `scripts/requirements-verify.txt` with `transformers>=4.40`, `torch`, `sentencepiece`. The script accepts `--model-id` and `--reference-file` arguments. It must exit 0 if tokenization matches the reference exactly, exit 1 with a diff otherwise. This ensures on-device tokenization (Swift) matches the Python reference tokenizer before shipping model artifacts. Add a `# Usage` comment at the top of the script.
+
+**Acceptance criteria:**
+- [ ] `python scripts/verify-chat-template.py --model-id google/gemma-2-2b-it --reference-file fixtures/gemma-chat-template.json` exits 0 when tokenization matches
+- [ ] Script exits 1 and prints a diff when tokenization does not match
+- [ ] `scripts/requirements-verify.txt` contains all required Python dependencies
+- [ ] Script runs with Python 3.11+ (no syntax errors)
+
+**Apple compliance (Spec 00 §11):**
+- [ ] N/A — offline verification script; no native code
+
+---
+
+#### ⬜ T-02-022 · Performance monitoring hooks wiring
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 (high) |
+| **Spec ref** | §9 — Performance Monitoring Hooks |
+| **Depends on** | T-02-006, T-00-014 |
+| **Estimated effort** | S (< 1 hr) |
+| **Files to create/modify** | `ios/App/GemmaKit/Sources/Inference/InferenceEngine.swift` |
+
+**What to build:**
+Wire `InferenceMetrics` (defined in T-00-014) into `InferenceEngine.generate()` and `InferenceEngine.generateVision()`. At the start of each method, capture `let start = ContinuousClock.now`. After generation completes, construct an `InferenceMetrics` with `firstTokenLatencyMs` (time to first `onToken` callback), `totalLatencyMs` (total wall-clock time), `tokensPerSecond` (token count / total seconds), `peakRSSBytes` (from `currentRSS()`), `modelTier`, and `escalated: false` (escalation flag set by OrchestratorAgent, not here). Call `MetricsCollector.shared.record(metrics)` — define `MetricsCollector` as a minimal `actor` with `static let shared` and a `func record(_ metrics: InferenceMetrics)` method that stores to an internal array (the full `MetricsStore` ring buffer is built in M8, T-08-004). Log `"generate: tier=\(tier), latency=\(totalLatencyMs)ms, tokens=\(tokenCount)"` at `.info` level.
+
+**Acceptance criteria:**
+- [ ] `generate()` emits an `InferenceMetrics` to `MetricsCollector.shared` after every call (XCTest with mock collector)
+- [ ] `firstTokenLatencyMs` is measured from call start to first `onToken` invocation
+- [ ] `tokensPerSecond` equals `tokenCount / (totalLatencyMs / 1000.0)` (±0.1 tolerance in XCTest)
+- [ ] `MetricsCollector` is an `actor` with `Sendable` conformance
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.1 — `MetricsCollector` is an `actor`; no data races on the metrics array

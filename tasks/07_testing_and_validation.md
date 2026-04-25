@@ -16,7 +16,7 @@ Establishes the complete multi-layer test infrastructure for GemScan: Vitest uni
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 18 |
+| ⬜ Not started | 21 |
 
 ---
 ## Tasks
@@ -490,3 +490,80 @@ Execute the complete test suite across all three layers and verify every gate pa
 **Apple compliance (Spec 00 §11):**
 - [ ] §11.1–§11.8 — All compliance tests pass (ComplianceTests.swift all green)
 - [ ] §11.9 — Instruments manual checklist completed on physical device
+
+---
+
+#### ⬜ T-07-019 · User testing protocol execution
+
+| Field | Value |
+|---|---|
+| **Type** | VALIDATE |
+| **Priority** | P2 |
+| **Spec ref** | §7 — User Testing Protocol (Days 11–12, 5–10 participants) |
+| **Depends on** | T-07-018 |
+| **Estimated effort** | XL (> 6 hr) |
+| **Files to create/modify** | `docs/user-testing-report.md`, `docs/user-testing-scenarios.md` |
+
+**What to build:**
+Execute the user testing protocol from Spec 07 §7 with 5–10 participants. Create `docs/user-testing-scenarios.md` documenting the five test scenarios: (1) receive a scam SMS alert and identify the verdict; (2) receive a safe message and confirm no false alarm; (3) set up Guardian Mode with a trusted contact in ≤ 5 taps; (4) share a suspicious URL from Safari via Share Sheet; (5) change the app language in Settings. For each scenario, document the expected outcome and the observation checklist. After testing, create `docs/user-testing-report.md` documenting: task completion rate (target: ≥ 90%), time-to-verdict comprehension (target: ≤ 5 seconds), user understanding score (target: ≥ 4/5), System Usability Scale score (target: ≥ 68), VoiceOver completion rate (target: 100% for at least 2 participants). Record all participant observations, failure points, and recommended UI fixes.
+
+**Acceptance criteria:**
+- [ ] 5–10 participants tested (documented by participant ID, not name)
+- [ ] All five scenarios executed and results recorded
+- [ ] Task completion rate ≥ 90% (or action items documented for failures)
+- [ ] SUS score ≥ 68 (or UX improvement tasks created for next cycle)
+- [ ] VoiceOver scenario completed by at least 2 participants
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.5 — HIG: user testing validates real-world accessibility and usability
+
+---
+
+#### ⬜ T-07-020 · FPR dataset curation and benchmarking
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 |
+| **Spec ref** | §6.3 — False Positive Rate Monitoring |
+| **Depends on** | T-07-015 |
+| **Estimated effort** | L (3–6 hr) |
+| **Files to create/modify** | `tests/fixtures/legitimate-messages.json`, `scripts/run-fpr-benchmark.sh`, `ios/App/GemmaKit/Tests/FPRBenchmarkTests.swift` |
+
+**What to build:**
+Create `tests/fixtures/legitimate-messages.json` with 300 curated legitimate message samples covering: bank transaction confirmations, delivery tracking updates, appointment reminders, family/friend messages, promotional emails from known brands, government notifications, and school/work communications. Each sample includes `text`, `category` (e.g., `"bank_legitimate"`, `"delivery_tracking"`), and `expected_verdict: "safe"`. Create `ios/App/GemmaKit/Tests/FPRBenchmarkTests.swift` that loads this fixture file, classifies each message via `TextAgent` with `MockInferenceEngine`, and computes the false positive rate (messages classified as `suspicious` or `scam` / total). Assert FPR < 5%. If FPR > 8%, fail the test with a regression warning. Create `scripts/run-fpr-benchmark.sh` that runs the benchmark and writes results to `benchmark_results.json` with fields: `fpr`, `total_samples`, `false_positives`, `timestamp`.
+
+**Acceptance criteria:**
+- [ ] `legitimate-messages.json` contains exactly 300 samples across ≥ 7 categories
+- [ ] FPR benchmark test runs and produces a numeric FPR value
+- [ ] FPR < 5% passes; FPR > 8% fails the test
+- [ ] `benchmark_results.json` is written with all four fields
+- [ ] Dataset does not contain any real PII (all messages are synthetic or anonymized)
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.3 — Dataset contains no real PII; all samples are synthetic or thoroughly anonymized
+
+---
+
+#### ⬜ T-07-021 · Throughput benchmark (tokens/second)
+
+| Field | Value |
+|---|---|
+| **Type** | TEST |
+| **Priority** | P2 |
+| **Spec ref** | §6.1 — Inference Latency Benchmarks (tokens/second metric) |
+| **Depends on** | T-07-015 |
+| **Estimated effort** | M (1–3 hr) |
+| **Files to create/modify** | `ios/App/GemmaKit/Tests/ThroughputBenchmarkTests.swift` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Tests/ThroughputBenchmarkTests.swift` as an `XCTestCase` subclass. `testE2BThroughput()`: load the E2B model, run `InferenceEngine.shared.generate()` with a standardized 50-token prompt, count output tokens and measure wall-clock time, compute `tokensPerSecond = tokenCount / elapsedSeconds`. Assert `tokensPerSecond >= 15.0` (E2B target from Spec 02 §1). `testE4BThroughput()`: same pattern with E4B model; assert `tokensPerSecond >= 8.0` (E4B target). `testDistilBERTLatency()`: run `SMSTriage.shared.classify()` 100 times, compute p95 latency, assert `p95 <= 100` ms (DistilBERT target from Spec 02 §1). Use `XCTSkipIf` to skip E4B test if model is not downloaded. Write results to `benchmark_results.json` for the weekly regression gate (T-09-005).
+
+**Acceptance criteria:**
+- [ ] E2B throughput ≥ 15 tokens/second on iPhone 15 Pro
+- [ ] E4B throughput ≥ 8 tokens/second on iPhone 15 Pro (or skipped if model absent)
+- [ ] DistilBERT p95 latency ≤ 100 ms
+- [ ] Results appended to `benchmark_results.json`
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.2 — Performance targets from Spec 02 §1 validated on real hardware

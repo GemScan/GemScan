@@ -15,7 +15,7 @@ Implement the six-agent analysis pipeline — Orchestrator, Text, URL, Image, Vo
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 16 |
+| ⬜ Not started | 18 |
 
 ---
 ## Tasks
@@ -418,3 +418,53 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M3 milestone. Steps:
 **Apple compliance (Spec 00 §11):**
 - [ ] §11.1 — Full PR checklist completed before merge
 - [ ] §11.7 — TSan clean confirmed on agent round-trip test suite
+
+---
+
+#### ⬜ T-03-017 · IMPLEMENT · P1 — Explainer output reading level validation
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 |
+| **Spec ref** | §7 — Explainer output spec (Flesch-Kincaid ≤ 70, 6th-grade reading level) |
+| **Depends on** | T-03-011 |
+| **Estimated effort** | M |
+| **Files to create/modify** | `ios/App/GemmaKit/Sources/Agents/ExplainerValidator.swift`, `ios/App/GemmaKit/Tests/ExplainerValidatorTests.swift` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Sources/Agents/ExplainerValidator.swift` as an `enum ExplainerValidator` (caseless namespace). Implement `static func fleschKincaidGradeLevel(_ text: String) -> Double` using the standard Flesch-Kincaid formula: `0.39 * (words / sentences) + 11.8 * (syllables / words) - 15.59`. Implement `static func validate(_ reasoning: [String]) -> Bool` that joins the reasoning bullets, computes the grade level, and returns `true` if the grade level ≤ 6.0 (approximately Flesch-Kincaid reading ease ≥ 70). Implement a basic `syllableCount(_ word: String) -> Int` using vowel-group heuristic (count groups of consecutive vowels `[aeiouy]`, subtract 1 for trailing silent `e`, minimum 1). This validator is called in every agent's `toAgentResult()` path — if validation fails, log a `.warning` but do not reject the result (soft enforcement for Cycle 1). Create `ExplainerValidatorTests.swift` with: `testSimpleTextPassesValidation()` (e.g., "This is a scam. Do not click the link.") and `testComplexTextFailsValidation()` (e.g., long sentence with polysyllabic jargon).
+
+**Acceptance criteria:**
+- [ ] `ExplainerValidator.fleschKincaidGradeLevel("The cat sat on the mat.")` returns a grade level ≤ 3.0
+- [ ] `ExplainerValidator.validate(["This is safe.", "No scam found."])` returns `true`
+- [ ] `syllableCount("beautiful")` returns 3
+- [ ] Validation failure produces a `.warning` log, not an error or rejection
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.5 — HIG: sixth-grade reading level supports accessibility for diverse users
+
+---
+
+#### ⬜ T-03-018 · IMPLEMENT · P1 — TypeScript web mock orchestrator
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 |
+| **Spec ref** | §8 — Web Mock (TypeScript mock orchestrator with golden fixtures) |
+| **Depends on** | T-03-009 |
+| **Estimated effort** | S |
+| **Files to create/modify** | `src/lib/agents/mock-orchestrator.ts`, `src/lib/agents/__tests__/mock-orchestrator.test.ts` |
+
+**What to build:**
+Create `src/lib/agents/mock-orchestrator.ts` exporting `async function mockOrchestrate(task: AgentTask): Promise<AgentResult>`. The mock simulates the full agent routing: for `classifySMS` and `classifyEmail` tasks, return the `goldenFixtures` entry matching `task.id` with 300–500 ms delay; for `checkURL` tasks, return URL fixtures with 200–400 ms delay; for `analyseScreenshot` tasks, return image fixtures with 500–800 ms delay (simulating E4B load time); for `scoreVoice` tasks, return voice fixtures with 400–700 ms delay (simulating ASR + inference). If `task.id` is not in golden fixtures, return `goldenFixtures['default']`. The mock must emit `tokenStream` events during the delay period (5–10 fake tokens) to simulate streaming. Create a Vitest test that verifies all task types route correctly and complete within their expected latency ranges.
+
+**Acceptance criteria:**
+- [ ] `mockOrchestrate({ type: 'classifySMS', id: 'scam-sms-bank', ... })` returns the `scam-sms-bank` fixture
+- [ ] Each call emits at least 5 token events before resolving
+- [ ] Unknown `task.id` returns the `'default'` fixture
+- [ ] Vitest test passes for all six `AgentTaskType` values
+
+**Apple compliance (Spec 00 §11):**
+- [ ] N/A — TypeScript web mock; not shipped in iOS app

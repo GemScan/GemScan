@@ -17,7 +17,7 @@ Implements the complete structured logging and performance monitoring layer for 
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 14 |
+| ⬜ Not started | 15 |
 
 ---
 ## Tasks
@@ -380,3 +380,28 @@ Verify four logging compliance gates. Gate 1 — CI PII scan: confirm the `pii-s
 
 **Apple compliance (Spec 00 §11):**
 - [ ] §11.2 — Privacy: all four compliance gates enforced in CI
+
+---
+
+#### ⬜ T-08-015 · Logger instance registration verification test
+
+| Field | Value |
+|---|---|
+| **Type** | TEST |
+| **Priority** | P2 |
+| **Spec ref** | §3.1 — GemScanLogger registry (8 logger instances) |
+| **Depends on** | T-08-001 |
+| **Estimated effort** | S |
+| **Files to create/modify** | `ios/App/GemmaKit/Tests/GemScanLoggerTests.swift` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Tests/GemScanLoggerTests.swift` as an `XCTestCase` subclass. `testAllEightLoggerInstancesExist()`: access each of the 8 `GemScanLogger` static properties (`.inference`, `.agents`, `.mcp`, `.router`, `.extensions`, `.plugin`, `.ui`, `.metrics`) and assert each is a valid `os.Logger` instance (not nil). Use `Mirror(reflecting: GemScanLogger.self)` or a hard-coded list of property accesses to verify all 8 exist. `testAllLoggersUseCorrectSubsystem()`: for each logger, call `logger.log("test")` and verify via `OSLogStore` (iOS 15+) that the log entry has `subsystem == "com.gemscan"`. Use `XCTSkipIf` for `OSLogStore` tests on simulators where it may not be available. `testNoAdHocLoggerInstantiations()`: run a grep-based assertion in the test: search all `.swift` files in `Sources/` for `Logger(subsystem:` and assert zero matches (all should use `GemScanLogger.*` instead).
+
+**Acceptance criteria:**
+- [ ] All 8 logger properties are accessible without errors
+- [ ] `OSLogStore` test verifies `subsystem == "com.gemscan"` for at least one logger (or skipped if unavailable)
+- [ ] Zero ad-hoc `Logger(subsystem:` calls found in `Sources/` (grep check)
+- [ ] Test passes on CI simulator
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.1 — Centralised logger prevents subsystem inconsistencies across the codebase

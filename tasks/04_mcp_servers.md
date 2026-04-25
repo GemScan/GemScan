@@ -15,7 +15,7 @@ Implement the full on-device MCP (Model Context Protocol) server layer: one `MCP
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 18 |
+| ⬜ Not started | 19 |
 
 ---
 ## Tasks
@@ -471,3 +471,30 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M4 milestone. Steps:
 **Apple compliance (Spec 00 §11):**
 - [ ] §11.3 — on-device-only verified by Instruments Network trace
 - [ ] §11.4 — entitlements verified: Contacts, App Groups capabilities present
+
+---
+
+#### ⬜ T-04-019 · IMPLEMENT · P0 — Bundled data files for MCP servers
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P0 |
+| **Spec ref** | §3.1 (ScamPatterns.json), §3.4 (blocklist.json), §3.5 (whois-cache.json), §3.7 (phone-reputation.json) |
+| **Depends on** | None |
+| **Estimated effort** | M |
+| **Files to create/modify** | `ios/App/App/Resources/ScamPatterns.json`, `ios/App/App/Resources/blocklist.json`, `ios/App/App/Resources/whois-cache.json`, `ios/App/App/Resources/phone-reputation.json` |
+
+**What to build:**
+Create the four bundled JSON data files that MCP servers load at init. (1) `ScamPatterns.json`: array of `ScamPattern` objects, each with `id`, `keywords`, `language`, `riskLevel`. Seed with at least 20 patterns covering common scam categories: bank impersonation, prize/lottery, package delivery, tech support, IRS/tax, romance, crypto, job offer. Include patterns for `en`, `es`, `hi` languages. (2) `blocklist.json`: array of known-scam domain strings. Seed with at least 50 domains from public phishing blocklists (use well-known test/example domains — do not include active malicious URLs in source code). (3) `whois-cache.json`: dictionary mapping domain strings to `WhoisRecord` objects (`ageDays`, `registrar`, `country`, `privacyProtected`). Seed with 30+ common domains (legitimate and suspicious) to give the WhoisServer meaningful test data. (4) `phone-reputation.json`: dictionary mapping SHA-256 hex strings to `PhoneRecord` objects (`riskScore`, `reportCount`). Seed with 10+ entries for testing. Add all four files to the Xcode "Copy Bundle Resources" build phase for the App target.
+
+**Acceptance criteria:**
+- [ ] All four JSON files are valid JSON (parseable by `JSONDecoder`)
+- [ ] `ScamPatterns.json` contains ≥ 20 patterns across ≥ 3 languages
+- [ ] `blocklist.json` contains ≥ 50 domain entries
+- [ ] `whois-cache.json` contains ≥ 30 domain entries with all four fields per record
+- [ ] `phone-reputation.json` keys are valid SHA-256 hex strings (64 characters, lowercase hex)
+- [ ] All four files are listed in the Xcode target's "Copy Bundle Resources" build phase
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.3 — Bundled data only; no network fetch for data files at runtime

@@ -13,7 +13,7 @@ M0 establishes the canonical directory layout, toolchain configuration, core Typ
 |--------|-------|
 | ✅ Done | 0 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 12 |
+| ⬜ Not started | 14 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -349,3 +349,57 @@ Run the full M0 compliance checklist. Execute `xcodebuild analyze -scheme GemmaK
 - [ ] §11.1 — `SWIFT_STRICT_CONCURRENCY=complete` build verified clean
 - [ ] §11.1 — SwiftLint `force_unwrapping` and `force_try` rules confirmed active and passing
 - [ ] §11.3 — Confirmed no PII in `GemScanError.description` outputs (manual review of all six cases)
+
+---
+
+### Group: Shared Infrastructure
+
+---
+
+#### ⬜ T-00-013 · SharedContainerSchema stub
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P0 (blocking) |
+| **Spec ref** | Spec 05 §2.2 — Shared container keys; Spec 02 §6 — ModelLoader.syncPathToAppGroup |
+| **Depends on** | T-00-001 |
+| **Estimated effort** | S (< 1 hr) |
+| **Files to create/modify** | `ios/App/GemmaKit/Sources/Extensions/SharedContainerSchema.swift` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Sources/Extensions/SharedContainerSchema.swift` defining `enum SharedContainerSchema` (caseless namespace) with the minimal constants required by M2: `static let appGroupId = "group.com.gemscan"` and `static let distilbertModelPath = "gemscan.distilbertModelPath"`. This stub is needed because `ModelLoader.syncPathToAppGroup()` (M2) and `SMSTriage.extensionInstance()` (M2) reference `SharedContainerSchema.appGroupId` and `SharedContainerSchema.distilbertModelPath`. The full schema with all keys is completed in T-05-002 which extends this file with additional constants (`lastAnalysisTimestamp`, `verdictHistory`, `guardianModeEnabled`, `trustedContactId`, `ScamPhoneEntry`).
+
+**Acceptance criteria:**
+- [ ] `SharedContainerSchema.appGroupId == "group.com.gemscan"` (XCTest)
+- [ ] `SharedContainerSchema.distilbertModelPath == "gemscan.distilbertModelPath"` (XCTest)
+- [ ] `enum SharedContainerSchema` has no cases (pure namespace — cannot be instantiated)
+- [ ] File compiles under `SWIFT_STRICT_CONCURRENCY=complete`
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.4 — App Group ID value must match the entitlement registered in the Apple Developer portal
+
+---
+
+#### ⬜ T-00-014 · Performance monitoring types (InferenceMetrics)
+
+| Field | Value |
+|---|---|
+| **Type** | IMPLEMENT |
+| **Priority** | P1 (high) |
+| **Spec ref** | Spec 02 §9 — Performance Monitoring Hooks; Spec 08 §5 — InferenceMetrics |
+| **Depends on** | T-00-005 |
+| **Estimated effort** | S (< 1 hr) |
+| **Files to create/modify** | `ios/App/GemmaKit/Sources/Logging/InferenceMetrics.swift` |
+
+**What to build:**
+Create `ios/App/GemmaKit/Sources/Logging/InferenceMetrics.swift` defining `struct InferenceMetrics: Codable, Sendable` with fields: `taskId: String`, `modelTier: String`, `escalatedToE4B: Bool`, `firstTokenLatencyMs: Double`, `totalLatencyMs: Double`, `tokensPerSecond: Double`, `peakRSSBytes: Int`, `toolCallCount: Int`, `verdict: String`, `confidence: Double`, `language: String`, `timestamp: Date`. This type is referenced by Spec 02 §9 (`InferenceEngine` emits metrics) and consumed by Spec 08 §5 (`MetricsStore` collects them). Defining it in M0 avoids a circular dependency between M2 and M8. Include a `static func empty(taskId: String, tier: String) -> InferenceMetrics` factory that creates a metrics object with zeroed timing fields.
+
+**Acceptance criteria:**
+- [ ] `InferenceMetrics` conforms to `Codable` and `Sendable` (compile-time check)
+- [ ] `InferenceMetrics.empty(taskId: "abc", tier: "e2b").totalLatencyMs == 0.0`
+- [ ] Round-trips through `JSONEncoder`/`JSONDecoder` without data loss
+- [ ] File compiles under `SWIFT_STRICT_CONCURRENCY=complete`
+
+**Apple compliance (Spec 00 §11):**
+- [ ] §11.1 — `Sendable` conformance verified; struct with value-type fields is implicitly `Sendable`
