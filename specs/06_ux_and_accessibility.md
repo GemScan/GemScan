@@ -669,6 +669,93 @@ enum GuardianKeyManager {
 - The relay server stores: `relayToken → { contactAPNsToken, elderPublicKey }` (no names, no content)
 - Both keys are stored in the iOS Keychain (`kSecAttrAccessibleAfterFirstUnlock`).
 
+---
+
+#### Relay Server Contract
+
+The relay is a **minimal stateless forwarder** — it stores only the pairing record and does no content inspection. It can be deployed as a Cloudflare Worker (≈ 80 lines) or any Node.js serverless function.
+
+**Base URL:** `https://relay.gemscan.app/v1`  
+**Authentication:** none (relayToken is the bearer credential; tokens are one-use UUIDs)
+
+| Method | Path | Request body | Response | Description |
+|--------|------|-------------|----------|-------------|
+| `POST` | `/register` | `{ relayToken, elderPublicKey, contactAPNsToken }` | `{ ok: true }` | Stores pairing record. Called by the trusted contact's app after scanning the QR code. |
+| `POST` | `/alert` | `{ relayToken, severity, timestamp, signature }` | `{ sent: true }` | Verifies `signature` with stored `elderPublicKey`; forwards silent push to `contactAPNsToken` via APNs. Rejects mismatched signatures with `403`. |
+| `DELETE` | `/register/:relayToken` | — | `{ ok: true }` | Deletes pairing record. Called when the user turns off Guardian mode or rotates their keypair. |
+
+**Relay data model** (in-memory KV or Cloudflare KV, TTL: 1 year):
+```json
+{
+  "relayToken":        "uuid-v4",
+  "elderPublicKey":    "<base64 Curve25519 public key>",
+  "contactAPNsToken":  "<hex APNs device token>",
+  "registeredAt":      1714000000000
+}
+```
+
+**APNs payload forwarded to the trusted contact:**
+```json
+{
+  "aps": {
+    "alert": { "title": "GemScan Alert", "body": "Someone may need your help." },
+    "sound": "default",
+    "content-available": 1
+  },
+  "gemscan": { "severity": "high", "timestamp": 1714000000000 }
+}
+```
+> The body copy is intentionally vague — no name, no message content, no verdict details.
+
+**Swift call site** (called from `GemmaPlugin.sendGuardianAlert()` on the native side):
+```swift
+// ios/App/Plugins/GemmaPlugin.swift — sendGuardianAlert implementation
+func sendGuardianAlert(severity: String) async throws -> Bool {
+    let payload = "{\"severity\":\"\(severity)\",\"timestamp\":\(Int64(Date().timeIntervalSince1970 * 1000))}"
+    let signature = try GuardianKeyManager.sign(Data(payload.utf8))
+    let relayToken = UserDefaults.standard.string(forKey: "gemscan.guardianRelayToken") ?? ""
+    guard !relayToken.isEmpty else { return false }
+
+    var request = URLRequest(url: URL(string: "https://relay.gemscan.app/v1/alert")!)
+    request.httpMethod = "POST"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.httpBody = try JSONSerialization.data(withJSONObject: [
+        "relayToken": relayToken,
+        "severity":   severity,
+        "timestamp":  Int64(Date().timeIntervalSince1970 * 1000),
+        "signature":  signature.base64EncodedString(),
+    ])
+    let (_, response) = try await URLSession.shared.data(for: request)
+    return (response as? HTTPURLResponse)?.statusCode == 200
+}
+```
+
+---
+
+#### Cycle 1 Fallback — Local-Only Mode
+
+For hackathon / Cycle 1 testing where the relay server is not yet deployed, Guardian mode operates in **local-only mode**: the elder and trusted contact must be on the same device (TestFlight) or pair via a local-network handshake (no APNs required).
+
+```swift
+// GuardianKeyManager.swift — Cycle 1 local alert fallback
+/// Sends a local UserNotification when no relay token is configured.
+/// This fires on the same device — used for testing the alert flow end-to-end
+/// without requiring a deployed relay server or a second physical device.
+static func sendLocalTestAlert(severity: String) {
+    let content = UNMutableNotificationContent()
+    content.title = "GemScan Alert (Local Test)"
+    content.body  = "Severity: \(severity) — relay not configured"
+    content.sound = .default
+    let request = UNNotificationRequest(identifier: UUID().uuidString,
+                                        content: content, trigger: nil)
+    UNUserNotificationCenter.current().add(request)
+}
+```
+
+The `sendGuardianAlert()` plugin method checks for a relay token first; if absent, it falls back to `sendLocalTestAlert()` and returns `{ sent: false, reason: "relay_not_configured" }`.
+
+**Cycle 1 acceptance criteria:** Guardian alert fires locally on the sender's device with correct severity label. Relay integration is a Cycle 2 task (requires APNs entitlements and relay deployment).
+
 **TypeScript interface addition** (`src/lib/gemma/types.ts`):
 ```typescript
 // Extend GemmaPlugin interface with guardian alert capability

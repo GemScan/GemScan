@@ -363,31 +363,114 @@ Fallback for simulator, older devices, or when MLX is unavailable. Wraps `llama.
 
 ```swift
 actor LlamaCppInferenceBackend: InferenceBackend {
-    private let ctx: OpaquePointer    // llama_context*
+    private let model: OpaquePointer    // llama_model*
+    private let ctx: OpaquePointer      // llama_context*
 
-    init(modelPath: URL, grammar: GrammarConstraint? = nil) throws {
-        var params = llama_context_default_params()
-        params.n_ctx = 4096
-        params.n_batch = 512
-        // Load model via llama.cpp C API
-        let model = llama_load_model_from_file(modelPath.path, llama_model_default_params())
-        guard let model else { throw GemScanError.modelNotLoaded(tier: .e2b) }
-        guard let ctx = llama_new_context_with_model(model, params) else {
+    init(modelPath: URL) throws {
+        let mparams = llama_model_default_params()
+        guard let m = llama_load_model_from_file(modelPath.path, mparams) else {
             throw GemScanError.modelNotLoaded(tier: .e2b)
         }
-        self.ctx = ctx
+        var cparams = llama_context_default_params()
+        cparams.n_ctx = 4096
+        cparams.n_batch = 512
+        guard let c = llama_new_context_with_model(m, cparams) else {
+            llama_free_model(m)
+            throw GemScanError.modelNotLoaded(tier: .e2b)
+        }
+        self.model = m
+        self.ctx = c
     }
 
-    func generate(prompt: String, grammar: GrammarConstraint?, maxTokens: Int, onToken: @escaping (String) -> Void) async throws -> String {
-        // Implementation outline (stub — full impl follows llama.cpp simple.cpp pattern):
-        // 1. llama_tokenize(ctx, prompt)
-        // 2. If grammar != nil: llama_grammar_init from grammar.gbnfString
-        // 3. Loop llama_decode → llama_sampling_sample, applying grammar sampler
-        // 4. Call onToken(piece) for each token; break on EOS or maxTokens
-        // 5. llama_grammar_free on exit
-        // Note: GBNF grammar constraints are applied at sampling time (token-level),
-        //       unlike MLXInferenceBackend which does post-hoc JSON validation.
-        throw GemScanError.grammarViolation(raw: "LlamaCppInferenceBackend not yet implemented")
+    deinit {
+        llama_free(ctx)
+        llama_free_model(model)
+    }
+
+    func generate(
+        prompt: String,
+        grammar: GrammarConstraint?,
+        maxTokens: Int,
+        onToken: @escaping (String) -> Void
+    ) async throws -> String {
+        // 1. Tokenize prompt (add BOS special token, no special-token parsing)
+        var tokenBuffer = [llama_token](repeating: 0, count: prompt.utf8.count + 32)
+        let nPromptTokens = llama_tokenize(
+            model, prompt, Int32(prompt.utf8.count),
+            &tokenBuffer, Int32(tokenBuffer.count),
+            /*add_special:*/ true, /*parse_special:*/ false
+        )
+        guard nPromptTokens > 0 else {
+            throw GemScanError.grammarViolation(raw: "Tokenization failed for prompt of \(prompt.count) characters")
+        }
+        let promptTokens = Array(tokenBuffer.prefix(Int(nPromptTokens)))
+
+        // 2. Build sampler chain.
+        //    Grammar sampler is inserted first so it gates the token distribution at
+        //    sampling time (GBNF enforcement), before temperature scaling is applied.
+        //    This is the key difference from MLXInferenceBackend (post-hoc validation).
+        let chainParams = llama_sampler_chain_default_params()
+        let samplerChain = llama_sampler_chain_init(chainParams)
+        defer { llama_sampler_chain_free(samplerChain) }
+
+        if let grammar = grammar {
+            // "root" is the mandatory entry rule name in all GemScan GBNF grammars.
+            let grammarSampler = llama_sampler_init_grammar(model, grammar.gbnf, "root")
+            llama_sampler_chain_add(samplerChain, grammarSampler)
+        }
+        // Low temperature → near-deterministic structured JSON output
+        llama_sampler_chain_add(samplerChain, llama_sampler_init_temp(0.1))
+        llama_sampler_chain_add(samplerChain, llama_sampler_init_top_p(0.95, 1))
+        llama_sampler_chain_add(samplerChain, llama_sampler_init_greedy())
+
+        // 3. Prefill: decode all prompt tokens in one batch.
+        //    Logits are requested only for the last prompt token.
+        var batch = llama_batch_init(Int32(promptTokens.count), 0, 1)
+        defer { llama_batch_free(batch) }
+
+        for (i, token) in promptTokens.enumerated() {
+            // llama_batch_add is a helper from llama.cpp common/common.h (bundled in the Swift SPM target)
+            llama_batch_add(&batch, token, Int32(i), [0], i == promptTokens.count - 1)
+        }
+        guard llama_decode(ctx, batch) == 0 else {
+            throw GemScanError.grammarViolation(raw: "llama_decode failed during prompt prefill")
+        }
+
+        // 4. Autoregressive decode loop
+        var output = ""
+        var nCur = Int32(promptTokens.count)
+        var pieceBuffer = [CChar](repeating: 0, count: 256)
+
+        for _ in 0..<maxTokens {
+            // Sample next token — grammar + temperature applied by chain in order
+            let newToken = llama_sampler_sample(samplerChain, ctx, nCur - 1)
+
+            // End-of-generation: EOT, EOS, or any model-specific end token
+            if llama_token_is_eog(model, newToken) { break }
+
+            // Convert token ID to UTF-8 text piece (lstrip=0 preserves leading spaces)
+            let nPiece = llama_token_to_piece(model, newToken, &pieceBuffer, Int32(pieceBuffer.count), 0, false)
+            if nPiece > 0 {
+                let piece = String(bytes: pieceBuffer.prefix(Int(nPiece)).map { UInt8(bitPattern: $0) }, encoding: .utf8) ?? ""
+                onToken(piece)
+                output += piece
+            }
+
+            // Inform sampler chain (required for stateful samplers, e.g. repetition penalty)
+            llama_sampler_accept(samplerChain, newToken)
+
+            // Decode the new token as the next input
+            llama_batch_clear(&batch)
+            llama_batch_add(&batch, newToken, nCur, [0], true)
+            nCur += 1
+            guard llama_decode(ctx, batch) == 0 else {
+                throw GemScanError.grammarViolation(raw: "llama_decode failed at position \(nCur)")
+            }
+        }
+
+        // 5. Clear KV cache so the context is clean for the next generate() call
+        llama_kv_cache_clear(ctx)
+        return output
     }
 }
 ```
@@ -734,6 +817,298 @@ actor AudioSealDetector {
     }
 }
 ```
+
+### WhisperModel
+
+MLX-backed adapter for the `whisper-small-mlx` artifact. Called only by `WhisperASR.loadModel()`.
+
+**Artifact directory structure (`whisper-small-mlx/`):**
+```
+config.json         — {"n_mels":80,"d_model":512,"encoder_layers":6,"encoder_attention_heads":8,
+                        "decoder_layers":6,"decoder_heads":8,"n_vocab":51865}
+vocab.json          — {"<|endoftext|>":50257,"<|startoftranscript|>":50258,"<|en|>":50259,...}
+tokenizer.json      — BPE merges (Whisper multilingual tokenizer, tiktoken-compatible)
+model.safetensors   — all weights keyed as:
+                       encoder.conv1.{weight,bias}   encoder.conv2.{weight,bias}
+                       encoder.positional_embedding   mel_filters
+                       encoder.blocks.N.{attn_ln,attn.{query,key,value,out},mlp_ln,mlp.{0,2}}.{weight,bias}
+                       encoder.ln_post.{weight,bias}
+                       decoder.token_embedding.weight  decoder.positional_embedding
+                       decoder.ln.{weight,bias}
+                       decoder.blocks.N.{attn_ln,attn.*,cross_attn_ln,cross_attn.*,mlp_ln,mlp.*}.{weight,bias}
+```
+
+**Implementation reference:** Port of [mlx-examples/whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) Python → Swift. Each step maps 1-to-1 to the Python reference.
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/WhisperModel.swift
+import Foundation
+import MLX
+import MLXNN
+
+actor WhisperModel {
+    private let weights:   [String: MLXArray]
+    private let config:    WhisperConfig
+    private let tokenizer: WhisperTokenizer
+
+    // MARK: - Factory
+
+    /// Load a `whisper-small-mlx` directory. Throws `GemScanError.modelNotLoaded` if any
+    /// required file is missing (`config.json`, `vocab.json`, `model.safetensors`).
+    static func load(directory: URL) async throws -> WhisperModel {
+        for name in ["config.json", "vocab.json", "model.safetensors"] {
+            guard FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) else {
+                throw GemScanError.modelNotLoaded(tier: .e2b)
+            }
+        }
+        let weights   = try MLX.loadArrays(url: directory.appendingPathComponent("model.safetensors"))
+        let config    = try WhisperConfig(contentsOf: directory.appendingPathComponent("config.json"))
+        let tokenizer = try WhisperTokenizer(vocabURL: directory.appendingPathComponent("vocab.json"))
+        return WhisperModel(weights: weights, config: config, tokenizer: tokenizer)
+    }
+
+    private init(weights: [String: MLXArray], config: WhisperConfig, tokenizer: WhisperTokenizer) {
+        self.weights = weights; self.config = config; self.tokenizer = tokenizer
+    }
+
+    // MARK: - Transcription
+
+    /// Transcribes float32 PCM (16 kHz, mono) to a `Transcript`.
+    /// Pipeline: PCM → log-Mel → encoder → greedy decoder → text.
+    func transcribe(pcm: [Float]) async throws -> Transcript {
+        // Step 1: 80-channel log-Mel spectrogram
+        //   window: 25 ms Hann (400 samples), hop: 10 ms (160 samples), FFT: 400 points
+        //   Pad / trim to 30 s (480 000 samples). mel_filters weight [80, 201] from safetensors.
+        let targetLen = 480_000
+        var samples   = pcm.count >= targetLen ? Array(pcm.prefix(targetLen))
+                                               : pcm + [Float](repeating: 0, count: targetLen - pcm.count)
+        let x     = MLXArray(samples)
+        let stft  = MLX.stft(x, nFft: 400, hopLength: 160, windowLength: 400, center: true) // [nFrames, 201]
+        let mag   = MLX.abs(stft)[0..., 0..<200]                                             // drop Nyquist
+        let mel   = MLX.matmul(weights["mel_filters"]!, mag.transposed())                    // [80, nFrames]
+        let logMel: MLXArray = {
+            let lm = MLX.log10(MLX.maximum(mel, MLXArray(Float(1e-10))))
+            return MLX.maximum(lm, lm.max() - 8.0)   // clamp dynamic range
+        }()
+
+        // Step 2: Encoder — 2 Conv1d layers + positional embedding + 6 transformer blocks
+        var enc = encoderForward(mel: logMel)         // [nFrames/2, 512]
+
+        // Step 3: Decoder — greedy search starting with [SOT, EN, TRANSCRIBE]
+        // Language is fixed to English for Cycle 1 (multilingual detection deferred).
+        var tokens: [Int32] = [tokenizer.sotToken, tokenizer.englishToken, tokenizer.transcribeToken]
+        for _ in 0..<448 {   // Whisper max output length
+            let logits = decoderForward(tokenIds: tokens, encoderOut: enc)  // [seq, vocab]
+            let next   = Int32(logits[logits.dim(0) - 1].argmax().item(Int.self))
+            if next == tokenizer.eotToken { break }
+            tokens.append(next)
+        }
+
+        // Step 4: Detokenize — strip special tokens, replace Ġ BPE space marker
+        let text = tokenizer.decode(tokens.filter { !tokenizer.isSpecial($0) })
+        return Transcript(text: text, language: "en")
+    }
+
+    // MARK: - Encoder
+
+    private func encoderForward(mel: MLXArray) -> MLXArray {
+        // Two stride-1/stride-2 Conv1d layers then N transformer blocks
+        var x = gelu(conv1d(mel.transposed(), wKey: "encoder.conv1", padding: 1))
+        x = gelu(conv1d(x, wKey: "encoder.conv2", stride: 2, padding: 1))
+        x = x + weights["encoder.positional_embedding"]!
+        for i in 0..<config.encoderLayers {
+            x = residualBlock(x, prefix: "encoder.blocks.\(i)", crossKV: nil)
+        }
+        return layerNorm(x, prefix: "encoder.ln_post")
+    }
+
+    // MARK: - Decoder
+
+    private func decoderForward(tokenIds: [Int32], encoderOut: MLXArray) -> MLXArray {
+        let embW = weights["decoder.token_embedding.weight"]!
+        var x    = embW[MLXArray(tokenIds)] + weights["decoder.positional_embedding"]![0..<tokenIds.count]
+        for i in 0..<config.decoderLayers {
+            x = residualBlock(x, prefix: "decoder.blocks.\(i)", crossKV: encoderOut)
+        }
+        x = layerNorm(x, prefix: "decoder.ln")
+        return MLX.matmul(x, embW.transposed())   // [seq, vocab]
+    }
+
+    // MARK: - Shared Transformer Block
+
+    private func residualBlock(_ x: MLXArray, prefix: String, crossKV: MLXArray?) -> MLXArray {
+        // Self-attention
+        let x1 = layerNorm(x, prefix: prefix + ".attn_ln")
+        var y  = x + mha(x1, prefix: prefix + ".attn", kv: nil)
+        // Cross-attention (decoder only)
+        if let kv = crossKV {
+            let x2 = layerNorm(y, prefix: prefix + ".cross_attn_ln")
+            y = y + mha(x2, prefix: prefix + ".cross_attn", kv: kv)
+        }
+        // MLP: FC → GELU → FC
+        let x3 = layerNorm(y, prefix: prefix + ".mlp_ln")
+        return y + linear(gelu(linear(x3, prefix: prefix + ".mlp.0")), prefix: prefix + ".mlp.2")
+    }
+
+    private func mha(_ q: MLXArray, prefix: String, kv: MLXArray?) -> MLXArray {
+        let src   = kv ?? q
+        let nH    = config.encoderHeads
+        let dH    = config.dModel / nH
+        let scale = Float(1.0 / sqrt(Double(dH)))
+        func proj(_ x: MLXArray, _ suffix: String) -> MLXArray {
+            linear(x, prefix: prefix + ".\(suffix)").reshaped(x.dim(0), nH, dH).transposed(1, 0, 2)
+        }
+        let qH = proj(q, "query"); let kH = proj(src, "key"); let vH = proj(src, "value")
+        let attn = MLX.softmax(MLX.matmul(qH, kH.transposed(0, 2, 1)) * scale, axis: -1)
+        let ctx  = MLX.matmul(attn, vH).transposed(1, 0, 2).reshaped(q.dim(0), config.dModel)
+        return linear(ctx, prefix: prefix + ".out")
+    }
+
+    // MARK: - Helpers
+
+    private func layerNorm(_ x: MLXArray, prefix: String) -> MLXArray {
+        MLX.layerNorm(x, weight: weights[prefix + ".weight"]!, bias: weights[prefix + ".bias"]!)
+    }
+    private func linear(_ x: MLXArray, prefix: String) -> MLXArray {
+        MLX.linear(x, weight: weights[prefix + ".weight"]!, bias: weights[prefix + ".bias"])
+    }
+    private func conv1d(_ x: MLXArray, wKey: String, stride: Int = 1, padding: Int = 0) -> MLXArray {
+        MLX.conv1d(x, weight: weights[wKey + ".weight"]!, bias: weights[wKey + ".bias"]!,
+                   stride: stride, padding: padding)
+    }
+    private func gelu(_ x: MLXArray) -> MLXArray { MLX.gelu(x) }
+}
+
+// MARK: - Supporting types
+
+struct WhisperConfig: Decodable {
+    let nMels: Int; let dModel: Int; let encoderLayers: Int
+    let encoderHeads: Int; let decoderLayers: Int
+    enum CodingKeys: String, CodingKey {
+        case nMels = "n_mels"; case dModel = "d_model"
+        case encoderLayers = "encoder_layers"; case encoderHeads = "encoder_attention_heads"
+        case decoderLayers = "decoder_layers"
+    }
+    init(contentsOf url: URL) throws {
+        self = try JSONDecoder().decode(WhisperConfig.self, from: Data(contentsOf: url))
+    }
+}
+
+struct WhisperTokenizer {
+    private let vocab: [String: Int32]
+    private let reverseVocab: [Int32: String]
+    let sotToken: Int32; let eotToken: Int32; let englishToken: Int32; let transcribeToken: Int32
+
+    init(vocabURL: URL) throws {
+        let raw = try JSONDecoder().decode([String: Int32].self, from: Data(contentsOf: vocabURL))
+        vocab = raw
+        reverseVocab = Dictionary(uniqueKeysWithValues: raw.map { ($1, $0) })
+        sotToken        = raw["<|startoftranscript|>"] ?? 50258
+        eotToken        = raw["<|endoftext|>"] ?? 50257
+        englishToken    = raw["<|en|>"] ?? 50259
+        transcribeToken = raw["<|transcribe|>"] ?? 50359
+    }
+    /// Special tokens have IDs ≥ 50257 in the Whisper vocabulary.
+    func isSpecial(_ token: Int32) -> Bool { token >= 50257 }
+    /// Decode a list of token IDs to a UTF-8 string.
+    /// Replaces the BPE space marker `Ġ` (U+0120) with a regular space.
+    func decode(_ tokens: [Int32]) -> String {
+        tokens.compactMap { reverseVocab[$0] }
+              .joined()
+              .replacingOccurrences(of: "Ġ", with: " ")
+              .trimmingCharacters(in: .whitespaces)
+    }
+}
+```
+
+---
+
+### AudioSealModel
+
+MLX-backed adapter for the `audioseal-detector-mlx` artifact. Called only by `AudioSealDetector.loadModel()`.
+
+**Artifact directory structure (`audioseal-detector-mlx/`):**
+```
+config.json         — {"hidden_size":64,"num_layers":8,"sample_rate":16000}
+model.safetensors   — weights keyed as:
+                       detector.conv.{weight,bias}          (initial 1D conv, kernel 7)
+                       detector.layers.N.{weight,bias}      (N=0…7, EncoderLayer residual blocks)
+                       detector.classifier.{weight,bias}    (linear head → 2 logits: human / AI)
+```
+
+**Architecture:** Conv1d feature extractor → 8-layer 1D ResNet encoder → linear binary classifier.
+Input: float32 PCM at 16 kHz. Output: probability that audio is AI-synthesised (sigmoid of `logits[1]`).
+
+```swift
+// ios/App/GemmaKit/Sources/Inference/AudioSealModel.swift
+import Foundation
+import MLX
+import MLXNN
+
+actor AudioSealModel {
+    private let weights: [String: MLXArray]
+    private let config:  AudioSealConfig
+
+    // MARK: - Factory
+
+    /// Load an `audioseal-detector-mlx` directory.
+    static func load(directory: URL) async throws -> AudioSealModel {
+        for name in ["config.json", "model.safetensors"] {
+            guard FileManager.default.fileExists(atPath: directory.appendingPathComponent(name).path) else {
+                throw GemScanError.modelNotLoaded(tier: .e2b)
+            }
+        }
+        let weights = try MLX.loadArrays(url: directory.appendingPathComponent("model.safetensors"))
+        let config  = try AudioSealConfig(contentsOf: directory.appendingPathComponent("config.json"))
+        return AudioSealModel(weights: weights, config: config)
+    }
+
+    private init(weights: [String: MLXArray], config: AudioSealConfig) {
+        self.weights = weights; self.config = config
+    }
+
+    // MARK: - Scoring
+
+    /// Returns 0.0 (human) → 1.0 (AI-synthesised).
+    /// Averages frame-level predictions over the full audio clip.
+    func detectScore(pcm: [Float]) async throws -> Double {
+        let x = MLXArray(pcm).reshaped(1, pcm.count, 1)    // [batch=1, samples, channels=1]
+
+        // 1. Initial conv (kernel 7, same padding) → [1, T, hidden_size]
+        var h = MLX.gelu(MLX.conv1d(x, weight: weights["detector.conv.weight"]!,
+                                        bias:   weights["detector.conv.bias"]!,
+                                        padding: 3))
+
+        // 2. Eight 1D residual encoder layers
+        for i in 0..<config.numLayers {
+            let w = weights["detector.layers.\(i).weight"]!
+            let b = weights["detector.layers.\(i).bias"]!
+            h = h + MLX.gelu(MLX.conv1d(h, weight: w, bias: b, padding: 1))  // residual skip
+        }
+
+        // 3. Mean-pool over time dimension → [1, hidden_size]
+        let pooled = h.mean(axis: 1)
+
+        // 4. Linear classifier → logits [1, 2]; sigmoid of AI-class logit
+        let logits = MLX.linear(pooled, weight: weights["detector.classifier.weight"]!,
+                                         bias:  weights["detector.classifier.bias"]!)
+        let prob = Float(MLX.sigmoid(logits)[0, 1].item(Float.self))
+        return Double(prob)
+    }
+}
+
+struct AudioSealConfig: Decodable {
+    let hiddenSize: Int; let numLayers: Int; let sampleRate: Int
+    enum CodingKeys: String, CodingKey {
+        case hiddenSize = "hidden_size"; case numLayers = "num_layers"; case sampleRate = "sample_rate"
+    }
+    init(contentsOf url: URL) throws {
+        self = try JSONDecoder().decode(AudioSealConfig.self, from: Data(contentsOf: url))
+    }
+}
+```
+
+---
 
 ### AudioDecoder Utility
 

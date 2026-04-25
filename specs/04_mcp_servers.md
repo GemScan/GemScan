@@ -262,9 +262,18 @@ actor SqliteVecServer: MCPServer {
         ),
     ]
 
-    private var db: OpaquePointer?   // sqlite3 handle
+    private var db: OpaquePointer?   // sqlite3*
+    private let dbPath: URL
+
+    init() {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("GemScan")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        self.dbPath = dir.appendingPathComponent("scam_embeddings.db")
+    }
 
     func execute(tool: String, input: [String: String]) async throws -> [String: String] {
+        if db == nil { try openDatabase() }
         switch tool {
         case "semantic_search":
             let embeddingJson = input["embedding_json"] ?? "[]"
@@ -280,6 +289,182 @@ actor SqliteVecServer: MCPServer {
         default:
             throw MCPError.unknownTool(tool)
         }
+    }
+
+    // MARK: - Database Setup
+
+    /// Opens (or creates) the SQLite database and registers the vec0 virtual table extension.
+    ///
+    /// Schema:
+    /// ```sql
+    /// -- Virtual table for ANN search; stores raw float32 LE blobs.
+    /// CREATE VIRTUAL TABLE IF NOT EXISTS scam_embeddings USING vec0(
+    ///     embedding FLOAT[128]
+    /// );
+    ///
+    /// -- Metadata sidecar keyed by the same rowid as scam_embeddings.
+    /// CREATE TABLE IF NOT EXISTS scam_metadata (
+    ///     rowid      INTEGER PRIMARY KEY,
+    ///     verdict    TEXT    NOT NULL DEFAULT 'suspicious',
+    ///     language   TEXT    NOT NULL DEFAULT 'en',
+    ///     stored_at  INTEGER NOT NULL   -- Unix millisecond timestamp
+    /// );
+    /// ```
+    private func openDatabase() throws {
+        guard sqlite3_open(dbPath.path, &db) == SQLITE_OK else {
+            throw GemScanError.mcpToolFailed(server: "sqlite_vec", tool: "open",
+                                              underlying: MCPError.unknownServer)
+        }
+        // sqlite-vec-swift 0.1.1 exposes sqlite_vec_auto_init() which registers the
+        // vec0 virtual table module and scalar functions (vec_distance_cosine, vec_f32, etc.).
+        sqlite_vec_auto_init(db)
+
+        let ddl = """
+            CREATE VIRTUAL TABLE IF NOT EXISTS scam_embeddings USING vec0(
+                embedding FLOAT[128]
+            );
+            CREATE TABLE IF NOT EXISTS scam_metadata (
+                rowid     INTEGER PRIMARY KEY,
+                verdict   TEXT    NOT NULL DEFAULT 'suspicious',
+                language  TEXT    NOT NULL DEFAULT 'en',
+                stored_at INTEGER NOT NULL
+            );
+        """
+        var errPtr: UnsafeMutablePointer<CChar>?
+        guard sqlite3_exec(db, ddl, nil, nil, &errPtr) == SQLITE_OK else {
+            sqlite3_free(errPtr)
+            throw GemScanError.mcpToolFailed(server: "sqlite_vec", tool: "create_tables",
+                                              underlying: MCPError.unknownServer)
+        }
+    }
+
+    // MARK: - Search
+
+    private struct VectorSearchResults {
+        struct Match: Codable {
+            let rowid: Int64; let similarity: Double; let verdict: String; let language: String
+        }
+        let matches: [Match]
+        var topSimilarity: Double { matches.first?.similarity ?? 0.0 }
+        var json: String {
+            (try? String(data: JSONEncoder().encode(matches), encoding: .utf8)) ?? "[]"
+        }
+    }
+
+    /// Performs ANN search using sqlite-vec's `vec_distance_cosine`.
+    ///
+    /// SQL:
+    /// ```sql
+    /// SELECT s.rowid,
+    ///        1.0 - vec_distance_cosine(s.embedding, ?) AS similarity,
+    ///        m.verdict,
+    ///        m.language
+    /// FROM   scam_embeddings s
+    /// JOIN   scam_metadata   m ON m.rowid = s.rowid
+    /// ORDER  BY similarity DESC
+    /// LIMIT  ?;
+    /// ```
+    ///
+    /// The `?` parameter is bound as a raw float32 LE BLOB (128 × 4 = 512 bytes).
+    /// Cosine similarity ≥ 0.7 is considered a semantic match; < 0.5 is noise.
+    private func searchSimilar(embeddingJson: String, topK: Int) throws -> VectorSearchResults {
+        guard let blob = floatArrayToBlob(jsonString: embeddingJson) else {
+            return VectorSearchResults(matches: [])
+        }
+        let sql = """
+            SELECT s.rowid,
+                   1.0 - vec_distance_cosine(s.embedding, ?) AS similarity,
+                   m.verdict, m.language
+            FROM   scam_embeddings s
+            JOIN   scam_metadata m ON m.rowid = s.rowid
+            ORDER  BY similarity DESC
+            LIMIT  ?;
+        """
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            return VectorSearchResults(matches: [])
+        }
+        defer { sqlite3_finalize(stmt) }
+        blob.withUnsafeBytes { sqlite3_bind_blob(stmt, 1, $0.baseAddress, Int32(blob.count), SQLITE_TRANSIENT) }
+        sqlite3_bind_int(stmt, 2, Int32(topK))
+
+        var matches: [VectorSearchResults.Match] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            matches.append(.init(
+                rowid:      sqlite3_column_int64(stmt, 0),
+                similarity: sqlite3_column_double(stmt, 1),
+                verdict:    String(cString: sqlite3_column_text(stmt, 2)),
+                language:   String(cString: sqlite3_column_text(stmt, 3))
+            ))
+        }
+        return VectorSearchResults(matches: matches)
+    }
+
+    // MARK: - Store
+
+    /// Inserts a new embedding + metadata row.
+    ///
+    /// SQL:
+    /// ```sql
+    /// INSERT INTO scam_embeddings(embedding) VALUES (?);   -- 512-byte float32 LE BLOB
+    /// INSERT INTO scam_metadata(rowid, verdict, language, stored_at)
+    ///        VALUES (last_insert_rowid(), ?, ?, ?);
+    /// ```
+    ///
+    /// Returns the total `scam_embeddings` row count after insertion.
+    private func storeEmbedding(embeddingJson: String, verdict: String, language: String) throws -> Int {
+        guard let blob = floatArrayToBlob(jsonString: embeddingJson) else {
+            throw GemScanError.grammarViolation(raw: "Invalid embedding JSON (must be a 128-element float array)")
+        }
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "INSERT INTO scam_embeddings(embedding) VALUES (?);", -1, &stmt, nil) == SQLITE_OK else {
+            throw GemScanError.mcpToolFailed(server: "sqlite_vec", tool: "insert_vec",
+                                              underlying: MCPError.unknownServer)
+        }
+        blob.withUnsafeBytes { sqlite3_bind_blob(stmt, 1, $0.baseAddress, Int32(blob.count), SQLITE_TRANSIENT) }
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            sqlite3_finalize(stmt)
+            throw GemScanError.mcpToolFailed(server: "sqlite_vec", tool: "insert_vec",
+                                              underlying: MCPError.unknownServer)
+        }
+        sqlite3_finalize(stmt)
+
+        let rowId = sqlite3_last_insert_rowid(db)
+        let meta  = "INSERT INTO scam_metadata(rowid, verdict, language, stored_at) VALUES (?, ?, ?, ?);"
+        guard sqlite3_prepare_v2(db, meta, -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_int64(stmt, 1, rowId)
+        sqlite3_bind_text(stmt, 2, verdict, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_text(stmt, 3, language, -1, SQLITE_TRANSIENT)
+        sqlite3_bind_int64(stmt, 4, Int64(Date().timeIntervalSince1970 * 1000))
+        sqlite3_step(stmt)
+
+        var countStmt: OpaquePointer?
+        sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM scam_embeddings;", -1, &countStmt, nil)
+        defer { sqlite3_finalize(countStmt) }
+        sqlite3_step(countStmt)
+        return Int(sqlite3_column_int64(countStmt, 0))
+    }
+
+    // MARK: - Helpers
+
+    /// Parses a JSON float array `"[0.1, -0.3, ...]"` into a little-endian float32 BLOB
+    /// (128 × 4 = 512 bytes) suitable for binding to a sqlite-vec FLOAT[128] column.
+    /// Returns nil if the JSON is malformed or does not contain exactly 128 floats.
+    private func floatArrayToBlob(jsonString: String) -> Data? {
+        guard let data   = jsonString.data(using: .utf8),
+              let floats = try? JSONDecoder().decode([Float].self, from: data),
+              floats.count == 128 else { return nil }
+        var result = Data(count: floats.count * 4)
+        result.withUnsafeMutableBytes { ptr in
+            for (i, f) in floats.enumerated() {
+                var le = f.bitPattern.littleEndian
+                withUnsafeBytes(of: &le) { src in
+                    ptr.baseAddress!.advanced(by: i * 4).copyMemory(from: src.baseAddress!, byteCount: 4)
+                }
+            }
+        }
+        return result
     }
 }
 ```
