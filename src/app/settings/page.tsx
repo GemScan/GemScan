@@ -256,6 +256,28 @@ export default function SettingsPage() {
         About
       </span>
 
+      <button
+        onClick={() => router.push('/terms')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          height: 'var(--height-row)',
+          padding: 0,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--text)',
+          textAlign: 'left',
+        }}
+      >
+        <span className="text-body">Terms &amp; Conditions</span>
+        <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+          ▸
+        </span>
+      </button>
+
       <p className="text-caption" style={{ color: 'var(--text)' }}>
         Version 1.0.0
       </p>
