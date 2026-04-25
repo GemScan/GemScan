@@ -5,6 +5,7 @@ import type {
   DeviceStatus,
   GemmaPlugin,
   ModelId,
+  ModelVerificationResult,
   PluginListenerHandle,
 } from './types'
 
@@ -31,6 +32,10 @@ export class GemmaPluginNative implements GemmaPlugin {
 
   async downloadModels(options: { modelIds: ModelId[] }): Promise<void> {
     return this.plugin.downloadModels(options)
+  }
+
+  async verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult> {
+    return this.plugin.verifyModel(options)
   }
 
   async analyse(task: AgentTask): Promise<AgentResult> {

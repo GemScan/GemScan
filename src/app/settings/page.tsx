@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useGemScanStore } from '@/lib/store'
 import { useLocale as useLocaleHook } from '@/hooks/useLocale'
 import SettingsRow from '@/components/SettingsRow'
+import ModelDownloadSection from '@/components/ModelDownloadSection'
 
 const languages = [
   { code: 'en', label: 'English' },
@@ -44,6 +45,10 @@ export default function SettingsPage() {
       <h1 className="text-title" style={{ color: 'var(--text)' }}>
         Settings
       </h1>
+
+      <ModelDownloadSection />
+
+      <hr className="divider" />
 
       <SettingsRow
         label="Language"

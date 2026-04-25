@@ -4,12 +4,25 @@ import os
 
 // MARK: - ModelLoader
 
+/// Errors thrown by ``ModelLoader``.
+public enum ModelLoaderError: Error, CustomStringConvertible, Sendable {
+    case verificationFailed(tier: ModelTier, reason: String)
+
+    public var description: String {
+        switch self {
+        case .verificationFailed(let tier, let reason):
+            return "Verification failed for \(tier.rawValue): \(reason)"
+        }
+    }
+}
+
 /// Downloads, verifies, and manages on-device model weight files.
 ///
 /// `ModelLoader` uses a background `URLSession` for downloads so they can
 /// continue even when the app is suspended. Downloaded files are verified
-/// via SHA-256 checksum before being made available. Paths are synced to
-/// the shared App Group container so extensions can locate model files.
+/// via existence + size + magic-byte checks (and optional SHA-256) before
+/// being made available. Paths are synced to the shared App Group container
+/// so extensions can locate model files.
 public actor ModelLoader: NSObject {
 
     // MARK: - Properties
@@ -85,6 +98,14 @@ public actor ModelLoader: NSObject {
         }
         try FileManager.default.moveItem(at: destinationURL, to: finalURL)
 
+        // Verify the downloaded file before declaring success.
+        let result = verify(tier: tier)
+        if !result.valid {
+            logger.error("Verification failed for \(tier.rawValue): \(result.reason ?? "unknown")")
+            try? FileManager.default.removeItem(at: finalURL)
+            throw ModelLoaderError.verificationFailed(tier: tier, reason: result.reason ?? "unknown")
+        }
+
         syncPathToAppGroup(tier: tier, path: finalURL)
         logger.info("Model \(tier.rawValue) downloaded and verified at \(finalURL.path)")
     }
@@ -102,6 +123,90 @@ public actor ModelLoader: NSObject {
         let digest = SHA256.hash(data: data)
         let hexString = digest.compactMap { String(format: "%02x", $0) }.joined()
         return hexString == expected.lowercased()
+    }
+
+    /// Result of a downloaded-model verification check.
+    public struct VerificationResult: Sendable {
+        public let valid: Bool
+        public let reason: String?
+        public let sizeBytes: Int64
+    }
+
+    /// Verifies that a downloaded model file is well-formed.
+    ///
+    /// Layered checks (each runs only if the previous passes):
+    /// 1. File exists at the canonical local path.
+    /// 2. File size meets the minimum expected for that tier.
+    /// 3. For GGUF tiers, the first four bytes match the GGUF magic header (`0x47475546`).
+    /// 4. If a SHA-256 hash is registered for the tier, full checksum check.
+    public func verify(tier: ModelTier) -> VerificationResult {
+        let url = canonicalLocalURL(for: tier)
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return VerificationResult(valid: false, reason: "File not found", sizeBytes: 0)
+        }
+
+        let sizeBytes: Int64
+        do {
+            let attrs = try FileManager.default.attributesOfItem(atPath: url.path)
+            sizeBytes = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        } catch {
+            return VerificationResult(valid: false, reason: "Could not read file attributes", sizeBytes: 0)
+        }
+
+        let minimumSize = minimumExpectedSize(for: tier)
+        if sizeBytes < minimumSize {
+            return VerificationResult(
+                valid: false,
+                reason: "File too small (\(sizeBytes) bytes, expected ≥ \(minimumSize))",
+                sizeBytes: sizeBytes
+            )
+        }
+
+        if tier.usesGGUFFormat {
+            guard let handle = try? FileHandle(forReadingFrom: url) else {
+                return VerificationResult(valid: false, reason: "Could not open file", sizeBytes: sizeBytes)
+            }
+            defer { try? handle.close() }
+
+            guard let header = try? handle.read(upToCount: 4), header.count == 4 else {
+                return VerificationResult(valid: false, reason: "Could not read header", sizeBytes: sizeBytes)
+            }
+
+            // GGUF magic: "GGUF" = 0x47 0x47 0x55 0x46
+            let expected: [UInt8] = [0x47, 0x47, 0x55, 0x46]
+            if Array(header) != expected {
+                let actualHex = header.map { String(format: "%02x", $0) }.joined()
+                return VerificationResult(
+                    valid: false,
+                    reason: "Bad magic header: 0x\(actualHex), expected GGUF",
+                    sizeBytes: sizeBytes
+                )
+            }
+        }
+
+        if let expectedHash = expectedChecksums[tier] {
+            if !verifyChecksum(at: url, expected: expectedHash) {
+                return VerificationResult(valid: false, reason: "Checksum mismatch", sizeBytes: sizeBytes)
+            }
+        }
+
+        logger.info("Verification passed for \(tier.rawValue): \(sizeBytes) bytes")
+        return VerificationResult(valid: true, reason: nil, sizeBytes: sizeBytes)
+    }
+
+    /// Loose minimum sizes — meant to catch truncated downloads, not enforce exact size.
+    private nonisolated func minimumExpectedSize(for tier: ModelTier) -> Int64 {
+        switch tier {
+        case .e2b:        return 800_000_000
+        case .e4b:        return 2_000_000_000
+        case .distilbert: return 1_000_000
+        }
+    }
+
+    /// Optional pre-baked SHA-256 hashes per tier. Populate to enable strict checksum verification.
+    private nonisolated var expectedChecksums: [ModelTier: String] {
+        return [:]
     }
 
     /// Returns the local file URL for a downloaded model, or `nil` if not yet available.

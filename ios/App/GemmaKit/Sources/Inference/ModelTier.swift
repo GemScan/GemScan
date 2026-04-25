@@ -22,4 +22,13 @@ public enum ModelTier: String, Codable, Sendable {
             return 5 * 1_024 * 1_024
         }
     }
+
+    /// Whether this tier ships as a GGUF file (vs. Core ML / TFLite for distilbert).
+    /// Used by ``ModelLoader/verify(tier:)`` to decide whether to check magic bytes.
+    public var usesGGUFFormat: Bool {
+        switch self {
+        case .e2b, .e4b:    return true
+        case .distilbert:   return false
+        }
+    }
 }

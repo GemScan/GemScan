@@ -62,9 +62,16 @@ export interface PluginListenerHandle {
   remove: () => void
 }
 
+export interface ModelVerificationResult {
+  valid: boolean
+  reason?: string
+  sizeBytes: number
+}
+
 export interface GemmaPlugin {
   isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }>
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
+  verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult>
   analyse(task: AgentTask): Promise<AgentResult>
   getDeviceStatus(): Promise<DeviceStatus>
   addListener(

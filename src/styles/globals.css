@@ -218,6 +218,19 @@ a,
   }
 }
 
+/* ─── Verification spinner ─── */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [style*='animation: spin'] {
+    animation: none !important;
+  }
+}
+
 /* ─── Streaming cursor ─── */
 @keyframes cursor-blink {
   0%,

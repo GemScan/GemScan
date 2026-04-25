@@ -13,6 +13,7 @@ export type {
   ToolCallRecord,
   DeviceStatus,
   PluginListenerHandle,
+  ModelVerificationResult,
 } from './types'
 
 let instance: GemmaPlugin | null = null

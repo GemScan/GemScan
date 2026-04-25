@@ -4,6 +4,7 @@ import type {
   DeviceStatus,
   GemmaPlugin,
   ModelId,
+  ModelVerificationResult,
   PluginListenerHandle,
 } from './types'
 import { goldenFixtures } from './__fixtures__/golden'
@@ -77,16 +78,19 @@ export class GemmaPluginMock implements GemmaPlugin {
     logger.info('downloadModels() called', MODULE, { modelIds: options.modelIds })
 
     for (const modelId of options.modelIds) {
-      const totalBytes = modelId === 'e4b' ? 4_500_000_000 : 2_300_000_000
-      const steps = 10
+      const totalBytes =
+        modelId === 'e4b' ? 3_000_000_000 :
+        modelId === 'e2b' ? 1_500_000_000 :
+        5_000_000
+      const steps = 20
       const chunkSize = totalBytes / steps
 
       for (let i = 1; i <= steps; i++) {
-        await delay(50)
+        await delay(40)
         this.emit('downloadProgress', {
           modelId,
           progress: i / steps,
-          bytesDownloaded: chunkSize * i,
+          bytesDownloaded: Math.round(chunkSize * i),
           totalBytes,
         })
       }
@@ -94,6 +98,22 @@ export class GemmaPluginMock implements GemmaPlugin {
       this.modelsDownloaded.add(modelId)
       logger.info(`Model ${modelId} downloaded (mock)`, MODULE)
     }
+  }
+
+  async verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult> {
+    logger.info('verifyModel() called', MODULE, { modelId: options.modelId })
+    await delay(150) // simulate native verification work
+
+    if (!this.modelsDownloaded.has(options.modelId)) {
+      return { valid: false, reason: 'Not downloaded', sizeBytes: 0 }
+    }
+
+    const sizeBytes =
+      options.modelId === 'e4b' ? 3_000_000_000 :
+      options.modelId === 'e2b' ? 1_500_000_000 :
+      5_000_000
+
+    return { valid: true, sizeBytes }
   }
 
   async analyse(task: AgentTask): Promise<AgentResult> {
