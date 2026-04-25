@@ -63,6 +63,9 @@ body {
   line-height: 1.412; /* 24/17 */
   color: var(--text);
   background-color: var(--surface);
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .text-title {
