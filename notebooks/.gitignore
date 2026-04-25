@@ -1,0 +1,30 @@
+# Datasets — most scam corpora are research-only; do not ship
+data/*
+!data/.gitkeep
+
+# Trained / downloaded model weights (host on the CDN bucket from H4)
+models/
+*.gguf
+*.safetensors
+*.mlpackage/
+*.bin
+
+# Notebook scratch
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Experiment-tracking caches (may contain PII despite scrubbing)
+wandb/
+mlruns/
+
+# HF / kaggle cache
+.cache/
+huggingface/
+.kaggle/
+
+# Generated CSVs that are too large to track but are reproducible
+_results/csv/*.large.csv
