@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { registerPlugin } from '@capacitor/core'
 import type {
   AgentResult,
   AgentTask,
@@ -10,49 +11,49 @@ import type {
   ScreeningMode,
 } from './types'
 
-function getCapacitorPlugin(): any {
-  const cap = (window as any).Capacitor
-  if (!cap) {
-    throw new Error(
-      'Capacitor is not available — native.ts should only be used on native platforms'
-    )
-  }
-  return cap.Plugins?.GemmaPlugin ?? cap.registerPlugin('GemmaPlugin')
-}
+/// Capacitor's `registerPlugin` returns a proxy that forwards to the native
+/// implementation when one is registered for the given name. If no native
+/// implementation exists (e.g. the Swift `GemmaPlugin` class is not compiled
+/// into the app target yet), method calls reject at call time with a clear
+/// `PluginNotImplemented` error rather than throwing during construction.
+const NativeBridge = registerPlugin<{
+  isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }>
+  downloadModels(options: { modelIds: ModelId[] }): Promise<void>
+  verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult>
+  analyse(options: { task: AgentTask }): Promise<AgentResult>
+  getDeviceStatus(): Promise<DeviceStatus>
+  setScreeningMode(options: { mode: ScreeningMode }): Promise<void>
+  recordActivity(): Promise<void>
+  addListener(event: string, handler: (data: any) => void): Promise<PluginListenerHandle>
+}>('GemmaPlugin')
 
 export class GemmaPluginNative implements GemmaPlugin {
-  private plugin: any
-
-  constructor() {
-    this.plugin = getCapacitorPlugin()
-  }
-
   async isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }> {
-    return this.plugin.isReady()
+    return NativeBridge.isReady()
   }
 
   async downloadModels(options: { modelIds: ModelId[] }): Promise<void> {
-    return this.plugin.downloadModels(options)
+    return NativeBridge.downloadModels(options)
   }
 
   async verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult> {
-    return this.plugin.verifyModel(options)
+    return NativeBridge.verifyModel(options)
   }
 
   async analyse(task: AgentTask): Promise<AgentResult> {
-    return this.plugin.analyse({ task })
+    return NativeBridge.analyse({ task })
   }
 
   async getDeviceStatus(): Promise<DeviceStatus> {
-    return this.plugin.getDeviceStatus()
+    return NativeBridge.getDeviceStatus()
   }
 
   async setScreeningMode(options: { mode: ScreeningMode }): Promise<void> {
-    return this.plugin.setScreeningMode(options)
+    return NativeBridge.setScreeningMode(options)
   }
 
   async recordActivity(): Promise<void> {
-    return this.plugin.recordActivity()
+    return NativeBridge.recordActivity()
   }
 
   async addListener(
@@ -73,6 +74,6 @@ export class GemmaPluginNative implements GemmaPlugin {
     handler: (data: { enabled: boolean; changedBy: 'self' | 'trustedContact' }) => void
   ): Promise<PluginListenerHandle>
   async addListener(event: string, handler: (data: any) => void): Promise<PluginListenerHandle> {
-    return this.plugin.addListener(event, handler)
+    return NativeBridge.addListener(event, handler)
   }
 }

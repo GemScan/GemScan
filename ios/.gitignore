@@ -18,5 +18,7 @@ App/GemmaKit/.swiftpm/
 App/GemmaKit/Package.resolved
 SPMCheckout/
 
-# Xcode pbxproj backups
+# Xcode pbxproj backups (any *-bak / *.bak / *.backup variant)
+App/App.xcodeproj/project.pbxproj.*-bak
 App/App.xcodeproj/project.pbxproj.bak
+App/App.xcodeproj/project.pbxproj.backup

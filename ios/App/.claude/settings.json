@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/Users/shashankbangalorelakshman/Documents/GemScan/ios/App/Pods"
+    ]
+  },
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        "/Users/shashankbangalorelakshman/Documents/GemScan/ios/App/Pods"
+      ]
+    }
+  }
+}

@@ -188,11 +188,25 @@ export default function ModelDownloadSection() {
         }))
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Download failed'
+      const raw = err instanceof Error ? err.message : 'Download failed'
+      const message = friendlyError(raw)
       setStatuses((s) => ({ ...s, [modelId]: { kind: 'failed', reason: message } }))
     } finally {
       inFlight.current.delete(modelId)
     }
+  }
+
+  function friendlyError(raw: string): string {
+    if (/not implemented|UNIMPLEMENTED|registerPlugin/i.test(raw)) {
+      return 'Native plugin unavailable in this build'
+    }
+    if (/network|offline|connection|timed out/i.test(raw)) {
+      return 'Network error — check your connection'
+    }
+    if (/storage|disk|space/i.test(raw)) {
+      return 'Not enough storage on device'
+    }
+    return raw.length > 80 ? 'Download failed' : raw
   }
 
   return (
