@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Type Check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit Tests with Coverage
+        run: npm run test:coverage
+
+      - name: Check Coverage Thresholds
+        run: |
+          # vitest.config.mts enforces 80% lines/functions/statements, 70% branches
+          # The test:coverage command will fail if thresholds are not met
+          echo "Coverage thresholds passed"
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 14
+
+  nextjs-build:
+    name: Next.js Static Export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build Static Export
+        run: npm run build
+
+      - name: Verify Export Output
+        run: |
+          test -d out || (echo "Static export directory 'out' not found" && exit 1)
+          test -f out/index.html || (echo "index.html not found in export" && exit 1)
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-export
+          path: out/
+          retention-days: 7
+
+  pii-scan:
+    name: PII Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for PII in Source
+        run: |
+          echo "Scanning for potential PII leaks in source code..."
+
+          # Check for email patterns in non-test, non-fixture files
+          if grep -rn --include='*.ts' --include='*.tsx' --include='*.swift' \
+            -E '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}' \
+            --exclude-dir=node_modules \
+            --exclude-dir='.git' \
+            --exclude-dir='__tests__' \
+            --exclude-dir='tests' \
+            --exclude-dir='fixtures' \
+            --exclude-dir='Mocks' \
+            --exclude='*.test.*' \
+            --exclude='*.spec.*' \
+            src/ ios/ 2>/dev/null; then
+            echo "WARNING: Potential email addresses found in source code"
+            exit 1
+          fi
+
+          # Check for phone number patterns in log statements
+          if grep -rn --include='*.ts' --include='*.tsx' --include='*.swift' \
+            -E '(logger|console)\.(log|info|warn|error|debug).*\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}' \
+            --exclude-dir=node_modules \
+            --exclude-dir='.git' \
+            src/ ios/ 2>/dev/null; then
+            echo "WARNING: Potential phone numbers found in log statements"
+            exit 1
+          fi
+
+          echo "PII scan passed - no issues found"
+
+  swift-lint:
+    name: Swift Lint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint lint --config .swiftlint.yml --reporter github-actions-logging ios/

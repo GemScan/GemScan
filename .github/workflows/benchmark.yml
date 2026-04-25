@@ -1,0 +1,80 @@
+name: Weekly Benchmark
+
+on:
+  schedule:
+    # Monday at 4:00 AM UTC
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    name: Performance Benchmark
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build Project
+        run: npm run build
+
+      - name: Run Unit Tests (Baseline)
+        run: npm run test:unit -- --reporter=json --outputFile=benchmark-results.json
+        continue-on-error: true
+
+      - name: Run Performance Tests
+        run: |
+          echo "Running performance benchmarks..."
+
+          # Measure static export build time
+          START=$(date +%s%N)
+          npm run build
+          END=$(date +%s%N)
+          BUILD_TIME_MS=$(( (END - START) / 1000000 ))
+          echo "BUILD_TIME_MS=$BUILD_TIME_MS" >> "$GITHUB_ENV"
+          echo "Build time: ${BUILD_TIME_MS}ms"
+
+          # Measure export bundle size
+          BUNDLE_SIZE=$(du -sk out/ | cut -f1)
+          echo "BUNDLE_SIZE_KB=$BUNDLE_SIZE" >> "$GITHUB_ENV"
+          echo "Bundle size: ${BUNDLE_SIZE}KB"
+
+      - name: Check Benchmark Regression
+        run: node scripts/check-benchmark-regression.js
+        env:
+          BUILD_TIME_MS: ${{ env.BUILD_TIME_MS }}
+          BUNDLE_SIZE_KB: ${{ env.BUNDLE_SIZE_KB }}
+
+      - name: Upload Benchmark Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_id }}
+          path: |
+            benchmark-results.json
+          retention-days: 90
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const buildTime = process.env.BUILD_TIME_MS;
+            const bundleSize = process.env.BUNDLE_SIZE_KB;
+            const body = `## Benchmark Results\n\n| Metric | Value |\n|--------|-------|\n| Build Time | ${buildTime}ms |\n| Bundle Size | ${bundleSize}KB |\n`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });

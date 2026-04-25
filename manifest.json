@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-04-24T00:00:00Z",
+  "models": [
+    {
+      "id": "e2b",
+      "displayName": "Gemma 2B (Triage)",
+      "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "sizeBytes": 1500000000,
+      "downloadUrl": "https://models.gemscan.app/gemma-2b-scam-q8_0.gguf",
+      "downloadPolicy": "required",
+      "quantization": "q8_0",
+      "minIOSVersion": "16.0",
+      "minRAMBytes": 1887436800
+    },
+    {
+      "id": "e4b",
+      "displayName": "Gemma 4B (Deep Scan)",
+      "sha256": "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
+      "sizeBytes": 2800000000,
+      "downloadUrl": "https://models.gemscan.app/gemma-4b-scam-q8_0.gguf",
+      "downloadPolicy": "on_demand",
+      "quantization": "q8_0",
+      "minIOSVersion": "16.0",
+      "minRAMBytes": 3355443200
+    },
+    {
+      "id": "distilbert",
+      "displayName": "DistilBERT (Background Triage)",
+      "sha256": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "sizeBytes": 5000000,
+      "downloadUrl": "https://models.gemscan.app/distilbert-scam-coreml.mlpackage.zip",
+      "downloadPolicy": "required",
+      "quantization": "float16",
+      "minIOSVersion": "16.0",
+      "minRAMBytes": 5242880
+    }
+  ],
+  "signature": ""
+}

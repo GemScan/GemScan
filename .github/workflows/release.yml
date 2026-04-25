@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-manifest:
+    name: Verify Model Manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: pip install pynacl
+
+      - name: Verify Manifest Signature
+        run: python scripts/verify_manifest_signature.py
+        env:
+          MANIFEST_PUBLIC_KEY: ${{ secrets.MANIFEST_PUBLIC_KEY }}
+
+  build:
+    name: Build iOS Archive
+    needs: verify-manifest
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build Next.js Static Export
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Build Archive
+        run: |
+          xcodebuild archive \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -archivePath build/GemScan.xcarchive \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="${{ secrets.CODE_SIGN_IDENTITY }}" \
+            DEVELOPMENT_TEAM="${{ secrets.DEVELOPMENT_TEAM }}" \
+            PROVISIONING_PROFILE_SPECIFIER="${{ secrets.PROVISIONING_PROFILE }}"
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/GemScan.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ios/ExportOptions.plist
+
+      - name: Upload Archive Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemscan-archive
+          path: build/GemScan.xcarchive
+          retention-days: 30
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemscan-ipa
+          path: build/export/*.ipa
+          retention-days: 30
+
+  upload-testflight:
+    name: Upload to TestFlight
+    needs: build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download IPA
+        uses: actions/download-artifact@v4
+        with:
+          name: gemscan-ipa
+          path: build/export
+
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/export/*.ipa \
+            --apiKey "${{ secrets.APP_STORE_API_KEY }}" \
+            --apiIssuer "${{ secrets.APP_STORE_API_ISSUER }}"
+        env:
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_API_PRIVATE_KEY }}

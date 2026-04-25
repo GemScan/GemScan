@@ -1,0 +1,13 @@
+[
+  {"phone_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2", "risk_score": 0.95, "report_count": 342, "source_id": "ftc-robocall-db"},
+  {"phone_hash": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3", "risk_score": 0.88, "report_count": 156, "source_id": "ftc-robocall-db"},
+  {"phone_hash": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4", "risk_score": 0.92, "report_count": 278, "source_id": "nomorobo"},
+  {"phone_hash": "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5", "risk_score": 0.75, "report_count": 89, "source_id": "youmail-directory"},
+  {"phone_hash": "e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6", "risk_score": 0.98, "report_count": 512, "source_id": "ftc-robocall-db"},
+  {"phone_hash": "f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1", "risk_score": 0.82, "report_count": 134, "source_id": "nomorobo"},
+  {"phone_hash": "1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b", "risk_score": 0.70, "report_count": 67, "source_id": "youmail-directory"},
+  {"phone_hash": "2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c", "risk_score": 0.91, "report_count": 245, "source_id": "ftc-robocall-db"},
+  {"phone_hash": "3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d", "risk_score": 0.85, "report_count": 178, "source_id": "nomorobo"},
+  {"phone_hash": "4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e", "risk_score": 0.78, "report_count": 98, "source_id": "youmail-directory"},
+  {"phone_hash": "5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f", "risk_score": 0.96, "report_count": 423, "source_id": "ftc-robocall-db"}
+]

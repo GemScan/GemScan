@@ -1,0 +1,156 @@
+[
+  {
+    "id": "SP001",
+    "name": "Urgent Account Verification",
+    "regex": "(?i)(verify|confirm)\\s+(your|ur)\\s+(account|identity|information)",
+    "risk_level": "high",
+    "description": "Requests to verify account details, commonly used in phishing."
+  },
+  {
+    "id": "SP002",
+    "name": "Suspended Account Warning",
+    "regex": "(?i)(account|acct)\\s+(has been|is|was)\\s+(suspended|locked|disabled|restricted)",
+    "risk_level": "high",
+    "description": "Claims the recipient's account has been suspended."
+  },
+  {
+    "id": "SP003",
+    "name": "Prize or Lottery Winner",
+    "regex": "(?i)(you('ve| have)?\\s+(won|been selected)|congratulations.*winner|claim\\s+your\\s+prize)",
+    "risk_level": "critical",
+    "description": "Claims the recipient has won a prize or lottery."
+  },
+  {
+    "id": "SP004",
+    "name": "Package Delivery Failure",
+    "regex": "(?i)(package|parcel|delivery|shipment)\\s+(cannot|could not|unable to)\\s+(be delivered|deliver)",
+    "risk_level": "medium",
+    "description": "Fake delivery failure notifications requesting action."
+  },
+  {
+    "id": "SP005",
+    "name": "Bank Transfer Request",
+    "regex": "(?i)(wire|transfer|send)\\s+(money|funds|payment|\\$\\d+)",
+    "risk_level": "high",
+    "description": "Requests to transfer money or funds."
+  },
+  {
+    "id": "SP006",
+    "name": "IRS or Tax Authority Impersonation",
+    "regex": "(?i)(irs|tax\\s+(authority|department|office)|hmrc|ato)\\s+.*(owe|outstanding|penalty|refund)",
+    "risk_level": "critical",
+    "description": "Impersonation of tax authorities demanding payment."
+  },
+  {
+    "id": "SP007",
+    "name": "Gift Card Payment Demand",
+    "regex": "(?i)(buy|purchase|get)\\s+(gift\\s+cards?|itunes|google\\s+play|steam)",
+    "risk_level": "critical",
+    "description": "Demands for payment via gift cards, a hallmark of scams."
+  },
+  {
+    "id": "SP008",
+    "name": "Cryptocurrency Investment",
+    "regex": "(?i)(crypto|bitcoin|btc|ethereum|eth)\\s+.*(invest|double|guaranteed|profit)",
+    "risk_level": "high",
+    "description": "Fraudulent cryptocurrency investment schemes."
+  },
+  {
+    "id": "SP009",
+    "name": "Social Security Number Request",
+    "regex": "(?i)(ssn|social\\s+security|social\\s+insurance)\\s+.*(number|verify|confirm|provide)",
+    "risk_level": "critical",
+    "description": "Requests for social security or insurance numbers."
+  },
+  {
+    "id": "SP010",
+    "name": "Password Reset Phishing",
+    "regex": "(?i)(password|passcode)\\s+.*(reset|change|expire|update)\\s+.*(click|tap|link)",
+    "risk_level": "high",
+    "description": "Phishing attempts disguised as password reset notifications."
+  },
+  {
+    "id": "SP011",
+    "name": "Romance Scam Opener",
+    "regex": "(?i)(i\\s+found\\s+your\\s+profile|are\\s+you\\s+single|looking\\s+for\\s+love|beautiful\\s+woman|handsome\\s+man)",
+    "risk_level": "medium",
+    "description": "Common romance scam opening lines."
+  },
+  {
+    "id": "SP012",
+    "name": "Tech Support Fraud",
+    "regex": "(?i)(your\\s+(computer|device|pc|mac)\\s+(is|has been)\\s+(infected|compromised|hacked)|virus\\s+detected|malware\\s+found)",
+    "risk_level": "high",
+    "description": "Fake tech support claims about device infections."
+  },
+  {
+    "id": "SP013",
+    "name": "Urgency Pressure Words",
+    "regex": "(?i)(act\\s+now|immediately|urgent|within\\s+24\\s+hours|last\\s+chance|don't\\s+delay|time\\s+sensitive)",
+    "risk_level": "medium",
+    "description": "High-pressure urgency language commonly used in scams."
+  },
+  {
+    "id": "SP014",
+    "name": "Nigerian Prince / Inheritance",
+    "regex": "(?i)(inheritance|beneficiary|estate|next\\s+of\\s+kin|deceased|million\\s+dollars|barrister)",
+    "risk_level": "critical",
+    "description": "Advance-fee fraud promising inheritances or large sums."
+  },
+  {
+    "id": "SP015",
+    "name": "Job Offer Too Good",
+    "regex": "(?i)(work\\s+from\\s+home|earn\\s+\\$\\d+.*(per|a)\\s+(hour|day|week)|no\\s+experience\\s+(needed|required))",
+    "risk_level": "medium",
+    "description": "Unrealistic job offers used as scam bait."
+  },
+  {
+    "id": "SP016",
+    "name": "Toll or Fine Payment",
+    "regex": "(?i)(unpaid\\s+toll|outstanding\\s+fine|parking\\s+violation|traffic\\s+ticket)\\s+.*(pay|settle)",
+    "risk_level": "high",
+    "description": "Fake toll or fine payment demands."
+  },
+  {
+    "id": "SP017",
+    "name": "Subscription Renewal Scam",
+    "regex": "(?i)(subscription|membership|renewal)\\s+.*(expire|expiring|auto.?renew|charged|\\$\\d+)",
+    "risk_level": "medium",
+    "description": "Fake subscription renewal or charge notifications."
+  },
+  {
+    "id": "SP018",
+    "name": "Shortened URL Obfuscation",
+    "regex": "(bit\\.ly|tinyurl|t\\.co|goo\\.gl|is\\.gd|buff\\.ly|ow\\.ly|rb\\.gy)",
+    "risk_level": "low",
+    "description": "Use of URL shorteners to hide actual destinations."
+  },
+  {
+    "id": "SP019",
+    "name": "Credential Harvesting Form",
+    "regex": "(?i)(enter\\s+your|provide\\s+your|type\\s+your)\\s+(username|email|password|credit\\s+card|card\\s+number)",
+    "risk_level": "high",
+    "description": "Requests to enter credentials or payment information."
+  },
+  {
+    "id": "SP020",
+    "name": "Authority Impersonation",
+    "regex": "(?i)(fbi|police|interpol|customs|immigration)\\s+.*(warrant|arrest|investigation|legal\\s+action)",
+    "risk_level": "critical",
+    "description": "Impersonation of law enforcement threatening legal action."
+  },
+  {
+    "id": "SP021",
+    "name": "WhatsApp/Telegram Group Invite",
+    "regex": "(?i)(join|added\\s+to)\\s+.*(whatsapp|telegram|signal)\\s+.*(group|channel|community)",
+    "risk_level": "medium",
+    "description": "Unsolicited messaging app group invitations."
+  },
+  {
+    "id": "SP022",
+    "name": "QR Code Payment Request",
+    "regex": "(?i)(scan\\s+(this|the)\\s+qr|qr\\s+code\\s+.*(pay|payment|transfer))",
+    "risk_level": "high",
+    "description": "Requests to scan QR codes for payments."
+  }
+]

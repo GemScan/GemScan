@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Model weights (downloaded at runtime, never committed)
+models/
+*.gguf
+
+# Build
+dist/
+build/
+*.xcarchive
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+lcov.info
+
+# Playwright
+test-results/
+playwright-report/
+
+# Capacitor
+ios/App/App/public/
+
+# Xcode
+*.xcuserdata
+*.xcworkspace/xcuserdata/
+DerivedData/

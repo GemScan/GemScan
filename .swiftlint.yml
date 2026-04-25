@@ -1,0 +1,44 @@
+included:
+  - ios/App/GemmaKit/Sources
+  - ios/App/Plugins
+  - ios/App/Extensions
+
+excluded:
+  - ios/App/GemmaKit/Tests
+
+opt_in_rules:
+  - force_unwrapping
+  - force_try
+  - implicitly_unwrapped_optional
+  - private_over_fileprivate
+  - strict_fileprivate
+  - prohibited_interface_builder
+
+disabled_rules:
+  - trailing_comma
+
+custom_rules:
+  no_print:
+    name: "No print statements"
+    regex: '^\s*print\('
+    message: "Use os.Logger instead of print()"
+    severity: error
+  no_nsuserdefaults_direct:
+    name: "No direct UserDefaults.standard"
+    regex: 'UserDefaults\.standard'
+    message: "Use UserDefaults(suiteName:) with SharedContainerSchema.appGroupId — never UserDefaults.standard"
+    severity: error
+
+reporter: "xcode"
+
+line_length:
+  warning: 120
+  error: 200
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 1000
