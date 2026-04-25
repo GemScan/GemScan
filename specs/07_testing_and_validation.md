@@ -8,7 +8,7 @@ Testing is organised into four layers:
 
 | Layer | Tool | Runs in | Gate |
 |---|---|---|---|
-| Unit + integration | Vitest (TS), XCTest (Swift), JUnit 5 (Kotlin) | CI (GitHub Actions) | Blocks PR merge |
+| Unit + integration | Vitest (TS), XCTest (Swift) | CI (GitHub Actions) | Blocks PR merge |
 | End-to-end — web mode | Playwright | CI headless | Blocks PR merge |
 | End-to-end — iOS device | XCUITest | CI + pre-release Xcode Cloud | Blocks TestFlight upload |
 | Adversarial / benchmark | Custom benchmark suite | Weekly scheduled run | Tracked in dashboard |
@@ -16,7 +16,6 @@ Testing is organised into four layers:
 **Minimum coverage bar** (enforced by CI):
 - TypeScript `src/lib/`: 80% line coverage
 - Swift `GemmaKit/Sources/`: all `AgentTask` round-trips; all MCP server tool implementations
-- Kotlin `com.gemscan/`: all agent coroutine flows; all MCP tool implementations
 
 ---
 
@@ -820,7 +819,4 @@ jobs:
     - Fail if any latency metric exceeds target by > 20%
     - Fail if false positive rate > 8%
 
-  android-unit:
-    - ./gradlew test
-    - Require all JUnit 5 targets to pass
 ```

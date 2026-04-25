@@ -188,59 +188,7 @@ logger.debug('SMS received', { charCount: messageBody.length, language }, 'TextA
 
 ---
 
-## 5. Kotlin Logging — GemScanLogger Facade
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/logging/GemScanLogger.kt
-package com.gemscan.logging
-
-import android.util.Log
-
-/**
- * Privacy-safe logging facade. All methods strip content; log only metadata.
- *
- * Log tag format: "GemScan/{Module}"
- * This allows filtering with: adb logcat -s "GemScan/*"
- */
-object GemScanLogger {
-    private const val SUBSYSTEM = "GemScan"
-
-    fun debug(module: String, message: String, data: Map<String, Any> = emptyMap()) {
-        if (!BuildConfig.DEBUG) return    // Strip debug logs in release builds
-        Log.d("$SUBSYSTEM/$module", formatMessage(message, data))
-    }
-
-    fun info(module: String, message: String, data: Map<String, Any> = emptyMap()) {
-        Log.i("$SUBSYSTEM/$module", formatMessage(message, data))
-    }
-
-    fun warning(module: String, message: String, data: Map<String, Any> = emptyMap()) {
-        Log.w("$SUBSYSTEM/$module", formatMessage(message, data))
-    }
-
-    fun error(module: String, message: String, throwable: Throwable? = null, data: Map<String, Any> = emptyMap()) {
-        Log.e("$SUBSYSTEM/$module", formatMessage(message, data), throwable)
-    }
-
-    private fun formatMessage(message: String, data: Map<String, Any>): String {
-        if (data.isEmpty()) return message
-        val dataStr = data.entries.joinToString(" ") { "${it.key}=${it.value}" }
-        return "$message $dataStr"
-    }
-}
-```
-
-Usage:
-
-```kotlin
-GemScanLogger.info("OrchestratorAgent", "task received", mapOf("taskId" to task.id, "type" to task.type))
-GemScanLogger.warning("InferenceEngine", "E4B unavailable — falling back to E2B", mapOf("availableBytes" to available))
-GemScanLogger.error("MCPClient", "tool call failed", exception, mapOf("server" to serverName, "tool" to toolName))
-```
-
----
-
-## 6. InferenceMetrics — Performance Monitoring
+## 5. InferenceMetrics — Performance Monitoring
 
 ```swift
 // GemmaKit/Sources/Logging/InferenceMetrics.swift
@@ -337,7 +285,7 @@ struct MetricsSummary {
 
 ---
 
-## 7. Debug UI Overlay (Dev Builds Only)
+## 6. Debug UI Overlay (Dev Builds Only)
 
 A debug overlay panel is available in development builds, toggled by a triple-tap on the GemScan logo. It is compiled out of release builds via `#if DEBUG`.
 
@@ -460,7 +408,7 @@ struct DebugOverlayView: View {
 
 ---
 
-## 8. OSLog Filtering Cheatsheet
+## 7. OSLog Filtering Cheatsheet
 
 For debugging on-device via Xcode Console or `xcrun simctl`:
 
@@ -478,25 +426,12 @@ log stream --predicate 'subsystem == "com.gemscan" AND messageType >= 16'
 log collect --output gemscan_logs.logarchive --start "$(date -v-30M '+%Y-%m-%d %H:%M:%S')"
 ```
 
-For Android logcat:
-
-```bash
-# All GemScan logs
-adb logcat -s "GemScan/*"
-
-# Specific module
-adb logcat -s "GemScan/OrchestratorAgent"
-
-# Warnings and errors only
-adb logcat "*:W" "GemScan/*:V"
-```
-
 ---
 
-## 9. Logging Compliance Checklist
+## 8. Logging Compliance Checklist
 
 - [ ] No PII in any log message at any level (automated regex scan in CI: see Spec 09)
-- [ ] `.debug` logs are stripped from release builds (Swift `#if DEBUG`; Kotlin `BuildConfig.DEBUG`)
+- [ ] `.debug` logs are stripped from release builds (Swift `#if DEBUG`)
 - [ ] Every `catch` block logs at `.error` level minimum (code review gate)
 - [ ] `InferenceMetrics.emit()` called after every `InferenceEngine.generate()` completion
 - [ ] `MetricsStore` ring buffer does not exceed 500 records (XCTest: verify eviction)

@@ -4,13 +4,13 @@
 
 ## 1. Overview
 
-The app shell is a **Next.js 14 (App Router) web application** wrapped in a **Capacitor 6** container that compiles to native iOS and Android binaries. The shell owns:
+The app shell is a **Next.js 14 (App Router) web application** wrapped in a **Capacitor 6** container that compiles to a native iOS binary. The shell owns:
 
 - The complete UI layer (React components, routing, state management)
 - The `GemmaPlugin` Capacitor bridge that exposes on-device inference to TypeScript
 - A **web mock layer** so the full UI can be developed and tested in a browser without any native hardware
 
-The shell never calls model inference directly — it calls through `GemmaPlugin`, which routes to either the native Swift/Kotlin implementation or the web mock.
+The shell never calls model inference directly — it calls through `GemmaPlugin`, which routes to either the native Swift implementation or the web mock.
 
 ---
 
@@ -25,16 +25,12 @@ npx cap init GemScan com.gemscan.app --web-dir=out
 npx cap add ios
 npx cap open ios              # Opens Xcode
 
-# Android
-npx cap add android
-npx cap open android          # Opens Android Studio
-
 # Dev server (web mock mode — no device needed)
 npm run dev                   # Next.js dev server at http://localhost:3000
 
 # Production build → sync to native
 npm run build                 # next build && next export → out/
-npx cap sync                  # Copies out/ to ios/App/App/public and android/app/src/main/assets/public
+npx cap sync ios              # Copies out/ to ios/App/App/public
 ```
 
 ---

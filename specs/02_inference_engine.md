@@ -1,6 +1,6 @@
 # Spec 02 — Inference Engine (GemmaKit)
 
-GemmaKit is the shared Swift package that owns all on-device inference. It is linked by the main app target and by all iOS extensions. The Android equivalent lives in `android/app/src/main/kotlin/com/gemscan/inference/`.
+GemmaKit is the shared Swift package that owns all on-device inference. It is linked by the main app target and by all iOS extensions.
 
 ---
 
@@ -15,12 +15,11 @@ GemmaKit is the shared Swift package that owns all on-device inference. It is li
 ### Hugging Face Artifact IDs
 
 ```
-GemScan/gemma-4-e2b-it-GemScan-q4km.gguf        (~1.5 GB, llama.cpp cross-platform)
-GemScan/gemma-4-e4b-it-GemScan-q4km.gguf        (~3.0 GB, llama.cpp cross-platform)
-GemScan/gemma-4-e2b-it-GemScan-mlx-4bit         (MLX native, iOS primary runtime)
+GemScan/gemma-4-e2b-it-GemScan-q4km.gguf        (~1.5 GB, llama.cpp fallback)
+GemScan/gemma-4-e4b-it-GemScan-q4km.gguf        (~3.0 GB, llama.cpp fallback)
+GemScan/gemma-4-e2b-it-GemScan-mlx-4bit         (MLX native, primary iOS runtime)
 GemScan/gemma-4-e4b-it-GemScan-mlx-4bit         (MLX native + TurboQuant KV cache)
 GemScan/sms-triage-distilbert.mlpackage          (Core ML, iOS SMS Filter extension)
-GemScan/sms-triage-distilbert.tflite             (TFLite, Android SMS receiver)
 ```
 
 ---
@@ -353,69 +352,9 @@ print("✅ Chat template matches")
 
 ---
 
-## 8. Android Inference Engine (`GemmaInferenceEngine.kt`)
+## 8. DistilBERT SMS Triage (Extension-Only Path)
 
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/inference/GemmaInferenceEngine.kt
-
-class GemmaInferenceEngine private constructor() {
-    companion object {
-        val shared = GemmaInferenceEngine()
-        private const val E2B_RAM_BYTES = 2_300L * 1024 * 1024
-        private const val E4B_RAM_BYTES = 3_200L * 1024 * 1024
-    }
-
-    private var e2bEngine: LiteRTLMEngine? = null
-    private var e4bEngine: LiteRTLMEngine? = null
-
-    suspend fun warmUpE2B(): Unit = withContext(Dispatchers.Default) {
-        checkMemory(E2B_RAM_BYTES)
-        e2bEngine = LiteRTLMEngine.load(ModelTier.E2B)
-        GemScanLogger.inference.info("E2B loaded")
-    }
-
-    suspend fun loadE4BIfNeeded(): Unit = withContext(Dispatchers.Default) {
-        if (e4bEngine != null) return@withContext
-        checkMemory(E4B_RAM_BYTES)
-        e4bEngine = LiteRTLMEngine.load(ModelTier.E4B)
-        GemScanLogger.inference.info("E4B loaded on demand")
-    }
-
-    fun unloadE4B() {
-        e4bEngine?.close()
-        e4bEngine = null
-        GemScanLogger.inference.info("E4B unloaded")
-    }
-
-    suspend fun generate(
-        prompt: String,
-        tier: ModelTier,
-        maxTokens: Int = 512,
-        onToken: (String) -> Unit
-    ): String = withContext(Dispatchers.Default) {
-        val engine = when (tier) {
-            ModelTier.E2B -> e2bEngine ?: throw GemScanException.ModelNotLoaded(tier)
-            ModelTier.E4B -> e4bEngine ?: throw GemScanException.ModelNotLoaded(tier)
-        }
-        engine.generate(prompt, maxTokens, onToken)
-    }
-
-    private fun checkMemory(required: Long) {
-        val activityManager = GemScanApplication.instance.getSystemService(ActivityManager::class.java)
-        val memInfo = ActivityManager.MemoryInfo()
-        activityManager.getMemoryInfo(memInfo)
-        if (memInfo.availMem < required * 1.2) {
-            throw GemScanException.OOMRejected(required, memInfo.availMem)
-        }
-    }
-}
-```
-
----
-
-## 9. DistilBERT SMS Triage (Extension-Only Path)
-
-DistilBERT runs **only** in the SMS Filter extension (iOS) or the SMS broadcast receiver (Android). It is not part of `InferenceEngine` — it has its own tight path.
+DistilBERT runs **only** in the iOS SMS Filter extension. It is not part of `InferenceEngine` — it has its own tight, memory-constrained path.
 
 ```swift
 // ios/App/Extensions/SMSFilter/SMSTriage.swift
@@ -442,7 +381,7 @@ class SMSTriage {
 
 ---
 
-## 10. Performance Monitoring Hooks
+## 9. Performance Monitoring Hooks
 
 All inference calls must emit performance signals for the monitoring layer (see `specs/08_logging_and_monitoring.md`).
 

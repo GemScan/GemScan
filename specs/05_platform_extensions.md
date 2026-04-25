@@ -8,16 +8,13 @@ GemScan integrates with platform message-routing infrastructure via native app e
 
 ### Extension Inventory
 
-| Extension | Platform | Memory ceiling | Model | Purpose |
-|---|---|---|---|---|
-| `ILMessageFilterExtension` | iOS | 50 MB total | DistilBERT (≤5 MB) | SMS unknown-sender triage |
-| `CXCallDirectoryExtension` | iOS | 50 MB | DistilBERT | Incoming call label + blocking |
-| `ShareExtension` | iOS | 120 MB | None (hands off to main app) | Share Sheet ingestion |
-| `AppIntentsExtension` | iOS | 60 MB | None | Siri shortcut + widget integration |
-| `SafariContentBlocker` | iOS | 6 MB list | None | In-Safari URL blocking |
-| `SmsReceiver` (Broadcast) | Android | — | DistilBERT (TFLite) | SMS_RECEIVED intent handler |
-| `CallScreeningService` | Android | — | DistilBERT (TFLite) | Incoming call screening |
-| `ShareActivity` | Android | — | None | Android Share Sheet |
+| Extension | Memory ceiling | Model | Purpose |
+|---|---|---|---|
+| `ILMessageFilterExtension` | 50 MB total | DistilBERT (≤5 MB) | SMS unknown-sender triage |
+| `CXCallDirectoryExtension` | 50 MB | None (pre-built list) | Incoming call label + blocking |
+| `ShareExtension` | 120 MB | None (hands off to main app) | Share Sheet ingestion |
+| `AppIntentsExtension` | 60 MB | None | Siri shortcut + widget integration |
+| `SafariContentBlocker` | 6 MB list | None | In-Safari URL blocking |
 
 ---
 
@@ -391,122 +388,7 @@ The user explicitly shares an audio file (e.g., a scam voicemail) with GemScan v
 
 ---
 
-## 5. Android Extensions
-
-### 5.1 SMS Broadcast Receiver
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/router/SmsReceiver.kt
-package com.gemscan.router
-
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.provider.Telephony
-import android.util.Log
-import com.gemscan.inference.DistilBertTriage
-import kotlinx.coroutines.*
-
-class SmsReceiver : BroadcastReceiver() {
-    companion object { private const val TAG = "GemScan/SmsReceiver" }
-
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
-    override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
-
-        val pendingResult = goAsync()
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
-
-        scope.launch {
-            try {
-                for (message in messages) {
-                    val body = message.messageBody ?: continue
-                    val sender = message.originatingAddress ?: continue
-                    val triage = DistilBertTriage.getInstance(context).classify(body)
-                    Log.i(TAG, "SMS triage: ${triage.label} sender=[${sender.length} chars]")
-
-                    if (triage.label == TriageLabel.JUNK && triage.confidence > 0.90) {
-                        // Notify main app to show scam warning
-                        sendWarningBroadcast(context, sender, triage)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "SMS triage failed: ${e.message}")
-            } finally {
-                pendingResult.finish()
-            }
-        }
-    }
-
-    private fun sendWarningBroadcast(context: Context, sender: String, triage: TriageResult) {
-        val intent = Intent("com.gemscan.SMS_SCAM_WARNING").apply {
-            putExtra("sender_length", sender.length)
-            putExtra("confidence", triage.confidence.toFloat())
-            putExtra("label", triage.label.name)
-        }
-        context.sendBroadcast(intent)
-    }
-}
-```
-
-### 5.2 Call Screening Service
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/router/GemScanCallScreeningService.kt
-package com.gemscan.router
-
-import android.telecom.Call
-import android.telecom.CallScreeningService
-import android.util.Log
-import com.gemscan.mcp.PhoneReputationServer
-import kotlinx.coroutines.*
-
-class GemScanCallScreeningService : CallScreeningService() {
-    companion object { private const val TAG = "GemScan/CallScreening" }
-
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-
-    override fun onScreenCall(callDetails: Call.Details) {
-        scope.launch {
-            val number = callDetails.handle?.schemeSpecificPart ?: run {
-                respondToCall(callDetails, buildResponse(shouldBlock = false))
-                return@launch
-            }
-
-            val reputationResult = PhoneReputationServer().execute("check", mapOf(
-                "transcript_excerpt" to number.take(20)
-            ))
-            val riskScore = reputationResult["max_risk_score"]?.toDoubleOrNull() ?: 0.0
-
-            Log.i(TAG, "Call screening risk_score=$riskScore number_len=${number.length}")
-
-            val response = buildResponse(
-                shouldBlock = riskScore > 0.90,
-                shouldReject = riskScore > 0.75,
-                callScreeningAppName = "GemScan"
-            )
-            respondToCall(callDetails, response)
-        }
-    }
-
-    private fun buildResponse(
-        shouldBlock: Boolean = false,
-        shouldReject: Boolean = false,
-        callScreeningAppName: String? = null
-    ): CallResponse {
-        return CallResponse.Builder()
-            .setDisallowCall(shouldBlock)
-            .setRejectCall(shouldReject)
-            .setSkipCallLog(false)
-            .build()
-    }
-}
-```
-
----
-
-## 6. Extension Memory Budget Summary
+## 5. Extension Memory Budget Summary
 
 | Extension | Process ceiling | DistilBERT | Runtime overhead | Headroom |
 |---|---|---|---|---|
@@ -518,7 +400,7 @@ class GemScanCallScreeningService : CallScreeningService() {
 
 ---
 
-## 7. Extension Testing Checklist
+## 6. Extension Testing Checklist
 
 - [ ] `ILMessageFilterExtension` returns `.junk` for known scam SMS (XCUITest)
 - [ ] `ILMessageFilterExtension` stays under 45 MB RSS for 1000 sequential classifications (XCTest memory test)
@@ -527,6 +409,4 @@ class GemScanCallScreeningService : CallScreeningService() {
 - [ ] ShareExtension passes image payload via App Group shared container
 - [ ] `GemScanIntents` registers with Siri (XCUITest: invoke shortcut)
 - [ ] SafariContentBlocker rules load without exceeding 6 MB file size limit
-- [ ] Android `SmsReceiver` fires broadcast on junk classification (JUnit 5 + MockK)
-- [ ] Android `GemScanCallScreeningService` blocks calls with risk score > 0.90 (JUnit 5)
 - [ ] App Group `group.com.gemscan` entitlement present in all extension targets (CI check)

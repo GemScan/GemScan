@@ -5,7 +5,7 @@
 ## 1. Design Principles
 
 1. **Calm technology** — GemScan surfaces warnings without panic. No red sirens, no alarm tones. Verdicts are phrased as recommendations, not commands.
-2. **Voice-first** — every interaction must be completable without reading any text. VoiceOver (iOS) and TalkBack (Android) are first-class.
+2. **Voice-first** — every interaction must be completable without reading any text. VoiceOver is first-class.
 3. **One-hand operation** — all primary actions reachable within the bottom 40% of the screen on a 6.1-inch display.
 4. **Sixth-grade reading level** — reasoning text (Flesch-Kincaid ≤ 70). Never use "malicious", "phishing", "social engineering" in user-facing copy.
 5. **Internationalised from day one** — UI strings in `en`, `hi`, `ja`, `es`, `zh-Hans`. Layout adapts to RTL (`ar`, `he`) without code changes.
@@ -488,7 +488,7 @@ export function GuardianStatusBar() {
 
 ## 5. Accessibility Requirements
 
-### 5.1 VoiceOver (iOS) / TalkBack (Android)
+### 5.1 VoiceOver
 
 All interactive elements must have:
 - **`aria-label`** if the visible label is not sufficiently descriptive

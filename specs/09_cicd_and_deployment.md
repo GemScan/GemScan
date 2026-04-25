@@ -10,7 +10,7 @@ GemScan uses **GitHub Actions** for all CI/CD. The pipeline is split into three 
 |---|---|---|---|
 | `ci.yml` | Every push + PR to `main` | < 15 min | Unit tests, type check, lint, PII scan |
 | `e2e.yml` | PR to `main` (after `ci.yml` passes) | < 25 min | Playwright + XCTest on simulator |
-| `release.yml` | Tag `v*` pushed to `main` | < 60 min | iOS build, sign, TestFlight; Android build, Play Console |
+| `release.yml` | Tag `v*` pushed to `main` | < 45 min | iOS build, sign, upload to TestFlight |
 
 ---
 
@@ -101,16 +101,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Scan for PII in log statements
         run: |
-          # Fail if any Swift/Kotlin/TypeScript log statement contains raw message content, contact names, URLs
+          # Fail if any Swift/TypeScript log statement contains raw message content, contact names, URLs
           # Pattern: logger.* with common PII field names
           VIOLATIONS=$(grep -rn \
             -e 'logger\.\(debug\|info\|warning\|error\).*messageBody' \
             -e 'logger\.\(debug\|info\|warning\|error\).*phoneNumber' \
             -e 'logger\.\(debug\|info\|warning\|error\).*contactName' \
-            -e 'Log\.\(d\|i\|w\|e\).*messageBody' \
-            -e 'Log\.\(d\|i\|w\|e\).*phoneNumber' \
-            --include="*.swift" --include="*.kt" --include="*.ts" --include="*.tsx" \
-            src/ GemmaKit/Sources/ android/app/src/main/kotlin/ 2>/dev/null || true)
+            --include="*.swift" --include="*.ts" --include="*.tsx" \
+            src/ GemmaKit/Sources/ 2>/dev/null || true)
           if [ -n "$VIOLATIONS" ]; then
             echo "PII detected in log statements:"
             echo "$VIOLATIONS"
@@ -142,29 +140,6 @@ jobs:
           name: swift-test-results
           path: TestResults.xcresult
 
-  # ─────────────────────────────────────────────
-  # 5. Android: Kotlin unit tests
-  # ─────────────────────────────────────────────
-  android-unit:
-    name: Android Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@v3
-      - name: Run unit tests
-        run: ./gradlew test --no-daemon
-        working-directory: android
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-test-results
-          path: android/app/build/reports/tests/
 ```
 
 ---
@@ -250,7 +225,7 @@ jobs:
 
 ---
 
-## 4. `release.yml` — TestFlight and Play Console
+## 4. `release.yml` — TestFlight
 
 ```yaml
 # .github/workflows/release.yml
@@ -340,60 +315,6 @@ jobs:
             --apiKey "${{ secrets.ASC_API_KEY_ID }}" \
             --apiIssuer "${{ secrets.ASC_ISSUER_ID }}"
 
-  # ─────────────────────────────────────────────
-  # Android: Build, sign, upload to Play Console
-  # ─────────────────────────────────────────────
-  android-release:
-    name: Android Play Console
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - uses: gradle/actions/setup-gradle@v3
-
-      - run: npm ci
-
-      - name: Build Next.js static export
-        run: npm run build
-        env:
-          NEXT_PUBLIC_APP_VERSION: ${{ github.ref_name }}
-          NEXT_PUBLIC_IS_MOCK: 'false'
-
-      - name: Capacitor sync
-        run: npx cap sync android
-
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/gemscan-release.keystore
-
-      - name: Build release bundle
-        run: ./gradlew bundleRelease --no-daemon
-        working-directory: android
-        env:
-          KEYSTORE_PATH: gemscan-release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-      - name: Upload to Play Console (internal track)
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.gemscan.app
-          releaseFiles: android/app/build/outputs/bundle/release/*.aab
-          track: internal
-          status: completed
 ```
 
 ---
@@ -530,11 +451,6 @@ Apple requires a `PrivacyInfo.xcprivacy` manifest for all apps submitted to the 
 | `IOS_SIGNING_IDENTITY` | `release.yml` | e.g. `Apple Distribution: GemScan Inc` |
 | `ASC_API_KEY_ID` | `release.yml` | App Store Connect API key ID |
 | `ASC_ISSUER_ID` | `release.yml` | App Store Connect issuer UUID |
-| `ANDROID_KEYSTORE_BASE64` | `release.yml` | Android release keystore, base64-encoded |
-| `ANDROID_KEYSTORE_PASSWORD` | `release.yml` | Keystore password |
-| `ANDROID_KEY_ALIAS` | `release.yml` | Key alias within keystore |
-| `ANDROID_KEY_PASSWORD` | `release.yml` | Key password |
-| `PLAY_SERVICE_ACCOUNT_JSON` | `release.yml` | Google Play service account JSON (plaintext) |
 | `CODECOV_TOKEN` | `ci.yml` | Codecov upload token |
 
 ---
@@ -546,7 +462,7 @@ main ─────────────────────────
   │
   ├── feature/* ──── PR → CI (ci.yml) → E2E (e2e.yml) → merge
   │
-  └── tag v1.0.0 ── release.yml → TestFlight (internal) → Play Console (internal)
+  └── tag v1.0.0 ── release.yml → TestFlight (internal)
                       └── Manual promotion → TestFlight (external) → App Store review
 ```
 
@@ -623,4 +539,3 @@ jobs:
 - [ ] All GitHub Secrets populated in `production` environment
 - [ ] Release tag is GPG-signed
 - [ ] TestFlight internal build distributed to test group before external review
-- [ ] Android internal track uploaded to Play Console before production promotion

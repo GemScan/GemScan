@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-GemScan runs **10 MCP servers in-process** over an in-memory pipe — no network I/O during inference. Each server exposes one or more `Tool` implementations that the LLM may call during a ReAct loop. On iOS, servers are implemented as Swift actors conforming to the `MCPServer` protocol. On Android, they are Kotlin coroutine classes. The web mock returns fixture data for all tools.
+GemScan runs **10 MCP servers in-process** over an in-memory pipe — no network I/O during inference. Each server exposes one or more `Tool` implementations that the LLM may call during a ReAct loop. Servers are implemented as Swift actors conforming to the `MCPServer` protocol. The web mock returns fixture data for all tools.
 
 All tool inputs are **non-sensitive by design**: no raw message content, no contact names, no audio transcripts. The model receives tool *outputs*, not raw personal data — this is the MCP privacy boundary.
 
@@ -397,7 +397,7 @@ actor WhoisServer: MCPServer {
 
 ### 3.6 `reverse_image` — Screenshot OCR + Image Hash
 
-Extracts text and URLs from images using on-device Vision framework (iOS) / ML Kit (Android). Returns a perceptual hash for known-scam image matching.
+Extracts text and URLs from images using the on-device Vision framework. Returns a perceptual hash for known-scam image matching.
 
 ```swift
 // GemmaKit/Sources/MCP/ReverseImageServer.swift
@@ -691,58 +691,7 @@ extension GemmaPlugin {
 
 ---
 
-## 5. Android Equivalents (Kotlin)
-
-Each Swift actor maps to a Kotlin class with a `suspend fun execute()` method.
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/mcp/MCPClient.kt
-package com.gemscan.mcp
-
-import android.util.Log
-import kotlinx.coroutines.*
-
-class MCPClient private constructor() {
-    companion object {
-        val shared = MCPClient()
-        private const val TAG = "GemScan/MCPClient"
-    }
-
-    private val registry = mutableMapOf<String, MCPServer>()
-
-    fun register(server: MCPServer) {
-        registry[server.name] = server
-        Log.i(TAG, "Registered MCP server: ${server.name}")
-    }
-
-    suspend fun call(server: String, tool: String, input: Map<String, String>): MCPToolResult {
-        val srv = registry[server] ?: throw MCPError.UnknownServer(server)
-        val start = System.currentTimeMillis()
-        return try {
-            val output = srv.execute(tool, input)
-            val durationMs = (System.currentTimeMillis() - start).toInt()
-            Log.i(TAG, "MCP $server/$tool completed in ${durationMs}ms")
-            MCPToolResult(output, ToolCallRecord(server, tool, summariseInput(input), durationMs, true))
-        } catch (e: Exception) {
-            val durationMs = (System.currentTimeMillis() - start).toInt()
-            Log.e(TAG, "MCP $server/$tool failed: ${e.message}")
-            MCPToolResult(mapOf("error" to (e.message ?: "unknown")), ToolCallRecord(server, tool, summariseInput(input), durationMs, false))
-        }
-    }
-
-    private fun summariseInput(input: Map<String, String>) = "{${input.keys.sorted().joinToString(", ")}}"
-}
-
-interface MCPServer {
-    val name: String
-    val tools: List<MCPToolDefinition>
-    suspend fun execute(tool: String, input: Map<String, String>): Map<String, String>
-}
-```
-
----
-
-## 6. Tool Access Control Matrix
+## 5. Tool Access Control Matrix
 
 | Tool | text-agent | url-agent | image-agent | voice-agent | judge-agent | orchestrator |
 |---|---|---|---|---|---|---|
@@ -764,7 +713,7 @@ Access control is enforced at `MCPClient.call()` by checking the calling agent's
 
 ---
 
-## 7. Web Mock (TypeScript)
+## 6. Web Mock (TypeScript)
 
 ```typescript
 // src/lib/mcp/mock-client.ts
@@ -798,7 +747,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 ---
 
-## 8. MCP Server Testing Checklist
+## 7. MCP Server Testing Checklist
 
 - [ ] Each server's `execute()` returns valid output for all defined tools
 - [ ] `MCPClient.call()` logs `ToolCallRecord` with `success: false` on server errors
@@ -807,5 +756,4 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 - [ ] `reverse_image/extract_text_urls` extracts at least one URL from a test phishing screenshot
 - [ ] Tool access control: `url-agent` cannot call `contacts` (XCTest: expect rejection)
 - [ ] All servers initialise without crash when permission is denied (graceful degradation)
-- [ ] Android `MCPClient` mirrors Swift tool call log format (JUnit 5)
 - [ ] Web mock returns responses within 50 ms for all tools (Vitest)

@@ -4,7 +4,7 @@
 
 ## 1. Overview
 
-GemScan's intelligence layer is a **six-agent system** built on Swift actors (iOS) and Kotlin coroutines (Android). Each agent owns a distinct analysis domain. The `OrchestratorAgent` receives every `AgentTask` and routes work to specialist agents, optionally escalating from E2B to E4B when confidence is low.
+GemScan's intelligence layer is a **six-agent system** built on Swift actors. Each agent owns a distinct analysis domain. The `OrchestratorAgent` receives every `AgentTask` and routes work to specialist agents, optionally escalating from E2B to E4B when confidence is low.
 
 **No external network calls are made during inference.** All tool calls route through in-process MCP servers (Spec 04). The agent system is fully exercisable in web mock mode via golden fixtures.
 
@@ -659,98 +659,7 @@ enum JudgeAgentPrompts {
 
 ---
 
-## 7. Android Equivalents (Kotlin Coroutines)
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/agents/OrchestratorAgent.kt
-package com.gemscan.agents
-
-import android.util.Log
-import com.gemscan.inference.GemmaInferenceEngine
-import com.gemscan.router.MessageRouter
-import kotlinx.coroutines.*
-
-class OrchestratorAgent(
-    private val inference: GemmaInferenceEngine,
-    private val router: MessageRouter,
-    private val confidenceThreshold: Double = 0.75
-) {
-    companion object {
-        private const val TAG = "GemScan/OrchestratorAgent"
-        val shared by lazy { OrchestratorAgent(GemmaInferenceEngine.shared, MessageRouter.shared) }
-    }
-
-    suspend fun handle(task: AgentTask): AgentResult = coroutineScope {
-        Log.i(TAG, "Orchestrator received task ${task.id} type=${task.type}")
-
-        val specialist = router.specialist(for_ = task)
-        val draft = withTimeout(task.timeoutMs.toLong()) { specialist.handle(task) }
-
-        Log.i(TAG, "Draft verdict=${draft.verdict} confidence=${draft.confidence}")
-
-        if (draft.confidence < confidenceThreshold && !draft.escalatedToE4B) {
-            Log.w(TAG, "Escalating task ${task.id} to E4B (draft confidence ${draft.confidence})")
-            return@coroutineScope escalateToE4B(task, draft)
-        }
-
-        if (task.payload.isMultiModal || draft.verdict == ScamVerdict.SCAM) {
-            return@coroutineScope adjudicate(task, draft)
-        }
-
-        draft
-    }
-
-    private suspend fun escalateToE4B(task: AgentTask, draft: AgentResult): AgentResult {
-        inference.loadE4BIfNeeded()
-        val e4bTask = task.copy(modelTier = ModelTier.E4B)
-        val e4bResult = router.specialist(for_ = e4bTask).handle(e4bTask)
-        return e4bResult.copy(escalatedToE4B = true)
-    }
-
-    private suspend fun adjudicate(task: AgentTask, draft: AgentResult): AgentResult {
-        val judgeTask = task.copy(type = AgentTaskType.EXPLAIN_VERDICT)
-        return router.judgeAgent.handle(judgeTask)
-    }
-}
-```
-
-```kotlin
-// android/app/src/main/kotlin/com/gemscan/router/MessageRouter.kt
-package com.gemscan.router
-
-import com.gemscan.agents.*
-
-class MessageRouter private constructor() {
-    companion object {
-        val shared = MessageRouter()
-        private const val TAG = "GemScan/MessageRouter"
-    }
-
-    private val textAgent = TextAgent()
-    private val urlAgent = URLAgent()
-    private val imageAgent = ImageAgent()
-    private val voiceAgent = VoiceAgent()
-    val judgeAgent = JudgeAgent()
-
-    fun specialist(for_ task: AgentTask): BaseAgent = when (task.type) {
-        AgentTaskType.CLASSIFY_SMS, AgentTaskType.CLASSIFY_EMAIL -> textAgent
-        AgentTaskType.CHECK_URL -> urlAgent
-        AgentTaskType.ANALYSE_SCREENSHOT -> imageAgent
-        AgentTaskType.SCORE_VOICE -> voiceAgent
-        AgentTaskType.EXPLAIN_VERDICT -> judgeAgent
-    }
-
-    suspend fun dispatch(task: AgentTask): AgentResult {
-        return withTimeout(task.timeoutMs.toLong()) {
-            specialist(for_ = task).handle(task)
-        }
-    }
-}
-```
-
----
-
-## 8. ExplainerAgent Output Spec
+## 7. ExplainerAgent Output Spec
 
 The `JudgeAgent`'s `reasoning` array is the end-user-visible explanation. It must conform to:
 
@@ -775,7 +684,7 @@ Supported languages for Day 1: English (`en`), Hindi (`hi`), Japanese (`ja`), Sp
 
 ---
 
-## 9. Web Mock (TypeScript)
+## 8. Web Mock (TypeScript)
 
 The web mock simulates the full agent pipeline for browser-based development.
 
@@ -804,7 +713,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 ---
 
-## 10. Agent System Testing Checklist
+## 9. Agent System Testing Checklist
 
 - [ ] `OrchestratorAgent` escalates to E4B when `draft.confidence < 0.75`
 - [ ] `OrchestratorAgent` runs PhishDebate for `verdict === 'scam'`
@@ -815,4 +724,3 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 - [ ] `MessageRouter.dispatch` throws `inferenceTimeout` if agent exceeds `timeoutMs`
 - [ ] GBNF grammar rejects malformed LLM output (XCTest: feed garbage, expect `grammarViolation`)
 - [ ] All agents return valid `AgentResult` for golden fixture inputs
-- [ ] Kotlin `OrchestratorAgent` mirrors Swift escalation logic (JUnit 5)

@@ -30,22 +30,11 @@ GemScan/
 │       │   └── Tests/
 │       ├── Plugins/              # Capacitor native plugins (GemmaPlugin, etc.)
 │       └── Extensions/           # iOS app extensions (SMS Filter, Call Dir, Share, Intents)
-├── android/                      # Capacitor Android project (generated; edit native/ only)
-│   └── app/
-│       ├── src/main/
-│       │   ├── kotlin/com/gemscan/
-│       │   │   ├── inference/    # LiteRT-LM / llama.cpp wrappers
-│       │   │   ├── agents/       # Six agent coroutine classes
-│       │   │   ├── mcp/          # Ten MCP server implementations
-│       │   │   ├── router/       # Kotlin coroutines message router
-│       │   │   └── plugins/      # Capacitor plugins
-│       │   └── res/
-│       └── src/test/
 ├── specs/                        # This directory — implementation specifications
 ├── research/                     # Research documents (read-only reference)
 ├── scripts/                      # Build, fine-tuning, and data-pipeline scripts
 │   ├── finetune/                 # Unsloth QLoRA fine-tuning scripts
-│   ├── export/                   # GGUF + MLX + Core ML + TFLite export scripts
+│   ├── export/                   # GGUF + MLX + Core ML export scripts
 │   └── data/                     # Dataset assembly and annotation scripts
 ├── models/                       # Local model artifact cache (gitignored; downloaded at runtime)
 ├── .github/workflows/            # CI/CD pipelines
@@ -64,9 +53,6 @@ GemScan/
 | iOS native | Swift | 5.9 |
 | iOS build | Xcode | 15.3 |
 | iOS deployment target | — | iOS 15.0 |
-| Android native | Kotlin | 1.9 |
-| Android API | — | minSdk 28 / targetSdk 35 |
-| Android build | Gradle | 8.2+ |
 | Python (scripts) | Python | 3.11+ |
 
 ---
@@ -121,38 +107,16 @@ static let maxContextTokens = 128_000
 static let e2bRSSLimitBytes: Int = 2_300 * 1_024 * 1_024
 ```
 
-### Kotlin
-
-```kotlin
-// Files: PascalCase matching the primary class
-AgentTask.kt
-GemmaInferenceEngine.kt
-ScamPatternsServer.kt
-
-// Classes: PascalCase
-data class AgentTask(...)
-sealed class ScamVerdict { object Safe; object Suspicious; data class Scam(...) }
-
-// Functions and properties: camelCase
-suspend fun classifySms(input: SmsInput): AgentResult { ... }
-
-// Constants: SCREAMING_SNAKE_CASE in companion object
-companion object {
-    const val MAX_CONTEXT_TOKENS = 128_000
-    const val E2B_RSS_LIMIT_BYTES = 2_300L * 1_024 * 1_024
-}
-```
-
 ---
 
 ## 4. Core Data Contracts
 
-These types must be consistent across the TypeScript bridge, Swift actors, and Kotlin coroutines.
+These types must be consistent across the TypeScript bridge and Swift actors.
 
 ### AgentTask
 
 ```typescript
-// TypeScript (canonical definition — Swift and Kotlin must mirror)
+// TypeScript (canonical definition — Swift must mirror)
 interface AgentTask {
   id: string                    // UUID v4
   type: AgentTaskType           // 'classifySMS' | 'classifyEmail' | 'checkURL' |
@@ -207,8 +171,7 @@ interface ToolCallRecord {
 1. **Never swallow errors silently.** Every `catch` block must log at minimum at the `.error` level.
 2. **Distinguish error categories:** `UserError` (bad input — surface to UI), `SystemError` (OOM, timeout — log + degrade gracefully), `ModelError` (hallucinated JSON, grammar failure — retry once then escalate).
 3. **No force-unwraps in Swift** (`!`). Use `guard let` or `if let` with a logged fallback.
-4. **No `!!` in Kotlin** unless behind a documented invariant with a comment.
-5. **All async Swift functions throw.** Callers must handle errors at the call site.
+4. **All async Swift functions throw.** Callers must handle errors at the call site.
 
 ### Swift Error Types
 
@@ -239,7 +202,6 @@ If E4B is unavailable (OOM or timeout):
 See `specs/08_logging_and_monitoring.md` for full detail. Summary:
 
 - **Swift**: Use `os.Logger` with subsystem `com.gemscan` and a category per module.
-- **Kotlin**: Use `android.util.Log` with tag prefix `GemScan/` + module name, wrapped in a `GemScanLogger` facade.
 - **TypeScript**: Use a structured logger (`src/lib/logger.ts`) that emits JSON in production and pretty-prints in development.
 - **Log levels**: `.debug` for per-token tracing (dev only), `.info` for lifecycle events, `.warning` for degradations, `.error` for failures.
 - **Never log PII**: No message content, contact names, audio transcripts, or screenshot contents in logs. Use non-sensitive summaries only (e.g., `"SMS classified [12 chars, truncated]"`).
@@ -307,7 +269,6 @@ Web mocks must:
 |---|---|---|
 | TypeScript | Vitest | 80 % line coverage on `src/lib/` |
 | Swift | XCTest | All `AgentTask` round-trips; all MCP server `Tool` implementations |
-| Kotlin | JUnit 5 + MockK | All agent coroutine flows; all MCP server tool implementations |
 | End-to-end (web mode) | Playwright | Happy-path Share Sheet flow; Guardian mode enrolment flow |
 | End-to-end (iOS device) | XCUITest | Cold-start test; SMS Filter extension activation; Share Sheet flow |
 
