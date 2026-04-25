@@ -477,3 +477,82 @@ See `specs/07_testing_and_validation.md` for full testing spec.
 3. **Swift Package Manager only** for iOS dependencies. No CocoaPods unless a package is unavailable on SPM.
 4. **No transitive network calls** in test code. Mock all HTTP at the boundary.
 5. **Model weights are not dependencies.** They are downloaded at runtime; never committed to git. The `models/` directory is gitignored.
+
+---
+
+## 11. Apple Platform Compliance — Mandatory Validation Gate
+
+**Every task generated from these specifications must include a validation step that confirms the implementation meets Apple iOS developer requirements.** This is not optional. A task is not complete until all applicable checks in this section pass.
+
+Tasks must explicitly call out which checks apply (mark N/A with a reason if a check is genuinely not applicable to the task scope).
+
+### 11.1 Swift Concurrency and Memory Safety
+
+| Check | Requirement | Tooling |
+|---|---|---|
+| No data races | All shared mutable state is inside `actor` types or protected by `@MainActor`. No `nonisolated` mutable variables. | Xcode Thread Sanitizer (TSan); `SWIFT_STRICT_CONCURRENCY = complete` in Build Settings |
+| No force-unwraps | Zero `!` operators in production code. Use `guard let` / `if let` with a logged fallback. | SwiftLint rule `force_unwrapping` |
+| No retain cycles | Closures capturing `self` in async contexts use `[weak self]` or `[unowned self]` where appropriate. | Xcode Memory Graph Debugger |
+| Sendable conformance | Any type crossing actor boundaries conforms to `Sendable`. No `@unchecked Sendable` without a comment explaining why it is safe. | Xcode Swift 6 concurrency checking |
+| Proper `@MainActor` usage | All UI updates (UIKit/SwiftUI mutations, CapacitorBridge callbacks) are dispatched on `@MainActor`. | TSan + Xcode runtime warnings |
+
+### 11.2 Memory and Performance
+
+| Check | Requirement | Tooling |
+|---|---|---|
+| RSS budget respected | No single component exceeds its documented RSS ceiling (E2B: 1.8 GB, E4B: 3.2 GB, DistilBERT: 5 MB, extensions: 50 MB). | Xcode Memory Report; `XCTMemoryMetric` in benchmarks |
+| No memory leaks | Instruments Leaks template shows zero leaks after a full analysis session. | Instruments Leaks |
+| Extension memory ceiling | `ILMessageFilterExtension`, `CallDirectoryExtension`, and `ShareExtension` stay within their 50 MB / 120 MB / 120 MB ceilings respectively. | Xcode Memory Report in extension target |
+| Background execution | No long-running work initiated in `applicationDidEnterBackground` outside a `BGProcessingTask` or `URLSession` background task. | Xcode Energy Log |
+
+### 11.3 Privacy and Data Handling
+
+| Check | Requirement | Tooling |
+|---|---|---|
+| `NSUsageDescription` keys | Every permission used (Contacts, Microphone, Camera, Speech Recognition, Photo Library) has a matching `NSUsageDescription` key in `Info.plist` with a user-facing reason string. | `ibtool --verify`; App Store Connect upload validation |
+| Privacy manifest complete | `PrivacyInfo.xcprivacy` lists all required reason APIs used (e.g., `NSPrivacyAccessedAPICategoryUserDefaults`, `NSPrivacyAccessedAPICategoryFileTimestamp`). | App Store Connect API validation; `xcodebuild -validatePrivacyManifest` |
+| No PII in logs | No message content, contact names, phone numbers, or audio transcripts appear in `os.Logger` output or TypeScript structured logs. | CI PII scan (see Spec 09 §5); manual log audit |
+| On-device only | No user content (messages, audio, screenshots) is transmitted to any external server. MCP servers operate exclusively in-process. | Network Profiler in Instruments; Charles Proxy integration test |
+| Clipboard access | `UIPasteboard.general` is accessed only in `ClipboardWatcherServer` and only on explicit user action (app foreground). No silent clipboard reads. | Code review; Instruments Network |
+
+### 11.4 App Store Guidelines Compliance
+
+| Check | Requirement |
+|---|---|
+| No private APIs | Zero calls to private/undocumented APIs. Verify with `nm -u` on the compiled binary and check against Apple's private framework list. |
+| Entitlements match capabilities | Every capability used at runtime has a matching entitlement in the `.entitlements` file and is enabled in the App ID on the Apple Developer portal. Missing entitlements cause silent runtime failures. |
+| App Transport Security | All HTTPS requests use TLS 1.2+. No `NSAllowsArbitraryLoads` in `Info.plist`. The relay server (`relay.gemscan.app`) must have a valid TLS certificate. |
+| Background modes declared | Any background mode used (remote notifications, background fetch, background processing) is declared in `UIBackgroundModes` in `Info.plist`. |
+| Exported compliance | `ITSAppUsesNonExemptEncryption = NO` in `Info.plist` (GemScan uses only iOS-provided encryption via Keychain / TLS — no custom cryptography that requires export declarations). |
+
+### 11.5 Human Interface Guidelines (HIG) Compliance
+
+| Check | Requirement |
+|---|---|
+| Minimum tap target | All interactive elements are at least 44 × 44 pt (Apple HIG). Verified by XCUITest `frame` assertions. |
+| Dynamic Type | All text scales correctly through all Dynamic Type sizes (XS → Accessibility-XXL). No truncated or overflowing text at any size. XCUITest: set `app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityExtraExtraExtraLarge"]`. |
+| Dark Mode | All custom colours use semantic colour assets (`UIColor.label`, `UIColor.systemBackground`, or named colours with light/dark variants in the asset catalogue). No hard-coded hex colours in native views. |
+| VoiceOver | Every screen is fully operable without sight. All meaningful images have accessibility labels. Decorative elements are marked `isAccessibilityElement = false`. |
+| Safe area insets | No content clipped by notch, Dynamic Island, or home indicator. All views use `safeAreaLayoutGuide` / `safeAreaInsets`. |
+
+### 11.6 Keychain and Security
+
+| Check | Requirement |
+|---|---|
+| Keychain accessibility | All Keychain items use `kSecAttrAccessibleAfterFirstUnlock` (or stricter). Never `kSecAttrAccessibleAlways`. |
+| No hardcoded secrets | No API keys, tokens, or credentials in source code. Secrets stored in Keychain or GitHub Actions secrets only. |
+| Secure transport for relay | `sendGuardianAlert()` uses HTTPS. Certificate pinning is optional for Cycle 1 but required before public release. |
+
+### 11.7 Task Completion Definition
+
+A task generated from this spec is **done** when:
+
+1. The implementation passes all applicable checks in §11.1–11.6.
+2. The following automated gates pass in CI:
+   - `xcodebuild analyze` reports zero issues on the modified files.
+   - SwiftLint with the project ruleset (`.swiftlint.yml`) reports zero errors (warnings are acceptable).
+   - `SWIFT_STRICT_CONCURRENCY = complete` build succeeds without new warnings on modified files.
+   - Vitest coverage remains ≥ 80% on `src/lib/`.
+   - All existing XCTest and Playwright tests continue to pass.
+3. Any new permission, entitlement, or background mode added is documented in the PR description and cross-checked against App Store Review Guidelines §5 (Privacy).
+4. The PR description includes an **"Apple Compliance Notes"** section that lists: which §11 checks were verified, the tooling used, and any items marked N/A with justification.
