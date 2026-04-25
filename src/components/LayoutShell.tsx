@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import TabBar from '@/components/TabBar'
 import HeroSplash from '@/components/HeroSplash'
 import { getGemmaPlugin } from '@/lib/gemma'
+import { useScreeningModeSync } from '@/hooks/useScreeningModeSync'
 
 const MIN_SPLASH_MS = 1200
 const FADE_OUT_MS = 320
@@ -11,6 +12,10 @@ const FADE_OUT_MS = 320
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const [splashVisible, setSplashVisible] = useState(true)
   const [splashMounted, setSplashMounted] = useState(true)
+
+  // Keep the native plugin's idea of "current screening mode" in sync with the
+  // user's preference whenever it changes. Drives mode-aware unload timers.
+  useScreeningModeSync()
 
   useEffect(() => {
     const startedAt = Date.now()

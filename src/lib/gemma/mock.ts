@@ -6,6 +6,7 @@ import type {
   ModelId,
   ModelVerificationResult,
   PluginListenerHandle,
+  ScreeningMode,
 } from './types'
 import { goldenFixtures } from './__fixtures__/golden'
 import { logger } from '../logger'
@@ -65,7 +66,38 @@ type ListenerHandler = (data: any) => void
 
 export class GemmaPluginMock implements GemmaPlugin {
   private modelsDownloaded = new Set<ModelId>()
+  private modelsLoadedInRAM = new Set<ModelId>()
   private listeners = new Map<ListenerEvent, Set<ListenerHandler>>()
+  private screeningMode: ScreeningMode = 'active'
+  private unloadTimer: ReturnType<typeof setTimeout> | null = null
+
+  async setScreeningMode(options: { mode: ScreeningMode }): Promise<void> {
+    logger.info(`setScreeningMode: ${options.mode}`, MODULE)
+    this.screeningMode = options.mode
+    this.rescheduleUnload()
+  }
+
+  async recordActivity(): Promise<void> {
+    logger.info(`recordActivity (mode=${this.screeningMode})`, MODULE)
+    if (this.screeningMode === 'active' || this.screeningMode === 'guardian') {
+      this.rescheduleUnload()
+    }
+    // Reload models if they were unloaded.
+    for (const m of this.modelsDownloaded) {
+      this.modelsLoadedInRAM.add(m)
+    }
+  }
+
+  /// Mock uses compressed timings so devs can validate the flow in seconds:
+  /// passive ⇒ 30s, active/guardian idle ⇒ 60s. Real plugin uses 5min / 15min.
+  private rescheduleUnload(): void {
+    if (this.unloadTimer) clearTimeout(this.unloadTimer)
+    const delaySeconds = this.screeningMode === 'passive' ? 30 : 60
+    this.unloadTimer = setTimeout(() => {
+      logger.info(`Mock idle unload (mode=${this.screeningMode})`, MODULE)
+      this.modelsLoadedInRAM.clear()
+    }, delaySeconds * 1000)
+  }
 
   async isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }> {
     logger.info('isReady() called', MODULE)
@@ -96,8 +128,12 @@ export class GemmaPluginMock implements GemmaPlugin {
       }
 
       this.modelsDownloaded.add(modelId)
+      // Newly downloaded models are warmed into RAM immediately, mirroring
+      // the native plugin's `warmLoadE2B` behavior.
+      this.modelsLoadedInRAM.add(modelId)
       logger.info(`Model ${modelId} downloaded (mock)`, MODULE)
     }
+    this.rescheduleUnload()
   }
 
   async verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult> {
@@ -149,8 +185,8 @@ export class GemmaPluginMock implements GemmaPlugin {
     logger.debug('getDeviceStatus() called', MODULE)
     return {
       availableMemoryBytes: 3_000_000_000,
-      e2bLoaded: this.modelsDownloaded.has('e2b'),
-      e4bLoaded: this.modelsDownloaded.has('e4b'),
+      e2bLoaded: this.modelsLoadedInRAM.has('e2b'),
+      e4bLoaded: this.modelsLoadedInRAM.has('e4b'),
       thermalState: 'nominal',
       batteryLevel: 0.85,
       screeningMode: 'active',

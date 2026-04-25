@@ -27,7 +27,17 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "verifyModel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "analyse", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDeviceStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setScreeningMode", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "recordActivity", returnType: CAPPluginReturnPromise),
     ]
+
+    // MARK: - Screening modes
+
+    public enum ScreeningMode: String, Sendable {
+        case passive
+        case active
+        case guardianMode = "guardian"
+    }
 
     // MARK: - Components
 
@@ -40,7 +50,35 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     /// MCP client and orchestrator are lazily set up on first use of `analyse`.
     private var mcpClient: MCPClient?
     private var router: MessageRouter?
+    private var inferenceEngine: InferenceEngine?
     private var setupTask: Task<Void, Error>?
+
+    // MARK: - Mode-aware unload lifecycle
+
+    /// Passive mode: unload models 5 minutes after the app backgrounds.
+    /// Foreground time doesn't count — the timer only runs while backgrounded.
+    private let passiveBackgroundUnloadSeconds: TimeInterval = 5 * 60
+
+    /// Active / Guardian mode: unload models when no activity has been recorded
+    /// for 15 minutes, regardless of foreground/background state. Activity
+    /// includes incoming notifications from connected extensions, foreground
+    /// returns, and any `analyse()` call. Models are reloaded on next activity.
+    private let activeIdleUnloadSeconds: TimeInterval = 15 * 60
+
+    /// Current screening mode. Mirrors the JS-side store; updated via
+    /// ``setScreeningMode(_:)``.
+    private var currentScreeningMode: ScreeningMode = .active
+
+    /// Pending unload task. Cancelled and re-scheduled on every state/activity
+    /// change so only the most recent intent is in flight.
+    private var pendingUnloadTask: Task<Void, Never>?
+
+    /// Background-task handle that keeps iOS from suspending the process
+    /// before the unload timer fires (passive mode only).
+    private var unloadBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
+
+    /// Lifecycle observer tokens. Removed on plugin deinit.
+    private var lifecycleObservers: [NSObjectProtocol] = []
 
     // MARK: - Lifecycle
 
@@ -51,6 +89,13 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         Task.detached { [weak self] in
             await self?.bootstrap()
         }
+        registerLifecycleObservers()
+    }
+
+    deinit {
+        for token in lifecycleObservers {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 
     /// One-time bootstrap of MCP servers + CallKit. Idempotent.
@@ -60,6 +105,189 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         self.mcpClient = client
         Self.configureCallKit()
         logger.info("GemmaPlugin bootstrap complete")
+    }
+
+    /// Sets up `UIApplication` lifecycle notifications so passive-mode and
+    /// active/guardian-mode unload behaviour can be driven from app state.
+    private func registerLifecycleObservers() {
+        let center = NotificationCenter.default
+
+        let didEnterBackground = center.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidEnterBackground()
+        }
+
+        let willEnterForeground = center.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleWillEnterForeground()
+        }
+
+        let willTerminate = center.addObserver(
+            forName: UIApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            // OS will reclaim memory anyway; cancel the timer so we don't leak
+            // the background-task handle.
+            self?.cancelPendingUnload(reason: "terminating")
+        }
+
+        lifecycleObservers = [didEnterBackground, willEnterForeground, willTerminate]
+    }
+
+    // MARK: Lifecycle handlers
+
+    @MainActor
+    private func handleDidEnterBackground() {
+        switch currentScreeningMode {
+        case .passive:
+            // Passive: 5-minute timer that only runs while backgrounded.
+            scheduleBackgroundUnload(delaySeconds: passiveBackgroundUnloadSeconds)
+        case .active, .guardianMode:
+            // Active/Guardian: idle timer continues from wherever it was; no
+            // separate background-only timer. The same Task that started on
+            // last activity will keep counting down even while we're backgrounded.
+            break
+        }
+    }
+
+    @MainActor
+    private func handleWillEnterForeground() {
+        // Foreground return is itself an activity — reset the active-mode
+        // idle timer, and tear down any passive-mode background timer.
+        cancelPendingUnload(reason: "foreground")
+        switch currentScreeningMode {
+        case .passive:
+            break
+        case .active, .guardianMode:
+            scheduleIdleUnload(delaySeconds: activeIdleUnloadSeconds)
+        }
+
+        // If models were unloaded during background and we're now back, warm
+        // E2B back up so the home screen feels responsive.
+        Task { [weak self] in await self?.reloadIfUnloaded() }
+    }
+
+    // MARK: Mode + activity entry points
+
+    /// Updates the current screening mode and adjusts the unload timer.
+    public func updateScreeningMode(_ mode: ScreeningMode) {
+        let previous = currentScreeningMode
+        currentScreeningMode = mode
+        logger.info("Screening mode: \(previous.rawValue) → \(mode.rawValue)")
+
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            self.cancelPendingUnload(reason: "mode change")
+
+            let appState = UIApplication.shared.applicationState
+            switch mode {
+            case .passive where appState == .background:
+                self.scheduleBackgroundUnload(delaySeconds: self.passiveBackgroundUnloadSeconds)
+            case .passive:
+                break // foreground passive: nothing to schedule until backgrounded
+            case .active, .guardianMode:
+                self.scheduleIdleUnload(delaySeconds: self.activeIdleUnloadSeconds)
+            }
+        }
+    }
+
+    /// Records an activity event (incoming SMS analysed by the filter
+    /// extension, share-sheet invocation, foreground return, JS analyse call,
+    /// etc.). In active/guardian mode this resets the 15-minute idle timer
+    /// and reloads models if they were unloaded.
+    public func recordActivityNow() {
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            switch self.currentScreeningMode {
+            case .passive:
+                // Activity doesn't extend the passive timer — but if the
+                // extension woke the host app, we want to make sure models
+                // are warm for the imminent analysis.
+                Task { [weak self] in await self?.reloadIfUnloaded() }
+            case .active, .guardianMode:
+                self.cancelPendingUnload(reason: "activity")
+                self.scheduleIdleUnload(delaySeconds: self.activeIdleUnloadSeconds)
+                Task { [weak self] in await self?.reloadIfUnloaded() }
+            }
+        }
+    }
+
+    // MARK: Timer scheduling
+
+    @MainActor
+    private func scheduleBackgroundUnload(delaySeconds: TimeInterval) {
+        pendingUnloadTask?.cancel()
+        unloadBackgroundTaskID = UIApplication.shared.beginBackgroundTask(
+            withName: "GemScanPassiveUnload"
+        ) { [weak self] in
+            Task { @MainActor in self?.endBackgroundTask() }
+        }
+        pendingUnloadTask = makeUnloadTask(delaySeconds: delaySeconds, label: "passive-bg")
+        logger.info("Passive: model unload scheduled in \(Int(delaySeconds))s")
+    }
+
+    @MainActor
+    private func scheduleIdleUnload(delaySeconds: TimeInterval) {
+        pendingUnloadTask?.cancel()
+        pendingUnloadTask = makeUnloadTask(delaySeconds: delaySeconds, label: "idle")
+        logger.info("Active: idle unload scheduled in \(Int(delaySeconds))s")
+    }
+
+    @MainActor
+    private func makeUnloadTask(delaySeconds: TimeInterval, label: String) -> Task<Void, Never> {
+        return Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: UInt64(delaySeconds * 1_000_000_000))
+            } catch {
+                return  // cancelled
+            }
+            await self?.performUnload(reason: label)
+        }
+    }
+
+    @MainActor
+    private func cancelPendingUnload(reason: String) {
+        if pendingUnloadTask != nil {
+            logger.info("Cancelling pending unload (\(reason))")
+        }
+        pendingUnloadTask?.cancel()
+        pendingUnloadTask = nil
+        endBackgroundTask()
+    }
+
+    @MainActor
+    private func endBackgroundTask() {
+        guard unloadBackgroundTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(unloadBackgroundTaskID)
+        unloadBackgroundTaskID = .invalid
+    }
+
+    // MARK: Unload + reload
+
+    private func performUnload(reason: String) async {
+        if let engine = inferenceEngine {
+            logger.info("Unloading models (\(reason))")
+            await engine.unloadAllModels()
+        } else {
+            logger.info("Unload tick (\(reason)) — no engine resident")
+        }
+        await MainActor.run { self.endBackgroundTask() }
+    }
+
+    private func reloadIfUnloaded() async {
+        guard let engine = inferenceEngine else { return }
+        let e2bLoaded = await engine.isModelLoaded(tier: .e2b)
+        if !e2bLoaded {
+            logger.info("Activity arrived with E2B unloaded — warming up")
+            try? await engine.warmLoadE2B()
+        }
     }
 
     // MARK: - isReady
@@ -185,6 +413,25 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // MARK: - setScreeningMode
+
+    @objc func setScreeningMode(_ call: CAPPluginCall) {
+        guard let modeStr = call.getString("mode"),
+              let mode = ScreeningMode(rawValue: modeStr) else {
+            call.reject("Invalid 'mode' (expected: passive, active, or guardian)")
+            return
+        }
+        updateScreeningMode(mode)
+        call.resolve()
+    }
+
+    // MARK: - recordActivity
+
+    @objc func recordActivity(_ call: CAPPluginCall) {
+        recordActivityNow()
+        call.resolve()
+    }
+
     // MARK: - getDeviceStatus
 
     @objc func getDeviceStatus(_ call: CAPPluginCall) {
@@ -192,8 +439,15 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
             let memory = ProcessInfo.processInfo.physicalMemory
             let thermal = thermalStateString(ProcessInfo.processInfo.thermalState)
 
-            let e2bLoaded = await modelLoader.localPath(for: .e2b) != nil
-            let e4bLoaded = await modelLoader.localPath(for: .e4b) != nil
+            // "Loaded" means actually resident in RAM. If the engine isn't
+            // instantiated yet (no analyse() call has happened), nothing is
+            // loaded — even if the weights are on disk.
+            var e2bLoaded = false
+            var e4bLoaded = false
+            if let engine = inferenceEngine {
+                e2bLoaded = await engine.isModelLoaded(tier: .e2b)
+                e4bLoaded = await engine.isModelLoaded(tier: .e4b)
+            }
 
             let battery = await MainActor.run { () -> Double in
                 UIDevice.current.isBatteryMonitoringEnabled = true

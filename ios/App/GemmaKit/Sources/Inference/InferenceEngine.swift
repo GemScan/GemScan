@@ -143,6 +143,34 @@ public actor InferenceEngine {
         logger.info("E2B model loaded successfully")
     }
 
+    /// Returns whether the given tier is currently loaded in RAM.
+    ///
+    /// - Parameter tier: `.e2b`, `.e4b`. (`.distilbert` runs in the SMS
+    ///   Filter extension, not in this engine, and always returns `false`.)
+    public func isModelLoaded(tier: ModelTier) async -> Bool {
+        switch tier {
+        case .e2b:        return await e2bBackend.isLoaded
+        case .e4b:        return await e4bBackend.isLoaded
+        case .distilbert: return false
+        }
+    }
+
+    /// Unloads both E2B and E4B from RAM, freeing weights and KV cache.
+    ///
+    /// Used by the host app to reclaim memory when the app has been backgrounded
+    /// long enough that an idle inference engine no longer justifies the RAM
+    /// footprint. Subsequent generation requests will re-load on demand.
+    public func unloadAllModels() async {
+        if await e2bBackend.isLoaded {
+            logger.info("Unloading E2B from RAM")
+            await e2bBackend.unloadModel()
+        }
+        if await e4bBackend.isLoaded {
+            logger.info("Unloading E4B from RAM")
+            await e4bBackend.unloadModel()
+        }
+    }
+
     /// Loads the E4B model on demand, with thermal and memory guards.
     ///
     /// If the device is under thermal or memory pressure the load is refused

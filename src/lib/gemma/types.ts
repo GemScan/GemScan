@@ -68,12 +68,16 @@ export interface ModelVerificationResult {
   sizeBytes: number
 }
 
+export type ScreeningMode = 'passive' | 'active' | 'guardian'
+
 export interface GemmaPlugin {
   isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }>
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
   verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult>
   analyse(task: AgentTask): Promise<AgentResult>
   getDeviceStatus(): Promise<DeviceStatus>
+  setScreeningMode(options: { mode: ScreeningMode }): Promise<void>
+  recordActivity(): Promise<void>
   addListener(
     event: 'tokenStream',
     handler: (data: { taskId: string; token: string; done: boolean }) => void

@@ -7,6 +7,7 @@ import type {
   ModelId,
   ModelVerificationResult,
   PluginListenerHandle,
+  ScreeningMode,
 } from './types'
 
 function getCapacitorPlugin(): any {
@@ -44,6 +45,14 @@ export class GemmaPluginNative implements GemmaPlugin {
 
   async getDeviceStatus(): Promise<DeviceStatus> {
     return this.plugin.getDeviceStatus()
+  }
+
+  async setScreeningMode(options: { mode: ScreeningMode }): Promise<void> {
+    return this.plugin.setScreeningMode(options)
+  }
+
+  async recordActivity(): Promise<void> {
+    return this.plugin.recordActivity()
   }
 
   async addListener(

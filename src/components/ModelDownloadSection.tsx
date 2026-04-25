@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getGemmaPlugin } from '@/lib/gemma'
 import { useModelDownload } from '@/hooks/useModelDownload'
+import { useDeviceStatus } from '@/hooks/useDeviceStatus'
 import type { ModelId } from '@/lib/gemma/types'
 
 interface ModelMeta {
@@ -109,6 +110,7 @@ export default function ModelDownloadSection() {
   })
   const inFlight = useRef<Set<ModelId>>(new Set())
   const { progress } = useModelDownload()
+  const deviceStatus = useDeviceStatus()
 
   // Fetch initial ready state on mount.
   useEffect(() => {
@@ -201,11 +203,13 @@ export default function ModelDownloadSection() {
 
       {MODELS.map((model) => {
         const status = statuses[model.id]
+        const loaded = isLoadedInRAM(model.id, deviceStatus)
         return (
           <ModelRow
             key={model.id}
             meta={model}
             status={status}
+            loaded={loaded}
             onDownload={() => handleDownload(model.id)}
             onRetry={() => handleDownload(model.id)}
           />
@@ -223,11 +227,68 @@ export default function ModelDownloadSection() {
 interface ModelRowProps {
   meta: ModelMeta
   status: ModelStatus
+  loaded: boolean | null
   onDownload: () => void
   onRetry: () => void
 }
 
-function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
+function isLoadedInRAM(
+  modelId: ModelId,
+  status: ReturnType<typeof useDeviceStatus>
+): boolean | null {
+  if (!status) return null
+  if (modelId === 'e2b') return status.e2bLoaded
+  if (modelId === 'e4b') return status.e4bLoaded
+  // DistilBERT: tiny, lives inside the SMS Filter extension; treat as
+  // active whenever the host-app status is reachable.
+  return true
+}
+
+function StatusPill({ loaded }: { loaded: boolean | null }) {
+  // While we don't yet have a status snapshot from the device, render nothing
+  // — avoids a flash of "Inactive" before the first poll resolves.
+  if (loaded === null) return null
+
+  const palette = loaded
+    ? { bg: 'var(--safe-bg)', dot: 'var(--safe)', text: 'var(--safe)' }
+    : { bg: 'var(--surface-alt)', dot: 'var(--text-muted)', text: 'var(--text-muted)' }
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '2px 8px 2px 7px',
+        borderRadius: 999,
+        backgroundColor: palette.bg,
+        color: palette.text,
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 1.4,
+        letterSpacing: 0.1,
+        textTransform: 'uppercase',
+        verticalAlign: 'middle',
+        minWidth: 0,
+        minHeight: 0,
+      }}
+      aria-label={loaded ? 'Loaded in RAM' : 'Not loaded'}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: '50%',
+          backgroundColor: palette.dot,
+        }}
+      />
+      {loaded ? 'Active' : 'Inactive'}
+    </span>
+  )
+}
+
+function ModelRow({ meta, status, loaded, onDownload, onRetry }: ModelRowProps) {
   const downloading = status.kind === 'downloading'
   const verifying = status.kind === 'verifying'
   const verified = status.kind === 'verified'
@@ -253,8 +314,18 @@ function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
         }}
       >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="text-body" style={{ color: 'var(--text)', fontWeight: 500 }}>
-            {meta.name}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span className="text-body" style={{ color: 'var(--text)', fontWeight: 500 }}>
+              {meta.name}
+            </span>
+            {verified && <StatusPill loaded={loaded} />}
           </div>
           <div className="text-caption" style={{ color: 'var(--text-muted)' }}>
             {formatBytes(meta.sizeBytes)} · {meta.description}
@@ -294,20 +365,55 @@ function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
           )}
 
           {downloading && (
-            <span
+            <button
+              disabled
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${meta.name} downloading, ${pct}%`}
               style={{
-                color: 'var(--text)',
-                fontSize: 17,
-                fontWeight: 600,
-                fontVariantNumeric: 'tabular-nums',
-                minWidth: 52,
-                display: 'inline-block',
-                textAlign: 'right',
+                position: 'relative',
+                overflow: 'hidden',
+                width: 110,
+                height: 32,
+                borderRadius: 999,
+                border: 'none',
+                backgroundColor: 'var(--surface-alt)',
+                padding: 0,
+                minWidth: 0,
+                cursor: 'default',
+                isolation: 'isolate',
               }}
-              aria-live="polite"
             >
-              {pct}%
-            </span>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: 0,
+                  width: `${pct}%`,
+                  backgroundColor: 'var(--text)',
+                  transition: 'width 200ms linear',
+                  pointerEvents: 'none',
+                }}
+              />
+              <span
+                aria-live="polite"
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  fontVariantNumeric: 'tabular-nums',
+                  color: '#ffffff',
+                  mixBlendMode: 'difference',
+                }}
+              >
+                {pct}%
+              </span>
+            </button>
           )}
 
           {!verified && !verifying && !downloading && !failed && (
@@ -320,10 +426,11 @@ function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
                 fontSize: 16,
                 fontWeight: 600,
                 cursor: 'pointer',
-                padding: '6px 14px',
+                padding: 0,
                 borderRadius: 999,
                 backgroundColor: 'var(--surface-alt)',
-                minHeight: 32,
+                width: 110,
+                height: 32,
                 minWidth: 0,
               }}
               aria-label={`Download ${meta.name}`}
@@ -342,10 +449,11 @@ function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
                 fontSize: 16,
                 fontWeight: 600,
                 cursor: 'pointer',
-                padding: '6px 14px',
+                padding: 0,
                 borderRadius: 999,
                 backgroundColor: 'var(--scam-bg)',
-                minHeight: 32,
+                width: 110,
+                height: 32,
                 minWidth: 0,
               }}
               aria-label={`Retry downloading ${meta.name}`}
@@ -355,31 +463,6 @@ function ModelRow({ meta, status, onDownload, onRetry }: ModelRowProps) {
           )}
         </div>
       </div>
-
-      {downloading && (
-        <div
-          style={{
-            height: 4,
-            backgroundColor: 'var(--surface-alt)',
-            borderRadius: 2,
-            overflow: 'hidden',
-          }}
-          role="progressbar"
-          aria-valuenow={pct}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label={`${meta.name} download progress`}
-        >
-          <div
-            style={{
-              height: '100%',
-              width: `${pct}%`,
-              backgroundColor: 'var(--text)',
-              transition: 'width 200ms linear',
-            }}
-          />
-        </div>
-      )}
 
       {failed && (
         <div
