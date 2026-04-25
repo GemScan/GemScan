@@ -15,14 +15,14 @@ Implements the complete structured logging and performance monitoring layer for 
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 15 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 15 |
+| ⬜ Not started | 0 |
 
 ---
 ## Tasks
 
-#### ⬜ T-08-001 · GemScanLogger registry
+#### ✅ T-08-001 · GemScanLogger registry
 
 | Field | Value |
 |---|---|
@@ -48,7 +48,7 @@ Create `ios/App/GemmaKit/Sources/Logging/GemScanLogger.swift` as an `enum GemSca
 
 ---
 
-#### ⬜ T-08-002 · LogEvent structured event helpers
+#### ✅ T-08-002 · LogEvent structured event helpers
 
 | Field | Value |
 |---|---|
@@ -74,7 +74,7 @@ Create `ios/App/GemmaKit/Sources/Logging/LogEvents.swift` as an `enum LogEvent` 
 
 ---
 
-#### ⬜ T-08-003 · TypeScript structured logger
+#### ✅ T-08-003 · TypeScript structured logger
 
 | Field | Value |
 |---|---|
@@ -101,7 +101,7 @@ Create `src/lib/logger.ts`. Define `type LogLevel = 'debug' | 'info' | 'warn' | 
 
 ---
 
-#### ⬜ T-08-004 · InferenceMetrics + MetricsStore
+#### ✅ T-08-004 · InferenceMetrics + MetricsStore
 
 | Field | Value |
 |---|---|
@@ -128,7 +128,7 @@ Create `ios/App/GemmaKit/Sources/Logging/InferenceMetrics.swift`. Define `struct
 
 ---
 
-#### ⬜ T-08-005 · Wire InferenceMetrics into InferenceEngine
+#### ✅ T-08-005 · Wire InferenceMetrics into InferenceEngine
 
 | Field | Value |
 |---|---|
@@ -154,7 +154,7 @@ In `InferenceEngine.generate(prompt:onToken:)`, add metrics capture wrapping eac
 
 ---
 
-#### ⬜ T-08-006 · TypeScript DebugOverlay component
+#### ✅ T-08-006 · TypeScript DebugOverlay component
 
 | Field | Value |
 |---|---|
@@ -181,7 +181,7 @@ Create `src/components/DebugOverlay.tsx`. At the top of the component body, add 
 
 ---
 
-#### ⬜ T-08-007 · Swift DebugOverlayView
+#### ✅ T-08-007 · Swift DebugOverlayView
 
 | Field | Value |
 |---|---|
@@ -207,7 +207,7 @@ Create `ios/App/App/DebugOverlayView.swift` wrapped entirely in `#if DEBUG … #
 
 ---
 
-#### ⬜ T-08-008 · Privacy annotation audit
+#### ✅ T-08-008 · Privacy annotation audit
 
 | Field | Value |
 |---|---|
@@ -232,7 +232,7 @@ Audit every `GemScanLogger.*` call in `InferenceEngine.swift`, `OrchestratorAgen
 
 ---
 
-#### ⬜ T-08-009 · MetricsStore ring buffer test
+#### ✅ T-08-009 · MetricsStore ring buffer test
 
 | Field | Value |
 |---|---|
@@ -257,7 +257,7 @@ Create `ios/App/GemmaKit/Tests/MetricsStoreTests.swift`. `testMetricsStoreEjectO
 
 ---
 
-#### ⬜ T-08-010 · Logging privacy compliance tests
+#### ✅ T-08-010 · Logging privacy compliance tests
 
 | Field | Value |
 |---|---|
@@ -282,7 +282,7 @@ In `ComplianceTests.swift`, implement `testInferenceEngineDoesNotLogRawPrompt()`
 
 ---
 
-#### ⬜ T-08-011 · DebugOverlay dev/prod tests
+#### ✅ T-08-011 · DebugOverlay dev/prod tests
 
 | Field | Value |
 |---|---|
@@ -307,7 +307,7 @@ Create `e2e/debug-overlay.spec.ts` with two tests. Test 1 (production): build th
 
 ---
 
-#### ⬜ T-08-012 · LogEvent format tests
+#### ✅ T-08-012 · LogEvent format tests
 
 | Field | Value |
 |---|---|
@@ -331,7 +331,7 @@ Create `ios/App/GemmaKit/Tests/LogEventTests.swift`. `testInferenceStartFormat()
 
 ---
 
-#### ⬜ T-08-013 · Logging developer guide
+#### ✅ T-08-013 · Logging developer guide
 
 | Field | Value |
 |---|---|
@@ -357,7 +357,7 @@ Create `docs/logging.md` with five sections. (1) Adding a new `GemScanLogger` ca
 
 ---
 
-#### ⬜ T-08-014 · Logging compliance
+#### ✅ T-08-014 · Logging compliance
 
 | Field | Value |
 |---|---|
@@ -383,7 +383,7 @@ Verify four logging compliance gates. Gate 1 — CI PII scan: confirm the `pii-s
 
 ---
 
-#### ⬜ T-08-015 · Logger instance registration verification test
+#### ✅ T-08-015 · Logger instance registration verification test
 
 | Field | Value |
 |---|---|

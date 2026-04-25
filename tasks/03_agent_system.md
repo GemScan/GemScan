@@ -13,14 +13,14 @@ Implement the six-agent analysis pipeline — Orchestrator, Text, URL, Image, Vo
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 18 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 18 |
+| ⬜ Not started | 0 |
 
 ---
 ## Tasks
 
-#### ⬜ T-03-001 · SCAFFOLD · P0 — AgentID constants + MessageRouter protocol
+#### ✅ T-03-001 · SCAFFOLD · P0 — AgentID constants + MessageRouter protocol
 
 | Field | Value |
 |---|---|
@@ -45,7 +45,7 @@ Create `ios/App/GemmaKit/Sources/Agents/AgentID.swift` defining `enum AgentID: S
 
 ---
 
-#### ⬜ T-03-002 · IMPLEMENT · P0 — OrchestratorAgent
+#### ✅ T-03-002 · IMPLEMENT · P0 — OrchestratorAgent
 
 | Field | Value |
 |---|---|
@@ -70,7 +70,7 @@ Create `ios/App/GemmaKit/Sources/Agents/OrchestratorAgent.swift` as `actor Orche
 
 ---
 
-#### ⬜ T-03-003 · IMPLEMENT · P0 — TextAgent
+#### ✅ T-03-003 · IMPLEMENT · P0 — TextAgent
 
 | Field | Value |
 |---|---|
@@ -95,7 +95,7 @@ Create `ios/App/GemmaKit/Sources/Agents/TextAgent.swift` as `actor TextAgent` wi
 
 ---
 
-#### ⬜ T-03-004 · IMPLEMENT · P0 — URLAgent
+#### ✅ T-03-004 · IMPLEMENT · P0 — URLAgent
 
 | Field | Value |
 |---|---|
@@ -120,7 +120,7 @@ Create `ios/App/GemmaKit/Sources/Agents/URLAgent.swift` as `actor URLAgent` with
 
 ---
 
-#### ⬜ T-03-005 · IMPLEMENT · P0 — ImageAgent
+#### ✅ T-03-005 · IMPLEMENT · P0 — ImageAgent
 
 | Field | Value |
 |---|---|
@@ -145,7 +145,7 @@ Create `ios/App/GemmaKit/Sources/Agents/ImageAgent.swift` as `actor ImageAgent` 
 
 ---
 
-#### ⬜ T-03-006 · IMPLEMENT · P0 — VoiceAgent
+#### ✅ T-03-006 · IMPLEMENT · P0 — VoiceAgent
 
 | Field | Value |
 |---|---|
@@ -170,7 +170,7 @@ Create `ios/App/GemmaKit/Sources/Agents/VoiceAgent.swift` as `actor VoiceAgent` 
 
 ---
 
-#### ⬜ T-03-007 · IMPLEMENT · P0 — JudgeAgent
+#### ✅ T-03-007 · IMPLEMENT · P0 — JudgeAgent
 
 | Field | Value |
 |---|---|
@@ -195,7 +195,7 @@ Create `ios/App/GemmaKit/Sources/Agents/JudgeAgent.swift` as `actor JudgeAgent` 
 
 ---
 
-#### ⬜ T-03-008 · IMPLEMENT · P0 — GBNF grammar definitions
+#### ✅ T-03-008 · IMPLEMENT · P0 — GBNF grammar definitions
 
 | Field | Value |
 |---|---|
@@ -220,7 +220,7 @@ Create `ios/App/GemmaKit/Sources/Agents/Grammars/GrammarConstraint+Definitions.s
 
 ---
 
-#### ⬜ T-03-009 · IMPLEMENT · P1 — Prompt templates
+#### ✅ T-03-009 · IMPLEMENT · P1 — Prompt templates
 
 | Field | Value |
 |---|---|
@@ -245,7 +245,7 @@ Create four prompt template files under `ios/App/GemmaKit/Sources/Agents/Prompts
 
 ---
 
-#### ⬜ T-03-010 · IMPLEMENT · P1 — MCP tool failure recovery
+#### ✅ T-03-010 · IMPLEMENT · P1 — MCP tool failure recovery
 
 | Field | Value |
 |---|---|
@@ -270,7 +270,7 @@ In every agent's MCP call site, wrap `MCPClient.shared.call(...)` in a `do/catch
 
 ---
 
-#### ⬜ T-03-011 · IMPLEMENT · P1 — ParsedVerdict + output parsing
+#### ✅ T-03-011 · IMPLEMENT · P1 — ParsedVerdict + output parsing
 
 | Field | Value |
 |---|---|
@@ -295,7 +295,7 @@ Create `ios/App/GemmaKit/Sources/Agents/ParsedVerdict.swift`. Define `struct Par
 
 ---
 
-#### ⬜ T-03-012 · TEST · P1 — Agent round-trip tests
+#### ✅ T-03-012 · TEST · P1 — Agent round-trip tests
 
 | Field | Value |
 |---|---|
@@ -320,7 +320,7 @@ Create `ios/App/GemmaKit/Tests/AgentRoundTripTests.swift` as an `XCTestCase` sub
 
 ---
 
-#### ⬜ T-03-013 · TEST · P1 — Agent MCP access control tests
+#### ✅ T-03-013 · TEST · P1 — Agent MCP access control tests
 
 | Field | Value |
 |---|---|
@@ -345,7 +345,7 @@ Create `ios/App/GemmaKit/Tests/AgentAccessControlTests.swift` as an `XCTestCase`
 
 ---
 
-#### ⬜ T-03-014 · TEST · P2 — GBNF grammar validation tests
+#### ✅ T-03-014 · TEST · P2 — GBNF grammar validation tests
 
 | Field | Value |
 |---|---|
@@ -370,7 +370,7 @@ Create `ios/App/GemmaKit/Tests/GrammarConstraintTests.swift` as an `XCTestCase` 
 
 ---
 
-#### ⬜ T-03-015 · DOCUMENT · P2 — Agent system DocC
+#### ✅ T-03-015 · DOCUMENT · P2 — Agent system DocC
 
 | Field | Value |
 |---|---|
@@ -395,7 +395,7 @@ Add `///` DocC comments to all six agents' `handle(_:)` methods. Each comment bl
 
 ---
 
-#### ⬜ T-03-016 · VALIDATE · P1 — Agent system Apple compliance
+#### ✅ T-03-016 · VALIDATE · P1 — Agent system Apple compliance
 
 | Field | Value |
 |---|---|
@@ -421,7 +421,7 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M3 milestone. Steps:
 
 ---
 
-#### ⬜ T-03-017 · IMPLEMENT · P1 — Explainer output reading level validation
+#### ✅ T-03-017 · IMPLEMENT · P1 — Explainer output reading level validation
 
 | Field | Value |
 |---|---|
@@ -446,7 +446,7 @@ Create `ios/App/GemmaKit/Sources/Agents/ExplainerValidator.swift` as an `enum Ex
 
 ---
 
-#### ⬜ T-03-018 · IMPLEMENT · P1 — TypeScript web mock orchestrator
+#### ✅ T-03-018 · IMPLEMENT · P1 — TypeScript web mock orchestrator
 
 | Field | Value |
 |---|---|

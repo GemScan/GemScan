@@ -15,14 +15,14 @@ Establishes the complete CI/CD pipeline and App Store deployment infrastructure 
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 16 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 17 |
+| ⬜ Not started | 1 |
 
 ---
 ## Tasks
 
-#### ⬜ T-09-001 · `ci.yml` GitHub Actions workflow
+#### ✅ T-09-001 · `ci.yml` GitHub Actions workflow
 
 | Field | Value |
 |---|---|
@@ -49,7 +49,7 @@ Create `.github/workflows/ci.yml`. Set `on: [push, pull_request]` and `concurren
 
 ---
 
-#### ⬜ T-09-002 · `e2e.yml` GitHub Actions workflow
+#### ✅ T-09-002 · `e2e.yml` GitHub Actions workflow
 
 | Field | Value |
 |---|---|
@@ -76,7 +76,7 @@ Create `.github/workflows/e2e.yml`. Set `on: [push, pull_request]`. Define 2 job
 
 ---
 
-#### ⬜ T-09-003 · `release.yml` GitHub Actions workflow
+#### ✅ T-09-003 · `release.yml` GitHub Actions workflow
 
 | Field | Value |
 |---|---|
@@ -104,7 +104,7 @@ Create `.github/workflows/release.yml`. Set `on: { push: { tags: ['v*'] } }`. Ru
 
 ---
 
-#### ⬜ T-09-004 · SwiftLint CI integration
+#### ✅ T-09-004 · SwiftLint CI integration
 
 | Field | Value |
 |---|---|
@@ -130,7 +130,7 @@ Add three steps to the `swift-unit` job in `ci.yml` (before the xcodebuild test 
 
 ---
 
-#### ⬜ T-09-005 · `benchmark.yml` weekly workflow
+#### ✅ T-09-005 · `benchmark.yml` weekly workflow
 
 | Field | Value |
 |---|---|
@@ -156,7 +156,7 @@ Create `.github/workflows/benchmark.yml`. Set `on: { schedule: [{ cron: '0 4 * *
 
 ---
 
-#### ⬜ T-09-006 · Model manifest + SHA-256 verification script
+#### ✅ T-09-006 · Model manifest + SHA-256 verification script
 
 | Field | Value |
 |---|---|
@@ -182,7 +182,7 @@ Create `manifest.json` at the repository root with a top-level `models` array co
 
 ---
 
-#### ⬜ T-09-007 · Benchmark regression check script
+#### ✅ T-09-007 · Benchmark regression check script
 
 | Field | Value |
 |---|---|
@@ -210,7 +210,7 @@ Create `scripts/check-benchmark-regression.js` as a Node.js script. Read `benchm
 
 ---
 
-#### ⬜ T-09-008 · `PrivacyInfo.xcprivacy` manifest
+#### ✅ T-09-008 · `PrivacyInfo.xcprivacy` manifest
 
 | Field | Value |
 |---|---|
@@ -236,7 +236,7 @@ Create `ios/App/App/PrivacyInfo.xcprivacy` as an XML property list file with the
 
 ---
 
-#### ⬜ T-09-009 · `Info.plist` required keys
+#### ✅ T-09-009 · `Info.plist` required keys
 
 | Field | Value |
 |---|---|
@@ -265,7 +265,7 @@ Open `ios/App/App/Info.plist` and ensure the following keys are present with the
 
 ---
 
-#### ⬜ T-09-010 · GitHub Actions secrets documentation
+#### ✅ T-09-010 · GitHub Actions secrets documentation
 
 | Field | Value |
 |---|---|
@@ -291,7 +291,7 @@ Create `docs/secrets.md` listing all 8 required GitHub Actions secrets with thei
 
 ---
 
-#### ⬜ T-09-011 · PII scan expansion
+#### ✅ T-09-011 · PII scan expansion
 
 | Field | Value |
 |---|---|
@@ -318,7 +318,7 @@ Update the `pii-scan` job in `ci.yml` to cover all 9 PII variable name patterns 
 
 ---
 
-#### ⬜ T-09-012 · Branch protection rules
+#### ✅ T-09-012 · Branch protection rules
 
 | Field | Value |
 |---|---|
@@ -344,7 +344,7 @@ Configure GitHub branch protection for the `main` branch via the GitHub reposito
 
 ---
 
-#### ⬜ T-09-013 · `.swiftlint.yml` + ESLint + Prettier CI
+#### ✅ T-09-013 · `.swiftlint.yml` + ESLint + Prettier CI
 
 | Field | Value |
 |---|---|
@@ -398,7 +398,7 @@ Open a passing PR to `main` with a trivial change (e.g., add a comment to `READM
 
 ---
 
-#### ⬜ T-09-015 · Capacitor sync + static export scripts
+#### ✅ T-09-015 · Capacitor sync + static export scripts
 
 | Field | Value |
 |---|---|
@@ -424,7 +424,7 @@ Update `package.json` to ensure the following `scripts` are present with exact v
 
 ---
 
-#### ⬜ T-09-016 · Release runbook
+#### ✅ T-09-016 · Release runbook
 
 | Field | Value |
 |---|---|
@@ -450,7 +450,7 @@ Create `docs/release.md` documenting the end-to-end release process in numbered 
 
 ---
 
-#### ⬜ T-09-017 · Pre-submission CI/CD checklist
+#### ✅ T-09-017 · Pre-submission CI/CD checklist
 
 | Field | Value |
 |---|---|

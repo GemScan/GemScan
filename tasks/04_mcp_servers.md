@@ -13,14 +13,14 @@ Implement the full on-device MCP (Model Context Protocol) server layer: one `MCP
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 19 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 19 |
+| ⬜ Not started | 0 |
 
 ---
 ## Tasks
 
-#### ⬜ T-04-001 · SCAFFOLD · P0 — MCPServer protocol + MCPClient + error types
+#### ✅ T-04-001 · SCAFFOLD · P0 — MCPServer protocol + MCPClient + error types
 
 | Field | Value |
 |---|---|
@@ -46,7 +46,7 @@ Create `ios/App/GemmaKit/Sources/MCP/MCPClient.swift`. Define the following type
 
 ---
 
-#### ⬜ T-04-002 · IMPLEMENT · P0 — ScamPatternsServer
+#### ✅ T-04-002 · IMPLEMENT · P0 — ScamPatternsServer
 
 | Field | Value |
 |---|---|
@@ -71,7 +71,7 @@ Create `ios/App/GemmaKit/Sources/MCP/ScamPatternsServer.swift` as `actor ScamPat
 
 ---
 
-#### ⬜ T-04-003 · IMPLEMENT · P0 — SqliteVecServer
+#### ✅ T-04-003 · IMPLEMENT · P0 — SqliteVecServer
 
 | Field | Value |
 |---|---|
@@ -96,7 +96,7 @@ Create `ios/App/GemmaKit/Sources/MCP/SqliteVecServer.swift` as `actor SqliteVecS
 
 ---
 
-#### ⬜ T-04-004 · IMPLEMENT · P0 — ContactsServer
+#### ✅ T-04-004 · IMPLEMENT · P0 — ContactsServer
 
 | Field | Value |
 |---|---|
@@ -122,7 +122,7 @@ Create `ios/App/GemmaKit/Sources/MCP/ContactsServer.swift` as `actor ContactsSer
 
 ---
 
-#### ⬜ T-04-005 · IMPLEMENT · P0 — URLReputationServer
+#### ✅ T-04-005 · IMPLEMENT · P0 — URLReputationServer
 
 | Field | Value |
 |---|---|
@@ -147,7 +147,7 @@ Create `ios/App/GemmaKit/Sources/MCP/URLReputationServer.swift` as `actor URLRep
 
 ---
 
-#### ⬜ T-04-006 · IMPLEMENT · P1 — WhoisServer
+#### ✅ T-04-006 · IMPLEMENT · P1 — WhoisServer
 
 | Field | Value |
 |---|---|
@@ -172,7 +172,7 @@ Create `ios/App/GemmaKit/Sources/MCP/WhoisServer.swift` as `actor WhoisServer: M
 
 ---
 
-#### ⬜ T-04-007 · IMPLEMENT · P1 — ReverseImageServer
+#### ✅ T-04-007 · IMPLEMENT · P1 — ReverseImageServer
 
 | Field | Value |
 |---|---|
@@ -198,7 +198,7 @@ Create `ios/App/GemmaKit/Sources/MCP/ReverseImageServer.swift` as `actor Reverse
 
 ---
 
-#### ⬜ T-04-008 · IMPLEMENT · P1 — PhoneReputationServer
+#### ✅ T-04-008 · IMPLEMENT · P1 — PhoneReputationServer
 
 | Field | Value |
 |---|---|
@@ -223,7 +223,7 @@ Create `ios/App/GemmaKit/Sources/MCP/PhoneReputationServer.swift` as `actor Phon
 
 ---
 
-#### ⬜ T-04-009 · IMPLEMENT · P1 — MessageFilterServer
+#### ✅ T-04-009 · IMPLEMENT · P1 — MessageFilterServer
 
 | Field | Value |
 |---|---|
@@ -247,7 +247,7 @@ Create `ios/App/GemmaKit/Sources/MCP/MessageFilterServer.swift` as `actor Messag
 
 ---
 
-#### ⬜ T-04-010 · IMPLEMENT · P1 — ClipboardWatcherServer
+#### ✅ T-04-010 · IMPLEMENT · P1 — ClipboardWatcherServer
 
 | Field | Value |
 |---|---|
@@ -272,7 +272,7 @@ Create `ios/App/GemmaKit/Sources/MCP/ClipboardWatcherServer.swift` as `actor Cli
 
 ---
 
-#### ⬜ T-04-011 · IMPLEMENT · P1 — ScreenTimeServer
+#### ✅ T-04-011 · IMPLEMENT · P1 — ScreenTimeServer
 
 | Field | Value |
 |---|---|
@@ -297,7 +297,7 @@ Create `ios/App/GemmaKit/Sources/MCP/ScreenTimeServer.swift` as `actor ScreenTim
 
 ---
 
-#### ⬜ T-04-012 · INTEGRATE · P0 — Server registration at app startup
+#### ✅ T-04-012 · INTEGRATE · P0 — Server registration at app startup
 
 | Field | Value |
 |---|---|
@@ -322,7 +322,7 @@ Create `ios/App/Plugins/GemmaPlugin+MCP.swift` as an extension on `GemmaPlugin` 
 
 ---
 
-#### ⬜ T-04-013 · IMPLEMENT · P1 — TypeScript web mock MCP client
+#### ✅ T-04-013 · IMPLEMENT · P1 — TypeScript web mock MCP client
 
 | Field | Value |
 |---|---|
@@ -347,7 +347,7 @@ Create `src/lib/mcp/mock-client.ts`. Export `async function mockMCPCall(server: 
 
 ---
 
-#### ⬜ T-04-014 · TEST · P1 — MCP server unit tests
+#### ✅ T-04-014 · TEST · P1 — MCP server unit tests
 
 | Field | Value |
 |---|---|
@@ -372,7 +372,7 @@ Create `ios/App/GemmaKit/Tests/MCPServerTests.swift` as an `XCTestCase` subclass
 
 ---
 
-#### ⬜ T-04-015 · TEST · P1 — SqliteVecServer schema tests
+#### ✅ T-04-015 · TEST · P1 — SqliteVecServer schema tests
 
 | Field | Value |
 |---|---|
@@ -397,7 +397,7 @@ Create `ios/App/GemmaKit/Tests/SqliteVecServerTests.swift` as an `XCTestCase` su
 
 ---
 
-#### ⬜ T-04-016 · TEST · P1 — Web mock MCP tests
+#### ✅ T-04-016 · TEST · P1 — Web mock MCP tests
 
 | Field | Value |
 |---|---|
@@ -422,7 +422,7 @@ Create `src/lib/mcp/mock-client.test.ts` as a Vitest test file. Write: `testAllT
 
 ---
 
-#### ⬜ T-04-017 · DOCUMENT · P2 — MCP servers DocC
+#### ✅ T-04-017 · DOCUMENT · P2 — MCP servers DocC
 
 | Field | Value |
 |---|---|
@@ -447,7 +447,7 @@ Add `///` DocC comments to: `MCPServer` protocol (describing the `execute` contr
 
 ---
 
-#### ⬜ T-04-018 · VALIDATE · P1 — MCP servers Apple compliance
+#### ✅ T-04-018 · VALIDATE · P1 — MCP servers Apple compliance
 
 | Field | Value |
 |---|---|
@@ -474,7 +474,7 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M4 milestone. Steps:
 
 ---
 
-#### ⬜ T-04-019 · IMPLEMENT · P0 — Bundled data files for MCP servers
+#### ✅ T-04-019 · IMPLEMENT · P0 — Bundled data files for MCP servers
 
 | Field | Value |
 |---|---|

@@ -14,14 +14,14 @@ Implement all five iOS extension targets — SMSFilter (`ILMessageFilterExtensio
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 16 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 16 |
+| ⬜ Not started | 0 |
 
 ---
 ## Tasks
 
-#### ⬜ T-05-001 · SCAFFOLD · P0 — App Group entitlements for all targets
+#### ✅ T-05-001 · SCAFFOLD · P0 — App Group entitlements for all targets
 
 | Field | Value |
 |---|---|
@@ -46,7 +46,7 @@ Create five `.entitlements` XML plist files. `ios/App/App/App.entitlements` (mai
 
 ---
 
-#### ⬜ T-05-002 · IMPLEMENT · P0 — SharedContainerSchema
+#### ✅ T-05-002 · IMPLEMENT · P0 — SharedContainerSchema
 
 | Field | Value |
 |---|---|
@@ -71,7 +71,7 @@ Extend the `SharedContainerSchema` stub created in T-00-013 (which defines `appG
 
 ---
 
-#### ⬜ T-05-003 · IMPLEMENT · P0 — ILMessageFilterExtension
+#### ✅ T-05-003 · IMPLEMENT · P0 — ILMessageFilterExtension
 
 | Field | Value |
 |---|---|
@@ -98,7 +98,7 @@ Create `ios/App/Extensions/SMSFilter/MessageFilterExtension.swift`. Define `clas
 
 ---
 
-#### ⬜ T-05-004 · IMPLEMENT · P0 — CallDirectoryExtension
+#### ✅ T-05-004 · IMPLEMENT · P0 — CallDirectoryExtension
 
 | Field | Value |
 |---|---|
@@ -124,7 +124,7 @@ Create `ios/App/Extensions/CallDirectory/CallDirectoryExtension.swift`. Define `
 
 ---
 
-#### ⬜ T-05-005 · IMPLEMENT · P1 — ShareExtension
+#### ✅ T-05-005 · IMPLEMENT · P1 — ShareExtension
 
 | Field | Value |
 |---|---|
@@ -150,7 +150,7 @@ Create `ios/App/Extensions/Share/ShareViewController.swift`. Define `class Share
 
 ---
 
-#### ⬜ T-05-006 · IMPLEMENT · P1 — AppIntents extension
+#### ✅ T-05-006 · IMPLEMENT · P1 — AppIntents extension
 
 | Field | Value |
 |---|---|
@@ -176,7 +176,7 @@ Create `ios/App/Extensions/AppIntents/CheckMessageIntent.swift` conforming to `A
 
 ---
 
-#### ⬜ T-05-007 · IMPLEMENT · P1 — Safari Content Blocker
+#### ✅ T-05-007 · IMPLEMENT · P1 — Safari Content Blocker
 
 | Field | Value |
 |---|---|
@@ -202,7 +202,7 @@ Create `ios/App/Extensions/SafariContentBlocker/ContentBlockerRequestHandler.swi
 
 ---
 
-#### ⬜ T-05-008 · INTEGRATE · P0 — SMSTriage extension instance integration
+#### ✅ T-05-008 · INTEGRATE · P0 — SMSTriage extension instance integration
 
 | Field | Value |
 |---|---|
@@ -227,7 +227,7 @@ In `SMSTriage.swift`, add `static func extensionInstance() throws -> SMSTriage`:
 
 ---
 
-#### ⬜ T-05-009 · INTEGRATE · P1 — MessageFilterServer ↔ ILMessageFilterExtension
+#### ✅ T-05-009 · INTEGRATE · P1 — MessageFilterServer ↔ ILMessageFilterExtension
 
 | Field | Value |
 |---|---|
@@ -252,7 +252,7 @@ After classification in `ILMessageFilterExtension.handle(_:context:completion:)`
 
 ---
 
-#### ⬜ T-05-010 · IMPLEMENT · P1 — SharedContainerSchema read/write tests
+#### ✅ T-05-010 · IMPLEMENT · P1 — SharedContainerSchema read/write tests
 
 | Field | Value |
 |---|---|
@@ -277,7 +277,7 @@ Create `ios/App/GemmaKit/Tests/SharedContainerTests.swift` as an `XCTestCase` su
 
 ---
 
-#### ⬜ T-05-011 · TEST · P1 — Extension memory ceiling tests
+#### ✅ T-05-011 · TEST · P1 — Extension memory ceiling tests
 
 | Field | Value |
 |---|---|
@@ -302,7 +302,7 @@ Create `ios/App/GemmaKitUITests/ExtensionMemoryTests.swift` as an `XCTestCase` s
 
 ---
 
-#### ⬜ T-05-012 · TEST · P1 — CallDirectory phone encoding test
+#### ✅ T-05-012 · TEST · P1 — CallDirectory phone encoding test
 
 | Field | Value |
 |---|---|
@@ -327,7 +327,7 @@ Create `ios/App/GemmaKit/Tests/CallDirectoryTests.swift` as an `XCTestCase` subc
 
 ---
 
-#### ⬜ T-05-013 · DOCUMENT · P2 — Extension developer setup guide
+#### ✅ T-05-013 · DOCUMENT · P2 — Extension developer setup guide
 
 | Field | Value |
 |---|---|
@@ -352,7 +352,7 @@ Create `docs/extension-setup.md` covering: (1) how to enable the App Groups capa
 
 ---
 
-#### ⬜ T-05-014 · VALIDATE · P1 — Extensions Apple compliance
+#### ✅ T-05-014 · VALIDATE · P1 — Extensions Apple compliance
 
 | Field | Value |
 |---|---|
@@ -379,7 +379,7 @@ Run the full Spec 00 §11.7 PR compliance checklist for the M5 milestone. Steps:
 
 ---
 
-#### ⬜ T-05-015 · IMPLEMENT · P1 — CallKit pre-answer screening integration
+#### ✅ T-05-015 · IMPLEMENT · P1 — CallKit pre-answer screening integration
 
 | Field | Value |
 |---|---|
@@ -405,7 +405,7 @@ Create `ios/App/Plugins/GemmaPlugin+CallKit.swift` as an extension on `GemmaPlug
 
 ---
 
-#### ⬜ T-05-016 · IMPLEMENT · P0 — URL scheme handler for deep links
+#### ✅ T-05-016 · IMPLEMENT · P0 — URL scheme handler for deep links
 
 | Field | Value |
 |---|---|

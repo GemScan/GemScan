@@ -14,14 +14,14 @@ Establishes the complete multi-layer test infrastructure for GemScan: Vitest uni
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 18 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 21 |
+| ⬜ Not started | 3 |
 
 ---
 ## Tasks
 
-#### ⬜ T-07-001 · Vitest configuration
+#### ✅ T-07-001 · Vitest configuration
 
 | Field | Value |
 |---|---|
@@ -47,7 +47,7 @@ Create `vitest.config.ts` at the repository root with the following configuratio
 
 ---
 
-#### ⬜ T-07-002 · Playwright configuration
+#### ✅ T-07-002 · Playwright configuration
 
 | Field | Value |
 |---|---|
@@ -73,7 +73,7 @@ Create `playwright.config.ts` at the repository root. Set `testDir: './e2e'` and
 
 ---
 
-#### ⬜ T-07-003 · Mock actor infrastructure
+#### ✅ T-07-003 · Mock actor infrastructure
 
 | Field | Value |
 |---|---|
@@ -98,7 +98,7 @@ Create `MockInferenceEngine.swift` as an `actor` conforming to `InferenceEngineP
 
 ---
 
-#### ⬜ T-07-004 · Test helper extensions
+#### ✅ T-07-004 · Test helper extensions
 
 | Field | Value |
 |---|---|
@@ -123,7 +123,7 @@ Create `ios/App/GemmaKit/Tests/TestHelpers.swift` with two extensions on the pro
 
 ---
 
-#### ⬜ T-07-005 · XCTest scheme and test plan
+#### ✅ T-07-005 · XCTest scheme and test plan
 
 | Field | Value |
 |---|---|
@@ -149,7 +149,7 @@ In Xcode, create a `GemmaKit` scheme that includes all Swift test targets under 
 
 ---
 
-#### ⬜ T-07-006 · Agent round-trip XCTests
+#### ✅ T-07-006 · Agent round-trip XCTests
 
 | Field | Value |
 |---|---|
@@ -175,7 +175,7 @@ Implement `ios/App/GemmaKit/Tests/AgentRoundTripTests.swift` as an `XCTestCase`.
 
 ---
 
-#### ⬜ T-07-007 · MCP server XCTests
+#### ✅ T-07-007 · MCP server XCTests
 
 | Field | Value |
 |---|---|
@@ -202,7 +202,7 @@ Implement `ios/App/GemmaKit/Tests/MCPServerTests.swift` using real MCP server in
 
 ---
 
-#### ⬜ T-07-008 · InferenceEngine XCTests
+#### ✅ T-07-008 · InferenceEngine XCTests
 
 | Field | Value |
 |---|---|
@@ -227,7 +227,7 @@ Implement `ios/App/GemmaKit/Tests/InferenceEngineTests.swift`. `testRSSCheckReje
 
 ---
 
-#### ⬜ T-07-009 · Apple Platform ComplianceTests
+#### ✅ T-07-009 · Apple Platform ComplianceTests
 
 | Field | Value |
 |---|---|
@@ -258,7 +258,7 @@ Implement `ios/App/GemmaKit/Tests/ComplianceTests.swift` with all 9 tests from S
 
 ---
 
-#### ⬜ T-07-010 · GemmaPluginMock Vitest tests
+#### ✅ T-07-010 · GemmaPluginMock Vitest tests
 
 | Field | Value |
 |---|---|
@@ -285,7 +285,7 @@ Implement `src/lib/gemma/__tests__/mock.test.ts` with 5 tests using the GemmaPlu
 
 ---
 
-#### ⬜ T-07-011 · Zustand store Vitest tests
+#### ✅ T-07-011 · Zustand store Vitest tests
 
 | Field | Value |
 |---|---|
@@ -312,7 +312,7 @@ Implement `src/lib/__tests__/store.test.ts` with 6 tests. `defaults to active sc
 
 ---
 
-#### ⬜ T-07-012 · Playwright SMS analysis E2E
+#### ✅ T-07-012 · Playwright SMS analysis E2E
 
 | Field | Value |
 |---|---|
@@ -338,7 +338,7 @@ Implement `e2e/analyse-sms.spec.ts` with a single `test` block. Navigate to `/`.
 
 ---
 
-#### ⬜ T-07-013 · Playwright accessibility E2E
+#### ✅ T-07-013 · Playwright accessibility E2E
 
 | Field | Value |
 |---|---|
@@ -363,7 +363,7 @@ Implement `e2e/accessibility.spec.ts`. Import `checkA11y` from `axe-playwright`.
 
 ---
 
-#### ⬜ T-07-014 · XCUITest cold-start + SMS filter
+#### ✅ T-07-014 · XCUITest cold-start + SMS filter
 
 | Field | Value |
 |---|---|
@@ -389,7 +389,7 @@ Implement `ios/App/Tests/UITests/ColdStartTest.swift` as `XCTestCase`. `testCold
 
 ---
 
-#### ⬜ T-07-015 · Benchmark tests
+#### ✅ T-07-015 · Benchmark tests
 
 | Field | Value |
 |---|---|
@@ -414,7 +414,7 @@ Implement `ios/App/GemmaKit/Tests/BenchmarkTests.swift` using `measure(metrics: 
 
 ---
 
-#### ⬜ T-07-016 · CI coverage enforcement
+#### ✅ T-07-016 · CI coverage enforcement
 
 | Field | Value |
 |---|---|
@@ -439,7 +439,7 @@ In the `typescript` job of `.github/workflows/ci.yml`, add a step that runs `npm
 
 ---
 
-#### ⬜ T-07-017 · Testing guide
+#### ✅ T-07-017 · Testing guide
 
 | Field | Value |
 |---|---|
@@ -465,7 +465,7 @@ Create `docs/testing.md` with six sections. (1) Running each test layer: exact c
 
 ---
 
-#### ⬜ T-07-018 · Full test suite green
+#### ✅ T-07-018 · Full test suite green
 
 | Field | Value |
 |---|---|

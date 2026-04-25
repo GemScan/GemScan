@@ -11,9 +11,9 @@ M0 establishes the canonical directory layout, toolchain configuration, core Typ
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 14 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 14 |
+| ⬜ Not started | 0 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -25,7 +25,7 @@ Update this table as tasks complete. Each task row also has a status checkbox.
 
 ---
 
-#### ⬜ T-00-001 · Create repo directory structure
+#### ✅ T-00-001 · Create repo directory structure
 
 | Field | Value |
 |---|---|
@@ -50,7 +50,7 @@ Create the full directory tree exactly as described in Spec 00 §1. Each leaf di
 
 ---
 
-#### ⬜ T-00-002 · Configure TypeScript + ESLint + Prettier
+#### ✅ T-00-002 · Configure TypeScript + ESLint + Prettier
 
 | Field | Value |
 |---|---|
@@ -75,7 +75,7 @@ Create `tsconfig.json` with `"strict": true`, `"target": "ES2022"`, `"lib": ["ES
 
 ---
 
-#### ⬜ T-00-003 · Configure SwiftLint
+#### ✅ T-00-003 · Configure SwiftLint
 
 | Field | Value |
 |---|---|
@@ -104,7 +104,7 @@ Create `.swiftlint.yml` at the repo root. Enable opt-in rules: `force_unwrapping
 
 ---
 
-#### ⬜ T-00-004 · Core TypeScript type definitions
+#### ✅ T-00-004 · Core TypeScript type definitions
 
 | Field | Value |
 |---|---|
@@ -133,7 +133,7 @@ Create `src/lib/gemma/types.ts` exporting all canonical TypeScript types from Sp
 
 ---
 
-#### ⬜ T-00-005 · Swift core type mirrors
+#### ✅ T-00-005 · Swift core type mirrors
 
 | Field | Value |
 |---|---|
@@ -158,7 +158,7 @@ Create `AgentTask.swift` with the `AgentTask` struct, `AgentPayload` enum (five 
 
 ---
 
-#### ⬜ T-00-006 · GemScanError enum
+#### ✅ T-00-006 · GemScanError enum
 
 | Field | Value |
 |---|---|
@@ -187,7 +187,7 @@ Create `ios/App/GemmaKit/Sources/GemScanError.swift` with the `GemScanError` enu
 
 ---
 
-#### ⬜ T-00-007 · GemmaPlugin TypeScript interface + web mock registration
+#### ✅ T-00-007 · GemmaPlugin TypeScript interface + web mock registration
 
 | Field | Value |
 |---|---|
@@ -212,7 +212,7 @@ Create `src/lib/gemma/index.ts` that exports `GemmaPlugin` as either `GemmaPlugi
 
 ---
 
-#### ⬜ T-00-008 · Zustand store
+#### ✅ T-00-008 · Zustand store
 
 | Field | Value |
 |---|---|
@@ -241,7 +241,7 @@ Create `src/lib/store.ts` exporting `useGemScanStore` using Zustand `create` wit
 
 ---
 
-#### ⬜ T-00-009 · Core type round-trip tests
+#### ✅ T-00-009 · Core type round-trip tests
 
 | Field | Value |
 |---|---|
@@ -266,7 +266,7 @@ Create `src/lib/gemma/__tests__/types.test.ts` with Vitest tests verifying: (1) 
 
 ---
 
-#### ⬜ T-00-010 · Platform detection and mock registration tests
+#### ✅ T-00-010 · Platform detection and mock registration tests
 
 | Field | Value |
 |---|---|
@@ -295,7 +295,7 @@ Create `src/lib/__tests__/platform.test.ts` verifying: `isNativePlatform()` retu
 
 ---
 
-#### ⬜ T-00-011 · DocC documentation for GemmaKit public API
+#### ✅ T-00-011 · DocC documentation for GemmaKit public API
 
 | Field | Value |
 |---|---|
@@ -324,7 +324,7 @@ Add `///` DocC comments to all `public` symbols in GemmaKit: `AgentTask` struct 
 
 ---
 
-#### ⬜ T-00-012 · Apple compliance baseline
+#### ✅ T-00-012 · Apple compliance baseline
 
 | Field | Value |
 |---|---|
@@ -356,7 +356,7 @@ Run the full M0 compliance checklist. Execute `xcodebuild analyze -scheme GemmaK
 
 ---
 
-#### ⬜ T-00-013 · SharedContainerSchema stub
+#### ✅ T-00-013 · SharedContainerSchema stub
 
 | Field | Value |
 |---|---|
@@ -381,7 +381,7 @@ Create `ios/App/GemmaKit/Sources/Extensions/SharedContainerSchema.swift` definin
 
 ---
 
-#### ⬜ T-00-014 · Performance monitoring types (InferenceMetrics)
+#### ✅ T-00-014 · Performance monitoring types (InferenceMetrics)
 
 | Field | Value |
 |---|---|

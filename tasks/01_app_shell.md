@@ -11,9 +11,9 @@ M1 bootstraps the runnable application: a Next.js 14 App Router project wrapped 
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 13 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 13 |
+| ⬜ Not started | 0 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -25,7 +25,7 @@ Update this table as tasks complete. Each task row also has a status checkbox.
 
 ---
 
-#### ⬜ T-01-001 · Next.js + Capacitor project setup
+#### ✅ T-01-001 · Next.js + Capacitor project setup
 
 | Field | Value |
 |---|---|
@@ -50,7 +50,7 @@ Run `npx create-next-app@14 . --typescript --tailwind --app --src-dir --import-a
 
 ---
 
-#### ⬜ T-01-002 · Xcode workspace + Capacitor iOS project
+#### ✅ T-01-002 · Xcode workspace + Capacitor iOS project
 
 | Field | Value |
 |---|---|
@@ -80,7 +80,7 @@ Run `npx cap add ios` to generate the `ios/` Capacitor project. Open the resulti
 
 ---
 
-#### ⬜ T-01-003 · GemmaPlugin Swift implementation
+#### ✅ T-01-003 · GemmaPlugin Swift implementation
 
 | Field | Value |
 |---|---|
@@ -107,7 +107,7 @@ Create `ios/App/Plugins/GemmaPlugin.swift` as a `CAPPlugin` subclass conforming 
 
 ---
 
-#### ⬜ T-01-004 · GemmaPlugin TypeScript native client
+#### ✅ T-01-004 · GemmaPlugin TypeScript native client
 
 | Field | Value |
 |---|---|
@@ -132,7 +132,7 @@ Create `src/lib/gemma/native.ts` exporting `GemmaPluginNative` as the result of 
 
 ---
 
-#### ⬜ T-01-005 · Golden fixtures for GemmaPluginMock
+#### ✅ T-01-005 · Golden fixtures for GemmaPluginMock
 
 | Field | Value |
 |---|---|
@@ -162,7 +162,7 @@ Create `src/lib/gemma/__fixtures__/golden.ts` exporting `goldenFixtures: Record<
 
 ---
 
-#### ⬜ T-01-006 · App Router pages scaffold
+#### ✅ T-01-006 · App Router pages scaffold
 
 | Field | Value |
 |---|---|
@@ -191,7 +191,7 @@ Create `src/app/layout.tsx` as the root layout with `<html lang="en">` and `<bod
 
 ---
 
-#### ⬜ T-01-007 · Streaming token Capacitor listener
+#### ✅ T-01-007 · Streaming token Capacitor listener
 
 | Field | Value |
 |---|---|
@@ -216,7 +216,7 @@ On the Swift side (extending T-01-003): after `orchestrator.handle(task)` comple
 
 ---
 
-#### ⬜ T-01-008 · Model download progress events
+#### ✅ T-01-008 · Model download progress events
 
 | Field | Value |
 |---|---|
@@ -242,7 +242,7 @@ Extend `GemmaPlugin.downloadModels(_ call: CAPPluginCall)` in Swift: parse `mode
 
 ---
 
-#### ⬜ T-01-009 · `analyse()` error contract
+#### ✅ T-01-009 · `analyse()` error contract
 
 | Field | Value |
 |---|---|
@@ -271,7 +271,7 @@ Extend `GemmaPlugin.analyse()` in Swift with the full error contract. In the `ca
 
 ---
 
-#### ⬜ T-01-010 · GemmaPlugin bridge tests
+#### ✅ T-01-010 · GemmaPlugin bridge tests
 
 | Field | Value |
 |---|---|
@@ -296,7 +296,7 @@ Create `src/lib/gemma/__tests__/native.test.ts` with Vitest tests for `GemmaPlug
 
 ---
 
-#### ⬜ T-01-011 · Zustand store tests
+#### ✅ T-01-011 · Zustand store tests
 
 | Field | Value |
 |---|---|
@@ -325,7 +325,7 @@ Create `src/lib/__tests__/store.test.ts` with Vitest tests. Use `beforeEach(() =
 
 ---
 
-#### ⬜ T-01-012 · GemmaPlugin API documentation
+#### ✅ T-01-012 · GemmaPlugin API documentation
 
 | Field | Value |
 |---|---|
@@ -350,7 +350,7 @@ Add `///` DocC comments to all `@objc` methods in `GemmaPlugin.swift`. The `anal
 
 ---
 
-#### ⬜ T-01-013 · App shell Apple compliance
+#### ✅ T-01-013 · App shell Apple compliance
 
 | Field | Value |
 |---|---|

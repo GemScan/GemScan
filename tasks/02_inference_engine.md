@@ -11,9 +11,9 @@ M2 implements the full on-device inference stack inside GemmaKit: the `Inference
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 22 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 22 |
+| ⬜ Not started | 0 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -25,7 +25,7 @@ Update this table as tasks complete. Each task row also has a status checkbox.
 
 ---
 
-#### ⬜ T-02-001 · GemmaKit Package.swift
+#### ✅ T-02-001 · GemmaKit Package.swift
 
 | Field | Value |
 |---|---|
@@ -51,7 +51,7 @@ Create `ios/App/GemmaKit/Package.swift` exactly as specified in Spec 02 §2. Set
 
 ---
 
-#### ⬜ T-02-002 · ModelTier + GrammarConstraint
+#### ✅ T-02-002 · ModelTier + GrammarConstraint
 
 | Field | Value |
 |---|---|
@@ -81,7 +81,7 @@ Create `ios/App/GemmaKit/Package.swift` exactly as specified in Spec 02 §2. Set
 
 ---
 
-#### ⬜ T-02-003 · InferenceBackend protocol + MLXInferenceBackend
+#### ✅ T-02-003 · InferenceBackend protocol + MLXInferenceBackend
 
 | Field | Value |
 |---|---|
@@ -107,7 +107,7 @@ Create `ios/App/GemmaKit/Sources/Inference/InferenceBackend.swift` defining the 
 
 ---
 
-#### ⬜ T-02-004 · LlamaCppInferenceBackend
+#### ✅ T-02-004 · LlamaCppInferenceBackend
 
 | Field | Value |
 |---|---|
@@ -138,7 +138,7 @@ Create `ios/App/GemmaKit/Sources/Inference/LlamaCppInferenceBackend.swift` as an
 
 ---
 
-#### ⬜ T-02-005 · ModelLoader actor
+#### ✅ T-02-005 · ModelLoader actor
 
 | Field | Value |
 |---|---|
@@ -169,7 +169,7 @@ Create `ios/App/GemmaKit/Sources/Inference/ModelLoader.swift` as an `actor` with
 
 ---
 
-#### ⬜ T-02-006 · InferenceEngine actor
+#### ✅ T-02-006 · InferenceEngine actor
 
 | Field | Value |
 |---|---|
@@ -201,7 +201,7 @@ Create `ios/App/GemmaKit/Sources/Inference/InferenceEngine.swift` as `public act
 
 ---
 
-#### ⬜ T-02-007 · AudioDecoder
+#### ✅ T-02-007 · AudioDecoder
 
 | Field | Value |
 |---|---|
@@ -227,7 +227,7 @@ Create `ios/App/GemmaKit/Sources/Inference/AudioDecoder.swift` as an `enum Audio
 
 ---
 
-#### ⬜ T-02-008 · WhisperModel actor
+#### ✅ T-02-008 · WhisperModel actor
 
 | Field | Value |
 |---|---|
@@ -253,7 +253,7 @@ Create `ios/App/GemmaKit/Sources/Inference/WhisperModel.swift` exactly as in Spe
 
 ---
 
-#### ⬜ T-02-009 · AudioSealModel actor
+#### ✅ T-02-009 · AudioSealModel actor
 
 | Field | Value |
 |---|---|
@@ -279,7 +279,7 @@ Create `ios/App/GemmaKit/Sources/Inference/AudioSealModel.swift` as an `actor` e
 
 ---
 
-#### ⬜ T-02-010 · WhisperASR + AudioSealDetector wrappers
+#### ✅ T-02-010 · WhisperASR + AudioSealDetector wrappers
 
 | Field | Value |
 |---|---|
@@ -309,7 +309,7 @@ Create `ios/App/GemmaKit/Sources/Inference/WhisperASR.swift` as an `actor` with 
 
 ---
 
-#### ⬜ T-02-011 · SMSTriage
+#### ✅ T-02-011 · SMSTriage
 
 | Field | Value |
 |---|---|
@@ -335,7 +335,7 @@ Create `ios/App/GemmaKit/Sources/Inference/SMSTriage.swift`. Implement `static l
 
 ---
 
-#### ⬜ T-02-012 · TextEmbedder
+#### ✅ T-02-012 · TextEmbedder
 
 | Field | Value |
 |---|---|
@@ -360,7 +360,7 @@ Create `ios/App/GemmaKit/Sources/Inference/TextEmbedder.swift` as an `actor Text
 
 ---
 
-#### ⬜ T-02-013 · TokenStream
+#### ✅ T-02-013 · TokenStream
 
 | Field | Value |
 |---|---|
@@ -389,7 +389,7 @@ Create `ios/App/GemmaKit/Sources/Inference/TokenStream.swift`. Implement a `stru
 
 ---
 
-#### ⬜ T-02-014 · InferenceEngine unit tests
+#### ✅ T-02-014 · InferenceEngine unit tests
 
 | Field | Value |
 |---|---|
@@ -415,7 +415,7 @@ Create `ios/App/GemmaKit/Tests/InferenceEngineTests.swift` with four test cases.
 
 ---
 
-#### ⬜ T-02-015 · ModelLoader tests
+#### ✅ T-02-015 · ModelLoader tests
 
 | Field | Value |
 |---|---|
@@ -441,7 +441,7 @@ Create `ios/App/GemmaKit/Tests/ModelLoaderTests.swift` with three test methods. 
 
 ---
 
-#### ⬜ T-02-016 · SMSTriage tests
+#### ✅ T-02-016 · SMSTriage tests
 
 | Field | Value |
 |---|---|
@@ -467,7 +467,7 @@ Create `ios/App/GemmaKit/Tests/SMSTriageTests.swift` with three test methods. `t
 
 ---
 
-#### ⬜ T-02-017 · AudioDecoder tests
+#### ✅ T-02-017 · AudioDecoder tests
 
 | Field | Value |
 |---|---|
@@ -492,7 +492,7 @@ Create `ios/App/GemmaKit/Tests/AudioDecoderTests.swift` with three test methods.
 
 ---
 
-#### ⬜ T-02-018 · WhisperModel + AudioSealModel factory tests
+#### ✅ T-02-018 · WhisperModel + AudioSealModel factory tests
 
 | Field | Value |
 |---|---|
@@ -521,7 +521,7 @@ Create `ios/App/GemmaKit/Tests/WhisperModelTests.swift` with two methods. `testW
 
 ---
 
-#### ⬜ T-02-019 · Inference engine DocC
+#### ✅ T-02-019 · Inference engine DocC
 
 | Field | Value |
 |---|---|
@@ -546,7 +546,7 @@ Add `///` DocC comments to all `public` methods on `InferenceEngine`: `warmUpE2B
 
 ---
 
-#### ⬜ T-02-020 · Inference engine Apple compliance
+#### ✅ T-02-020 · Inference engine Apple compliance
 
 | Field | Value |
 |---|---|
@@ -576,7 +576,7 @@ Run the full M2 compliance checklist. (1) Run Instruments Leaks template on a mo
 
 ---
 
-#### ⬜ T-02-021 · Chat template verification script
+#### ✅ T-02-021 · Chat template verification script
 
 | Field | Value |
 |---|---|
@@ -601,7 +601,7 @@ Create `scripts/verify-chat-template.py` as specified in Spec 02 §7. The script
 
 ---
 
-#### ⬜ T-02-022 · Performance monitoring hooks wiring
+#### ✅ T-02-022 · Performance monitoring hooks wiring
 
 | Field | Value |
 |---|---|

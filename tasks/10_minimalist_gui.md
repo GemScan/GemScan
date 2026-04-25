@@ -13,9 +13,9 @@ Replaces the functional wireframes from M6 with a cohesive minimalist production
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 18 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 18 |
+| ⬜ Not started | 0 |
 
 Update this table as tasks complete. Each task row also has a status checkbox.
 
@@ -27,7 +27,7 @@ Update this table as tasks complete. Each task row also has a status checkbox.
 
 ---
 
-#### ⬜ T-10-001 · Implement colour system and spacing CSS variables
+#### ✅ T-10-001 · Implement colour system and spacing CSS variables
 
 | Field | Value |
 |---|---|
@@ -52,7 +52,7 @@ Replace the existing CSS custom properties in `src/styles/globals.css` with the 
 
 ---
 
-#### ⬜ T-10-002 · Define typography scale
+#### ✅ T-10-002 · Define typography scale
 
 | Field | Value |
 |---|---|
@@ -80,7 +80,7 @@ Add CSS utility classes for the five typography roles from Spec 10 §3: `.text-t
 
 ---
 
-#### ⬜ T-10-003 · VerdictCard component
+#### ✅ T-10-003 · VerdictCard component
 
 | Field | Value |
 |---|---|
@@ -107,7 +107,7 @@ Create `src/components/VerdictCard.tsx` replacing the existing `ScamWarningCard`
 
 ---
 
-#### ⬜ T-10-004 · StreamingText component
+#### ✅ T-10-004 · StreamingText component
 
 | Field | Value |
 |---|---|
@@ -132,7 +132,7 @@ Create `src/components/StreamingText.tsx` replacing the existing `StreamingReaso
 
 ---
 
-#### ⬜ T-10-005 · ProgressRow component
+#### ✅ T-10-005 · ProgressRow component
 
 | Field | Value |
 |---|---|
@@ -156,7 +156,7 @@ Create `src/components/ProgressRow.tsx` replacing the existing `ModelDownloadPro
 
 ---
 
-#### ⬜ T-10-006 · InputArea component
+#### ✅ T-10-006 · InputArea component
 
 | Field | Value |
 |---|---|
@@ -181,7 +181,7 @@ Create `src/components/InputArea.tsx`. Props: `value: string`, `onChange: (value
 
 ---
 
-#### ⬜ T-10-007 · ResultRow component
+#### ✅ T-10-007 · ResultRow component
 
 | Field | Value |
 |---|---|
@@ -206,7 +206,7 @@ Create `src/components/ResultRow.tsx`. Props: `input: string`, `verdict: ScamVer
 
 ---
 
-#### ⬜ T-10-008 · SettingsRow component
+#### ✅ T-10-008 · SettingsRow component
 
 | Field | Value |
 |---|---|
@@ -235,7 +235,7 @@ Create `src/components/SettingsRow.tsx`. Props: `label: string`, `value?: string
 
 ---
 
-#### ⬜ T-10-009 · Refactor Home page (`/`)
+#### ✅ T-10-009 · Refactor Home page (`/`)
 
 | Field | Value |
 |---|---|
@@ -261,7 +261,7 @@ Refactor the Home page to match the Spec 10 §4.1 wireframe. Single-column layou
 
 ---
 
-#### ⬜ T-10-010 · Refactor Analyse page (`/analyse`)
+#### ✅ T-10-010 · Refactor Analyse page (`/analyse`)
 
 | Field | Value |
 |---|---|
@@ -286,7 +286,7 @@ Refactor the Analyse page to match the Spec 10 §4.2 wireframe. "← Back" text 
 
 ---
 
-#### ⬜ T-10-011 · Refactor Onboarding page (`/onboarding`)
+#### ✅ T-10-011 · Refactor Onboarding page (`/onboarding`)
 
 | Field | Value |
 |---|---|
@@ -311,7 +311,7 @@ Refactor Onboarding to match the Spec 10 §4.3 wireframe. Single scroll page (no
 
 ---
 
-#### ⬜ T-10-012 · Refactor Settings page (`/settings`)
+#### ✅ T-10-012 · Refactor Settings page (`/settings`)
 
 | Field | Value |
 |---|---|
@@ -336,7 +336,7 @@ Refactor Settings to match the Spec 10 §4.4 wireframe. "← Back" top-left. "Se
 
 ---
 
-#### ⬜ T-10-013 · Refactor Guardian Setup page (`/guardian/setup`)
+#### ✅ T-10-013 · Refactor Guardian Setup page (`/guardian/setup`)
 
 | Field | Value |
 |---|---|
@@ -365,7 +365,7 @@ Refactor Guardian Setup to match the Spec 10 §4.5 wireframe. "← Back" top-lef
 
 ---
 
-#### ⬜ T-10-014 · Implement primary and secondary button styles
+#### ✅ T-10-014 · Implement primary and secondary button styles
 
 | Field | Value |
 |---|---|
@@ -395,7 +395,7 @@ Add CSS classes `.btn-primary` and `.btn-secondary` matching Spec 10 §6.1. Prim
 
 ---
 
-#### ⬜ T-10-015 · VerdictCard component tests
+#### ✅ T-10-015 · VerdictCard component tests
 
 | Field | Value |
 |---|---|
@@ -415,7 +415,7 @@ Vitest + @testing-library/react tests for VerdictCard: (1) renders correct headi
 
 ---
 
-#### ⬜ T-10-016 · StreamingText and ProgressRow tests
+#### ✅ T-10-016 · StreamingText and ProgressRow tests
 
 | Field | Value |
 |---|---|
@@ -435,7 +435,7 @@ StreamingText tests: (1) renders tokens as text, (2) cursor visible when `isDone
 
 ---
 
-#### ⬜ T-10-017 · InputArea, ResultRow, SettingsRow tests
+#### ✅ T-10-017 · InputArea, ResultRow, SettingsRow tests
 
 | Field | Value |
 |---|---|
@@ -458,7 +458,7 @@ InputArea tests: (1) renders textarea and button, (2) button disabled when input
 
 ---
 
-#### ⬜ T-10-018 · Accessibility audit for all screens
+#### ✅ T-10-018 · Accessibility audit for all screens
 
 | Field | Value |
 |---|---|

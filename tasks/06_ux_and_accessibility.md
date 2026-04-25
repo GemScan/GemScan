@@ -14,14 +14,14 @@ Implements all user-facing components, pages, and Guardian Mode infrastructure f
 ## Progress Tracker
 | Status | Count |
 |--------|-------|
-| ✅ Done | 0 |
+| ✅ Done | 23 |
 | 🔄 In progress | 0 |
-| ⬜ Not started | 23 |
+| ⬜ Not started | 0 |
 
 ---
 ## Tasks
 
-#### ⬜ T-06-001 · ScamWarningCard component
+#### ✅ T-06-001 · ScamWarningCard component
 
 | Field | Value |
 |---|---|
@@ -49,7 +49,7 @@ Create `src/components/ScamWarningCard.tsx` with props interface `{ result: Agen
 
 ---
 
-#### ⬜ T-06-002 · StreamingReasoningView component
+#### ✅ T-06-002 · StreamingReasoningView component
 
 | Field | Value |
 |---|---|
@@ -76,7 +76,7 @@ Create `src/components/StreamingReasoningView.tsx` with props `{ taskId: string 
 
 ---
 
-#### ⬜ T-06-003 · ModelDownloadProgress component
+#### ✅ T-06-003 · ModelDownloadProgress component
 
 | Field | Value |
 |---|---|
@@ -103,7 +103,7 @@ Create `src/components/ModelDownloadProgress.tsx` subscribing to `GemmaPlugin.ad
 
 ---
 
-#### ⬜ T-06-004 · ContactPicker component
+#### ✅ T-06-004 · ContactPicker component
 
 | Field | Value |
 |---|---|
@@ -130,7 +130,7 @@ Create `src/components/ContactPicker.tsx` with props `{ selectedId: string | nul
 
 ---
 
-#### ⬜ T-06-005 · Onboarding page (`/onboarding`)
+#### ✅ T-06-005 · Onboarding page (`/onboarding`)
 
 | Field | Value |
 |---|---|
@@ -157,7 +157,7 @@ Implement `src/app/onboarding/page.tsx` as a client component. On mount, call `G
 
 ---
 
-#### ⬜ T-06-006 · Analyse result page (`/analyse`)
+#### ✅ T-06-006 · Analyse result page (`/analyse`)
 
 | Field | Value |
 |---|---|
@@ -184,7 +184,7 @@ Implement `src/app/analyse/page.tsx` as a client component that reads `taskId` f
 
 ---
 
-#### ⬜ T-06-007 · Guardian setup page (`/guardian/setup`)
+#### ✅ T-06-007 · Guardian setup page (`/guardian/setup`)
 
 | Field | Value |
 |---|---|
@@ -211,7 +211,7 @@ Implement `src/app/guardian/setup/page.tsx` as a client component. Render `<Cont
 
 ---
 
-#### ⬜ T-06-008 · Guardian invite page (`/guardian/invite`)
+#### ✅ T-06-008 · Guardian invite page (`/guardian/invite`)
 
 | Field | Value |
 |---|---|
@@ -238,7 +238,7 @@ Implement `src/app/guardian/invite/page.tsx` as a client component. Read `token`
 
 ---
 
-#### ⬜ T-06-009 · GuardianStatusBar component
+#### ✅ T-06-009 · GuardianStatusBar component
 
 | Field | Value |
 |---|---|
@@ -264,7 +264,7 @@ Create `src/components/GuardianStatusBar.tsx` which reads `guardianModeEnabled` 
 
 ---
 
-#### ⬜ T-06-010 · i18n strings + locale hook
+#### ✅ T-06-010 · i18n strings + locale hook
 
 | Field | Value |
 |---|---|
@@ -290,7 +290,7 @@ Create `src/lib/i18n/strings.ts` exporting a `strings` record keyed by locale co
 
 ---
 
-#### ⬜ T-06-011 · Global accessibility CSS
+#### ✅ T-06-011 · Global accessibility CSS
 
 | Field | Value |
 |---|---|
@@ -317,7 +317,7 @@ Create or update `src/styles/globals.css` with three sections. First, define CSS
 
 ---
 
-#### ⬜ T-06-012 · GuardianKeyManager Swift
+#### ✅ T-06-012 · GuardianKeyManager Swift
 
 | Field | Value |
 |---|---|
@@ -345,7 +345,7 @@ Create `ios/App/GemmaKit/Sources/Guardian/GuardianKeyManager.swift` as an `enum`
 
 ---
 
-#### ⬜ T-06-013 · Guardian relay + local fallback
+#### ✅ T-06-013 · Guardian relay + local fallback
 
 | Field | Value |
 |---|---|
@@ -372,7 +372,7 @@ Implement `sendGuardianAlert(severity:)` as a method in `GemmaPlugin+Guardian.sw
 
 ---
 
-#### ⬜ T-06-014 · Settings page
+#### ✅ T-06-014 · Settings page
 
 | Field | Value |
 |---|---|
@@ -399,7 +399,7 @@ Implement `src/app/settings/page.tsx` as a client component. Render a `<select>`
 
 ---
 
-#### ⬜ T-06-015 · Component tests
+#### ✅ T-06-015 · Component tests
 
 | Field | Value |
 |---|---|
@@ -426,7 +426,7 @@ Write Vitest + React Testing Library unit tests for all four components. For `Sc
 
 ---
 
-#### ⬜ T-06-016 · Playwright E2E: analysis flow
+#### ✅ T-06-016 · Playwright E2E: analysis flow
 
 | Field | Value |
 |---|---|
@@ -453,7 +453,7 @@ Create `e2e/analyse-sms.spec.ts` testing the full SMS analysis flow: fill the ho
 
 ---
 
-#### ⬜ T-06-017 · Playwright E2E: Guardian setup
+#### ✅ T-06-017 · Playwright E2E: Guardian setup
 
 | Field | Value |
 |---|---|
@@ -479,7 +479,7 @@ Create `e2e/guardian-setup.spec.ts`: navigate to `/guardian/setup`, select a moc
 
 ---
 
-#### ⬜ T-06-018 · i18n completeness tests
+#### ✅ T-06-018 · i18n completeness tests
 
 | Field | Value |
 |---|---|
@@ -504,7 +504,7 @@ Create `src/lib/i18n/__tests__/strings.test.ts` with three test groups. First, i
 
 ---
 
-#### ⬜ T-06-019 · GuardianKeyManager tests
+#### ✅ T-06-019 · GuardianKeyManager tests
 
 | Field | Value |
 |---|---|
@@ -530,7 +530,7 @@ Create `ios/App/GemmaKit/Tests/GuardianKeyManagerTests.swift` as an `XCTestCase`
 
 ---
 
-#### ⬜ T-06-020 · UX component documentation
+#### ✅ T-06-020 · UX component documentation
 
 | Field | Value |
 |---|---|
@@ -555,7 +555,7 @@ Add JSDoc block comments to all exported props interfaces in the four component 
 
 ---
 
-#### ⬜ T-06-021 · UX Apple compliance
+#### ✅ T-06-021 · UX Apple compliance
 
 | Field | Value |
 |---|---|
@@ -584,7 +584,7 @@ Create `ios/App/Tests/UITests/AccessibilityUITests.swift` with four XCUITest met
 
 ---
 
-#### ⬜ T-06-022 · Guardian relay integration tests
+#### ✅ T-06-022 · Guardian relay integration tests
 
 | Field | Value |
 |---|---|
@@ -611,7 +611,7 @@ Create `ios/App/GemmaKit/Tests/GuardianRelayTests.swift` with XCTest cases. `tes
 
 ---
 
-#### ⬜ T-06-023 · WCAG 2.1 unified validation checklist
+#### ✅ T-06-023 · WCAG 2.1 unified validation checklist
 
 | Field | Value |
 |---|---|
