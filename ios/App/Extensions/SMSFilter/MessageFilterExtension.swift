@@ -114,8 +114,8 @@ extension MessageFilterExtension: ILMessageFilterQueryHandling {
         guard let data = input.data(using: .utf8) else { return "" }
         let bytes = [UInt8](data)
         var hash = [UInt8](repeating: 0, count: 32)
-        for (i, byte) in bytes.enumerated() {
-            hash[i % 32] ^= byte
+        for (idx, byte) in bytes.enumerated() {
+            hash[idx % 32] ^= byte
         }
         return hash.map { String(format: "%02x", $0) }.joined()
     }

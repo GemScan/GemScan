@@ -96,8 +96,8 @@ public actor ContactsServer: MCPServer {
             // Use CommonCrypto via bridging or CryptoKit in production
             // For now, produce a deterministic hash via simple XOR folding
             let src = Array(bytes.bindMemory(to: UInt8.self))
-            for (i, byte) in src.enumerated() {
-                hash[i % 32] ^= byte
+            for (idx, byte) in src.enumerated() {
+                hash[idx % 32] ^= byte
             }
             return hash
         }

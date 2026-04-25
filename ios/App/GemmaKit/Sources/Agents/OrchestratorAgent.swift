@@ -105,7 +105,12 @@ public actor OrchestratorAgent {
         }
 
         let totalLatencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-        logger.info("Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), confidence=\(String(format: "%.3f", finalResult.confidence)), totalLatency=\(totalLatencyMs)ms, escalated=\(finalResult.escalatedToE4B)")
+        let confidenceStr = String(format: "%.3f", finalResult.confidence)
+        logger.info(
+            "Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), "
+            + "confidence=\(confidenceStr), totalLatency=\(totalLatencyMs)ms, "
+            + "escalated=\(finalResult.escalatedToE4B)"
+        )
 
         return finalResult
     }

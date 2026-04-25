@@ -134,8 +134,8 @@ public actor ReverseImageServer: MCPServer {
     private func simpleHash(_ data: Data) -> String {
         var hash: UInt64 = 0
         let bytes = [UInt8](data)
-        for (i, byte) in bytes.prefix(512).enumerated() {
-            hash ^= UInt64(byte) << UInt64(i % 64)
+        for (idx, byte) in bytes.prefix(512).enumerated() {
+            hash ^= UInt64(byte) << UInt64(idx % 64)
             hash = hash &* 31 &+ UInt64(byte)
         }
         return String(format: "%016llx", hash)

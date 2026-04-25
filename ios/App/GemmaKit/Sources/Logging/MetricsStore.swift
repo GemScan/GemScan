@@ -97,8 +97,8 @@ public actor MetricsStore {
 
         let latencies = buffer.map(\.totalLatencyMs).sorted()
 
-        let median = percentile(sorted: latencies, p: 0.50)
-        let p95 = percentile(sorted: latencies, p: 0.95)
+        let median = percentile(sorted: latencies, quantile: 0.50)
+        let p95 = percentile(sorted: latencies, quantile: 0.95)
 
         let escalatedCount = buffer.filter(\.escalatedToE4B).count
         let escalationRate = Double(escalatedCount) / Double(buffer.count)
@@ -133,14 +133,14 @@ public actor MetricsStore {
 
     // MARK: - Private
 
-    /// Computes the p-th percentile of a pre-sorted array of doubles.
+    /// Computes the q-th percentile of a pre-sorted array of doubles.
     ///
     /// Uses linear interpolation between the two nearest ranks.
-    private func percentile(sorted: [Double], p: Double) -> Double {
+    private func percentile(sorted: [Double], quantile: Double) -> Double {
         guard !sorted.isEmpty else { return 0 }
         guard sorted.count > 1 else { return sorted[0] }
 
-        let rank = p * Double(sorted.count - 1)
+        let rank = quantile * Double(sorted.count - 1)
         let lowerIndex = Int(floor(rank))
         let upperIndex = min(lowerIndex + 1, sorted.count - 1)
         let fraction = rank - Double(lowerIndex)

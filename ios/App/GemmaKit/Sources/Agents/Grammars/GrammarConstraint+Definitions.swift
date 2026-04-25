@@ -1,5 +1,11 @@
 import Foundation
 
+// GBNF root rules are intentionally kept as single lines to mirror the
+// canonical grammar format that downstream parsers expect; splitting them
+// across Swift source lines would not change the emitted grammar but would
+// make the rule harder to compare against reference docs.
+// swiftlint:disable line_length
+
 /// GBNF grammar definitions for each agent's structured JSON output.
 ///
 /// These grammars are fed to `LlamaCppInferenceBackend` at sampling time to
@@ -96,3 +102,5 @@ extension GrammarConstraint {
         )
     }
 }
+
+// swiftlint:enable line_length

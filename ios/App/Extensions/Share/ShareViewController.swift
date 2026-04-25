@@ -228,12 +228,12 @@ final class ShareViewController: UIViewController {
     /// Opens a URL via the system responder chain.
     private func openURL(_ url: URL) {
         var responder: UIResponder? = self
-        while let r = responder {
-            if let application = r as? UIApplication {
+        while let current = responder {
+            if let application = current as? UIApplication {
                 application.open(url, options: [:], completionHandler: nil)
                 return
             }
-            responder = r.next
+            responder = current.next
         }
     }
 

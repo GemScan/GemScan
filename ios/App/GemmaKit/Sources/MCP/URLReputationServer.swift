@@ -140,9 +140,9 @@ public actor URLReputationServer: MCPServer {
         let total = Double(path.count)
         var entropy = 0.0
         for (_, count) in freq {
-            let p = Double(count) / total
-            if p > 0 {
-                entropy -= p * log2(p)
+            let prob = Double(count) / total
+            if prob > 0 {
+                entropy -= prob * log2(prob)
             }
         }
         return entropy
