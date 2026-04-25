@@ -4,16 +4,20 @@
 
 ## Section 4.1 — Hackathon Execution Timeline
 
-| Week | Milestone |
-|---|---|
-| 1 | Fetch Gemma 4 E2B/E4B weights from Kaggle [67][68]; build baseline MLX Swift inference on iPhone 14 (iOS demo device) [77][78] and verify GGUF artifacts run via llama.cpp; benchmark raw throughput [62]. |
-| 2 | Stand up Capacitor + Next.js shell [81]; implement `GemmaPlugin` with streaming token notifications; smoke-test end-to-end prompt → token stream in the WebView UI on iOS and Android emulator. |
-| 3 | Assemble training corpus (§4.2); fine-tune **E2B** with Unsloth + QLoRA [72] on Kaggle T4; train and export the distilled DistilBERT SMS triage classifier (§4.3); spot-check E2B accuracy on held-out test set. |
-| 4 | Fine-tune **E4B** with QLoRA on A100 [72]; merge both models and export GGUF + MLX 4-bit artifacts [55][56]; calibrate E2B→E4B confidence threshold (§4.4); verify chat-template parity between Python and on-device tokeniser. |
-| 5 | Implement six MCP servers (Swift SDK on iOS, Kotlin SDK on Android) [82][83][86]; wire Orchestrator Agent via platform-native message router; integrate grammar-constrained decoding via llama.cpp GBNF [96]. |
-| 6 | Build platform integration layer (iOS: SMS Filter [53][80], Call Directory, Share Extension, App Intents; Android: SmsRetriever, CallScreeningService, Share intent, App Actions); implement voice-first accessibility UI, Guardian mode consent flow, and multi-language Explainer [67]. |
-| 7 | User testing with ≥ 10 elders (mean age 70+) and ≥ 10 non-native speakers across at least 3 languages; iterate on UX and thresholds. |
-| 8 | Benchmarking, adversarial testing [87], hackathon submission video, TestFlight beta, final thesis edit. |
+The full build is scoped to **2 weeks**. Training runs (E2B, E4B, DistilBERT) are kicked off on Day 1 and run in parallel with infrastructure work, so model artifacts are ready by mid-Week 1 without blocking the app build.
+
+| Day(s) | Track | Milestone |
+|---|---|---|
+| **1** | Infra + Models | Fetch Gemma 4 E2B/E4B weights from Kaggle [67][68]; verify GGUF artifacts boot via llama.cpp and MLX Swift [77][78]; kick off E2B QLoRA fine-tune on Kaggle T4 and DistilBERT SMS triage training in parallel [72]; stand up Capacitor + Next.js shell [81]. |
+| **2** | App shell | Implement `GemmaPlugin` with streaming token notifications; smoke-test end-to-end prompt → token stream in WebView on iOS simulator and Android emulator; confirm E2B training run is healthy. |
+| **3** | Models + MCP | E2B fine-tune completes — spot-check accuracy, export GGUF + MLX 4-bit [55][56]; kick off E4B QLoRA on A100 [72]; implement MCP servers `scam_patterns`, `sqlite_vec`, `url_reputation`, `whois` (Swift + Kotlin) [82][83][86]. |
+| **4** | MCP + Agents | E4B fine-tune completes — merge, export, calibrate E2B→E4B threshold (§4.4); implement remaining MCP servers (`contacts`, `reverse_image`, `phone_reputation`, `clipboard_watcher`, `screen_time`); wire six-agent Orchestrator via platform-native message router with GBNF-constrained decoding [96]. |
+| **5** | Platform layer | iOS: SMS Filter extension (DistilBERT Core ML, ≤ 5 MB) [53][80], Call Directory, Share Extension, App Intents. Android: SmsRetriever, CallScreeningService, Share intent, App Actions. Verify chat-template parity between Python tokeniser and on-device tokeniser. |
+| **6** | UX + Accessibility | Voice-first UI, Guardian mode consent flow (self-enrolment + caregiver-assisted), Trusted Contact push notifications, multi-language Explainer (sixth-grade reading level, 140+ languages) [67]; high-contrast large-type visual mode. |
+| **7** | Integration + Testing | Full end-to-end integration test on physical iPhone 14 and mid-range Android device; latency, memory, and battery benchmarks (§4.4) [62]; adversarial prompt-injection suite [87]; fix critical bugs. |
+| **8–9** | User testing | Structured sessions with ≥ 10 elders (mean age 70+) and ≥ 10 non-native speakers across ≥ 3 languages (§4.5); iterate on UX, warning copy, and threshold based on task-completion and comprehension results. |
+| **10–11** | Polish + Submission | Final accuracy benchmarks; TestFlight beta upload; hackathon submission video (demo of Share Sheet, Guardian mode, and multilingual Explainer); thesis final edit. |
+| **12–14** | Buffer | Reserved for regression fixes, App Store privacy-manifest review, and any test-participant scheduling slippage. |
 
 ---
 
