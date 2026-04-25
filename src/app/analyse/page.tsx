@@ -3,11 +3,27 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { getGemmaPlugin } from '@/lib/gemma'
+import { makeConservativeResult } from '@/lib/gemma/error-handler'
 import { useTokenStream } from '@/hooks/useTokenStream'
 import { useGemScanStore } from '@/lib/store'
-import type { AgentTask, AgentResult } from '@/lib/gemma/types'
+import type { AgentTask, AgentTaskType, AgentResult } from '@/lib/gemma/types'
 import VerdictCard from '@/components/VerdictCard'
 import StreamingText from '@/components/StreamingText'
+
+const URL_PATTERN = /^https?:\/\/|^www\./i
+
+function detectTaskType(input: string): AgentTaskType {
+  if (URL_PATTERN.test(input.trim())) return 'checkURL'
+  if (input.includes('@') && input.includes('Subject:')) return 'classifyEmail'
+  return 'classifySMS'
+}
+
+function buildPayload(input: string, taskType: AgentTaskType) {
+  if (taskType === 'checkURL') {
+    return { type: 'url' as const, url: input.trim() }
+  }
+  return { type: 'text' as const, content: input }
+}
 
 export default function AnalysePage() {
   const router = useRouter()
@@ -31,10 +47,11 @@ export default function AnalysePage() {
 
     try {
       const plugin = await getGemmaPlugin()
+      const taskType = detectTaskType(input)
       const task: AgentTask = {
         id,
-        type: 'classifySMS',
-        payload: { type: 'text', content: input },
+        type: taskType,
+        payload: buildPayload(input, taskType),
         priority: 'realtime',
         createdAt: Date.now(),
         timeoutMs: 10000,
@@ -43,8 +60,10 @@ export default function AnalysePage() {
       const analysisResult = await plugin.analyse(task)
       setResult(analysisResult)
       addResult(analysisResult)
-    } catch {
-      // On error, leave result null so user can retry
+    } catch (err) {
+      const fallback = makeConservativeResult(id, err)
+      setResult(fallback)
+      addResult(fallback)
     } finally {
       setIsAnalysing(false)
     }
@@ -56,6 +75,8 @@ export default function AnalysePage() {
 
   const handleShare = useCallback(() => {
     if (trustedContactId && result) {
+      // Native: will invoke Capacitor share plugin
+      // Web mock: log to console
       console.log(`Sharing result ${result.taskId} with contact ${trustedContactId}`)
     }
   }, [trustedContactId, result])
@@ -75,8 +96,9 @@ export default function AnalysePage() {
         className="text-body"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Paste a message to check…"
+        placeholder="Paste a message, URL, or email to check..."
         disabled={isAnalysing}
+        aria-label="Content to check"
         style={{
           height: 'var(--height-input)',
           border: '1px solid var(--border)',
@@ -89,12 +111,8 @@ export default function AnalysePage() {
         }}
       />
 
-      <button
-        className="btn-primary"
-        onClick={handleSubmit}
-        disabled={isAnalysing || !input.trim()}
-      >
-        {isAnalysing ? 'Analysing…' : 'Check this'}
+      <button className="btn-primary" onClick={handleSubmit} disabled={isAnalysing || !input.trim()}>
+        {isAnalysing ? 'Analysing...' : 'Check this'}
       </button>
 
       {(isStreaming || (tokens && !isDone)) && <StreamingText tokens={tokens} isDone={isDone} />}

@@ -119,6 +119,12 @@ export class GemmaPluginMock implements GemmaPlugin {
     }
   }
 
+  /** Simulate a guardian mode state change (for testing and UI development). */
+  emitGuardianModeChanged(enabled: boolean, changedBy: 'self' | 'trustedContact' = 'self'): void {
+    logger.info(`guardianModeChanged: enabled=${String(enabled)}`, MODULE)
+    this.emit('guardianModeChanged', { enabled, changedBy })
+  }
+
   async getDeviceStatus(): Promise<DeviceStatus> {
     logger.debug('getDeviceStatus() called', MODULE)
     return {

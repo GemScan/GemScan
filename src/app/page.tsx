@@ -26,9 +26,14 @@ export default function HomePage() {
         paddingBottom: 100,
       }}
     >
-      <h1 className="text-title" style={{ color: 'var(--text)', textAlign: 'center' }}>
-        GemScan
-      </h1>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/GemScan.png"
+        alt="GemScan logo"
+        width={300}
+        height={300}
+        style={{ borderRadius: 16 }}
+      />
 
       <p className="text-body" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
         What would you like me to check?
