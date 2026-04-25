@@ -13,7 +13,7 @@ GemScan is a **Next.js-plus-Capacitor mobile application** [81] that bundles a *
  │            GemScan (Capacitor mobile shell)                │
  │  Next.js UI ↔ Capacitor Bridge ↔ Native Inference Package  │
  └────────┬─────────────────────────────────────────────────────┘
-          │ Swift actor message router (async/await, in-process)
+          │ Platform-native message router (in-process, no network stack)
    ┌──────▼──────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
    │Orchestrator │ │  Text    │ │  URL     │ │  Voice   │ │  Image   │ │ Judge /  │
    │ (Gemma 4    │ │ Agent    │ │ Agent    │ │ Agent    │ │ Agent    │ │Explainer │
@@ -48,14 +48,26 @@ The **GGUF artifacts are the canonical cross-platform format**: llama.cpp runs o
 
 Gemma 4 E2B and E4B are the **first open on-device models with native audio input** [67][68] — the family ships a **USM-style Conformer audio encoder** enabling speech-to-text, audio reasoning, and emotional-tone analysis without an external ASR step. This permits one-shot voice-scam screening: the audio stream of an answered call can be fed directly to E4B, which emits both a transcript and a scam-risk verdict. The vision encoder supports **native-aspect-ratio images with configurable token budgets (70/140/280/560/1120 tokens)**, enabling rapid screenshot analysis for fake TikTok Shop listings, phishing emails, and QR-code phishing images.
 
-### 3.5 Multi-Agent Architecture over MCP
+### 3.4a Voice Agent: Audio Ingestion Path and Platform Constraints
+
+Live call recording is the most platform-restricted capability in GemScan and requires a distinct implementation strategy on each platform.
+
+**iOS.** Apple prohibits third-party apps from recording the far-end audio of an active phone call via `CallKit` or `AVAudioSession` in most jurisdictions — the microphone input during a call is routed to the system telephony stack and is not accessible to apps. GemScan's Voice Agent therefore operates in two modes on iOS:
+
+1. **Post-call analysis (default).** After a call ends, if the user opts in, the device's own-microphone recording (near-end only) captured via `AVAudioSession` in `.record` category during the call is passed to E4B. This captures the user's side of the conversation — sufficient to detect coached-payment language and urgency scripting directed at the user — but not the scammer's voice directly.
+2. **Call screening (Guardian mode).** iOS 26's `CallKit` call-screening API allows an app to intercept an inbound call before the user picks up and receive a transcript via Siri's on-device speech recognition. GemScan hooks this API to pre-screen unknown callers and present a verdict before the user answers. This is legally unambiguous (the call has not yet connected) and technically sanctioned by Apple.
+3. **Shared audio (user-initiated).** The Share Extension allows a user to share a voice memo, voicemail, or WhatsApp/Telegram audio message directly to GemScan for deepfake and scam scoring — no call recording involved.
+
+**Android.** Android permits microphone recording during a call via `AudioRecord` with `VOICE_COMMUNICATION` source on many OEM devices, and the `PROCESS_OUTGOING_CALLS` / `READ_CALL_LOG` permissions enable richer integration on rooted or carrier-permissioned builds. For the standard Play Store build, GemScan uses the same three-mode approach as iOS: post-call near-end audio, `CallScreeningService` pre-answer screening, and user-initiated share analysis.
+
+**Consequence for benchmarking.** The Voice Agent's live-scam detection capability is measured on user-initiated audio samples (voicemails, shared recordings) and simulated post-call memos — not on intercepted live call audio. This is a deliberate constraint, not a limitation of the model. The deepfake-detection benchmarks in §4.4 use ASVspoof 5 [39] and DeepSpeak [41] audio files fed via the Share path.
 
 Six agents share the inference runtime and communicate via a **platform-native in-process message router** — each agent exposes a typed async `handle(task: AgentTask) -> AgentResult` interface. The Orchestrator routes tasks by capability type (`classifySMS`, `scoreVoiceDeepfake`, `analyseScreenshot`) and collects results concurrently, with no network stack and no serialisation overhead. The iOS demo implements this with Swift actors and `async`/`await`; the Android build will use Kotlin coroutines and the same `AgentTask`/`AgentResult` envelope, keeping the orchestration logic identical across platforms.
 
 - **Orchestrator Agent (E4B)** — intent classification, tool routing, task decomposition, final verdict aggregation. Implements the ReAct loop [92] via Gemma 4's native function-calling [71].
 - **Text Agent (E2B)** — SMS, email, DM, and notification content classification with queries to `scam_patterns` and `sqlite-vec` MCP servers.
 - **URL Agent (E2B)** — URL extraction, Safe-Browsing hash-prefix lookup [98], WHOIS domain-age check, brand-impersonation detection, following the KnowPhish [46] multimodal approach.
-- **Voice Agent (E4B + ASR)** — live call audio transcription, voice-cloning artifact scoring (pitch, cadence, spectral), AudioSeal watermark check [38].
+- **Voice Agent (E4B + ASR)** — call audio transcription, voice-cloning artifact scoring (pitch, cadence, spectral), AudioSeal watermark check [38]. See §3.4a for the platform-specific audio ingestion path and its constraints.
 - **Image Agent (E4B VLM)** — screenshot OCR, logo and brand detection, reverse-image lookup, QR-code decoding, deepfake-still detection [41][40].
 - **Judge/Explainer Agent (E4B)** — aggregates specialist verdicts via weighted voting or structured debate (PhishDebate pattern [52]) and produces a user-facing explanation in the user's native language and dialect.
 
@@ -78,7 +90,7 @@ Every external-world capability is exposed as an **MCP server running in-process
 | `clipboard_watcher` | `scan_clipboard_url` | `UIPasteboard` | `ClipboardManager` |
 | `screen_time` | `child_device_policy` | `FamilyControls` / `ManagedSettings` | Digital Wellbeing API |
 
-All servers are scoped by **least-privilege permission tokens** derived from MCP's 2025-06-18 OAuth 2.1 update [83], so that (for example) the `message_filter` server cannot call network tools.
+Because all servers run in-process over memory pipes (not over HTTP), the MCP OAuth 2.1 model does not apply directly — there is no network origin to authenticate. Instead, the Orchestrator enforces **capability-level access control at the router layer**: each agent is statically declared with a permitted tool set at registration time, and the router rejects any `tool/call` that crosses capability boundaries (e.g., the `message_filter` server is registered with network-tool access disabled). This achieves the same least-privilege intent as MCP's OAuth scoping model [83], implemented as compile-time typed permissions rather than runtime token checks.
 
 ### 3.7 Inter-Agent Orchestration and Future Federation
 
@@ -113,7 +125,17 @@ The Android build maps to the same four surfaces: `SmsRetriever` / `RECEIVE_SMS`
 
 ### 3.12 Real-Time vs On-Demand Modes
 
-GemScan has three screening modes applicable on both platforms. **Passive mode** runs the SMS filter and call-blocking extension only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** (requires user consent and is intended for elders or teens) additionally monitors inbound notifications via platform notification APIs, answers unknown calls with AI-powered screening, and pre-scores clipboard URLs — while still never transmitting content off-device.
+GemScan has three screening modes applicable on both platforms. **Passive mode** runs the SMS filter and call-blocking extension only — zero main-app battery draw. **Active mode** keeps E2B resident for fast on-demand analysis of user-shared content. **Guardian mode** is the most protective tier but also the most sensitive from a consent and autonomy standpoint, so its activation is deliberately multi-step.
+
+**Guardian mode consent flow.** Guardian mode can be enabled in two ways, reflecting the two primary use cases:
+
+1. **Self-enrolment (elder or teen activates for themselves).** The user navigates to Settings → Guardian Mode and is shown a plain-language summary of what the mode does (monitors notifications, screens unknown calls, pre-scores clipboard URLs) before any permission is requested. A single "Turn on Guardian Mode" button triggers the platform permission dialogs sequentially. The user can disable any individual capability without leaving Guardian mode entirely.
+
+2. **Caregiver-assisted enrolment.** A nominated Trusted Contact (parent, adult child) can send a Guardian Mode invitation via the app. The device owner receives the invitation as an in-app notification and must explicitly accept it — the Trusted Contact cannot enable Guardian mode remotely without the device owner's confirmation. This preserves autonomy: the elder or teen is an active participant, not a passive subject.
+
+In both cases: (a) Guardian mode status is displayed persistently in the app's main UI so it is never invisible; (b) a one-tap "Pause Guardian Mode" action is available from the lock screen widget and notification centre; (c) the Trusted Contact receives a push notification when Guardian mode is enabled, paused, or disabled, so both parties have shared awareness.
+
+This design directly addresses the isolation tactic scammers use — the Trusted Contact link breaks that isolation — while ensuring the protected person retains meaningful control, in line with the dignity-centred framing of AARP's elder-fraud recommendations [27].
 
 ---
 
