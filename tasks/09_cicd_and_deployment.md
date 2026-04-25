@@ -327,17 +327,17 @@ Update the `pii-scan` job in `ci.yml` to cover all 9 PII variable name patterns 
 | **Spec ref** | §8 — Branch protection |
 | **Depends on** | T-09-001, T-09-002 |
 | **Estimated effort** | S |
-| **Files to create/modify** | `docs/contributing.md` |
+| **Files to create/modify** | `CONTRIBUTING.md` |
 
 **What to build:**
-Configure GitHub branch protection for the `main` branch via the GitHub repository settings UI (or via `gh api`). Required status checks: all jobs in `ci.yml` (typescript, nextjs-build, pii-scan, swift-unit) and all jobs in `e2e.yml` (playwright, xcuitest-simulator). Require ≥ 1 approving review. Require branches to be up-to-date with `main` before merging. Require GPG-signed commits for any tag matching `v*` (document as a policy in `docs/contributing.md`; enforce via `git tag -s`). Create `docs/contributing.md` documenting: PR process, the required CI status checks, the 1-reviewer approval requirement, the GPG tag signing requirement with instructions for setting up a GPG key, and how to run the full CI suite locally before opening a PR.
+Configure GitHub branch protection for the `main` branch via the GitHub repository settings UI (or via `gh api`). Required status checks: all jobs in `ci.yml` (typescript, nextjs-build, pii-scan, swift-unit) and all jobs in `e2e.yml` (playwright, xcuitest-simulator). Require ≥ 1 approving review. Require branches to be up-to-date with `main` before merging. Require GPG-signed commits for any tag matching `v*` (document as a policy in `CONTRIBUTING.md`; enforce via `git tag -s`). Create `CONTRIBUTING.md` documenting: PR process, the required CI status checks, the 1-reviewer approval requirement, the GPG tag signing requirement with instructions for setting up a GPG key, and how to run the full CI suite locally before opening a PR.
 
 **Acceptance criteria:**
 - [ ] Branch protection requires all `ci.yml` and `e2e.yml` jobs to pass
 - [ ] Branch protection requires ≥ 1 reviewer approval
 - [ ] Branch protection requires branches to be up-to-date with `main`
-- [ ] `docs/contributing.md` documents GPG tag signing with setup instructions
-- [ ] `docs/contributing.md` lists all required local checks before opening a PR
+- [ ] `CONTRIBUTING.md` documents GPG tag signing with setup instructions
+- [ ] `CONTRIBUTING.md` lists all required local checks before opening a PR
 
 **Apple compliance (Spec 00 §11):**
 - [ ] N/A — CI/CD process controls; no production code

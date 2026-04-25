@@ -154,4 +154,5 @@ npm run dev
 
 - Read `docs/architecture.md` for system overview.
 - Read `docs/testing.md` before writing tests.
-- Read `docs/contributing.md` before opening a PR.
+- Read `CONTRIBUTING.md` (repo root) before opening a PR — it's the single
+  source of truth for setup, code style, branch / PR / commit rules, and CI.
