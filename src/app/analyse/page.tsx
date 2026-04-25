@@ -68,25 +68,9 @@ export default function AnalysePage() {
         padding: 'var(--padding-page)',
         gap: 'var(--gap-section)',
         minHeight: '100vh',
+        paddingBottom: 100,
       }}
     >
-      <button
-        className="text-body"
-        onClick={() => router.back()}
-        style={{
-          color: 'var(--text)',
-          background: 'none',
-          border: 'none',
-          padding: '8px 0',
-          cursor: 'pointer',
-          alignSelf: 'flex-start',
-          minHeight: 44,
-          minWidth: 44,
-        }}
-      >
-        ← Back
-      </button>
-
       <textarea
         className="text-body"
         value={input}

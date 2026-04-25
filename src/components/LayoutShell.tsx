@@ -1,14 +1,12 @@
 'use client'
 
-import GuardianStatusBar from '@/components/GuardianStatusBar'
-import DebugOverlay from '@/components/DebugOverlay'
+import TabBar from '@/components/TabBar'
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <GuardianStatusBar />
       {children}
-      <DebugOverlay />
+      <TabBar />
     </>
   )
 }

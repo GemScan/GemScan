@@ -40,6 +40,7 @@ export default function OnboardingPage() {
         padding: 'var(--padding-page)',
         gap: 'var(--gap-section)',
         minHeight: '100vh',
+        paddingBottom: 100,
       }}
     >
       <h1 className="text-title" style={{ color: 'var(--text)' }}>

@@ -40,6 +40,7 @@ export default function GuardianSetupPage() {
         padding: 'var(--padding-page)',
         gap: 'var(--gap-section)',
         minHeight: '100vh',
+        paddingBottom: 100,
       }}
     >
       <button
