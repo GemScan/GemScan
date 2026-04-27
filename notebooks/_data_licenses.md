@@ -8,7 +8,9 @@ un-leave.
 
 | Dataset | Source URL | Records | License | Redistributable in-repo? | Used by | PII fields | Notes |
 |---|---|---|---|---|---|---|---|
-| _example_ UCI SMS Spam Collection | `archive.ics.uci.edu/ml/datasets/sms+spam+collection` | 5,574 | Research-only | No | H10, H12, H15 | none after scrub | Binary `spam`/`ham`; classic baseline |
+| _example_ UCI SMS Spam Collection | `archive.ics.uci.edu/ml/datasets/sms
+| Kaggle SMS Spam Collection | https://www.kaggle.com/datasets/abhishek14398/sms-spam-collection | TBD after download | CC0: Public Domain | Yes, but keep raw data out of repo for now | Local H9/H10 unblocker | message text may contain phone numbers/URLs | Provisional; not official H9 audit |
+| Kaggle SMS Spam Detection Dataset | https://www.kaggle.com/datasets/vishakhdapat/sms-spam-detection-dataset | TBD after download | MIT | Yes, but keep raw data out of repo for now | Local H9/H10 unblocker | message text may contain phone numbers/URLs | Provisional; not official H9 audit |+spam+collection` | 5,574 | Research-only | No | H10, H12, H15 | none after scrub | Binary `spam`/`ham`; classic baseline |
 
 ## Audit checklist before adding a row
 
