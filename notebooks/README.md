@@ -33,6 +33,7 @@ reviewer can pair a notebook with the spec promise it validates.
 | `14_adversarial.ipynb` | H14 | Robustness to paraphrase / leet / homoglyph / injection | Prompt hardening + red-team fixtures |
 | `15_distillation.ipynb` | H15 | Gemma → DistilBERT teacher-student | SMS triage tier viability |
 | `16_latency.ipynb` | H16 | CPU latency proxy for iPhone | Voice Agent §3.4a budget |
+| `18_audio_video_capability.ipynb` | H18 | E2B/E4B direct-media probe plus transcript/frame-evidence reasoning | Audio/video ingestion architecture decision |
 
 ## Conventions
 
