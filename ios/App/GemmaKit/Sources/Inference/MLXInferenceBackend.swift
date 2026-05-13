@@ -1,6 +1,7 @@
 import Foundation
 import os
 import MLXLLM
+import MLXLMCommon
 
 // MARK: - MLXInferenceBackend
 
@@ -41,7 +42,7 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         logger.info("Loading model \(tier.rawValue) via MLX")
 
         let configuration = ModelConfiguration.configuration(for: tier)
-        let container = try await ModelContainer.load(configuration: configuration)
+        let container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
 
         lock.lock()
         modelContainer = container
@@ -73,22 +74,28 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 
         Task {
             do {
-                let output = try await container.generate(
-                    prompt: prompt,
-                    maxTokens: maxTokens
-                ) { token in
-                    continuation.yield(token)
-                    return .more
+                let output: String = try await container.perform { context in
+                    let userInput = UserInput(prompt: prompt)
+                    let input = try await context.processor.prepare(input: userInput)
+                    var parameters = GenerateParameters()
+                    parameters.maxTokens = maxTokens
+                    let result = try MLXLMCommon.generate(
+                        input: input,
+                        parameters: parameters,
+                        context: context
+                    ) { _ in .more }
+                    return result.output
                 }
 
-                // Post-hoc grammar validation when a grammar constraint is provided.
-                if let grammar = grammar {
-                    let fullText = output.summary()
-                    if !grammar.validate(output: fullText) {
-                        self.logger.warning("MLX output failed grammar validation for constraint: \(grammar.name)")
-                    }
-                }
+                // 2.x's generate() callback yields token IDs, not detokenised
+                // strings; emitting tokens incrementally requires a streaming
+                // decoder we don't ship yet. For now we yield the full output
+                // once so the AsyncStream<String> contract is preserved.
+                continuation.yield(output)
 
+                if let grammar = grammar, !grammar.validate(output: output) {
+                    self.logger.warning("MLX output failed grammar validation for constraint: \(grammar.name)")
+                }
                 continuation.finish()
             } catch {
                 self.logger.error("MLX generation error: \(error.localizedDescription)")
@@ -108,8 +115,8 @@ private extension ModelConfiguration {
     ///
     /// E2B and E4B use the mlx-community 8-bit quantised Gemma 4 conversions,
     /// which MLXLLM resolves via the HuggingFace hub on first call to
-    /// `ModelContainer.load(configuration:)`. DistilBERT is currently a
-    /// placeholder; the production SMS triage model ships as bundled CoreML.
+    /// `LLMModelFactory.shared.loadContainer(configuration:)`. DistilBERT is
+    /// a placeholder; the production SMS triage model ships as bundled CoreML.
     static func configuration(for tier: ModelTier) -> ModelConfiguration {
         switch tier {
         case .e2b:
