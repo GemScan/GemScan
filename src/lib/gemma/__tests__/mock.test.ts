@@ -13,8 +13,8 @@ describe('GemmaPluginMock', () => {
     it('returns { ready: false, missingModels: [...] } when no models downloaded', async () => {
       const status = await mock.isReady()
       expect(status.ready).toBe(false)
-      expect(status.missingModels).toEqual(expect.arrayContaining(['e2b', 'distilbert']))
-      expect(status.missingModels).toHaveLength(2)
+      expect(status.missingModels).toEqual(expect.arrayContaining(['e2b']))
+      expect(status.missingModels).toHaveLength(1)
     })
   })
 

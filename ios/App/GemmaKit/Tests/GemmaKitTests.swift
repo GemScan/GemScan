@@ -5,11 +5,11 @@ final class GemmaKitTests: XCTestCase {
 
     func testModelTierRawValues() {
         XCTAssertEqual(ModelTier.e2b.rawValue, "e2b")
-        XCTAssertEqual(ModelTier.distilbert.rawValue, "distilbert")
     }
 
     func testModelTierExpectedRAM() {
-        XCTAssertGreaterThan(ModelTier.e2b.expectedRAMBytes, ModelTier.distilbert.expectedRAMBytes)
+        // E2B 4-bit working set is ~3.4 GB
+        XCTAssertGreaterThan(ModelTier.e2b.expectedRAMBytes, 3_000_000_000)
     }
 
     func testGrammarConstraintValidation() {
@@ -30,12 +30,6 @@ final class GemmaKitTests: XCTestCase {
             collected += token
         }
         XCTAssertEqual(collected, "hello world")
-    }
-
-    func testTriageLabelRawValues() {
-        XCTAssertEqual(TriageLabel.safe.rawValue, "safe")
-        XCTAssertEqual(TriageLabel.junk.rawValue, "junk")
-        XCTAssertEqual(TriageLabel.promotion.rawValue, "promotion")
     }
 
     func testGemScanErrorDescriptions() {

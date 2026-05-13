@@ -86,23 +86,16 @@ final class ComplianceTests: XCTestCase {
     // MARK: - Model Tier Compliance
 
     func testModelTier_RAMBudgets() {
-        // Verify RAM budgets are within Apple's recommended limits
-        // for background extensions (< 50 MB for DistilBERT) and foreground
-        // operations with the increased-memory entitlement (< 5 GB for
-        // the gemma-4-e2b 4-bit quant).
+        // E2B 4-bit working set is ~3.4 GB; cap is ~5 GB with the
+        // increased-memory entitlement on 8 GB-RAM iPhones.
         let maxForegroundRAM = 5_000 * 1_024 * 1_024  // 5 GB
-        let maxBackgroundRAM = 50 * 1_024 * 1_024       // 50 MB
-
         XCTAssertLessThan(ModelTier.e2b.expectedRAMBytes, maxForegroundRAM,
             "E2B should be within foreground RAM budget")
-        XCTAssertLessThan(ModelTier.distilbert.expectedRAMBytes, maxBackgroundRAM,
-            "DistilBERT should be within background RAM budget")
     }
 
     func testModelTier_HasExpectedValues() {
         // Verify model tier raw values match the manifest format
         XCTAssertEqual(ModelTier.e2b.rawValue, "e2b")
-        XCTAssertEqual(ModelTier.distilbert.rawValue, "distilbert")
     }
 
     // MARK: - Error Description Safety

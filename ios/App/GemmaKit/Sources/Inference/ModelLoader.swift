@@ -163,27 +163,9 @@ public actor ModelLoader: NSObject {
             )
         }
 
-        if tier.usesGGUFFormat {
-            guard let handle = try? FileHandle(forReadingFrom: url) else {
-                return VerificationResult(valid: false, reason: "Could not open file", sizeBytes: sizeBytes)
-            }
-            defer { try? handle.close() }
-
-            guard let header = try? handle.read(upToCount: 4), header.count == 4 else {
-                return VerificationResult(valid: false, reason: "Could not read header", sizeBytes: sizeBytes)
-            }
-
-            // GGUF magic: "GGUF" = 0x47 0x47 0x55 0x46
-            let expected: [UInt8] = [0x47, 0x47, 0x55, 0x46]
-            if Array(header) != expected {
-                let actualHex = header.map { String(format: "%02x", $0) }.joined()
-                return VerificationResult(
-                    valid: false,
-                    reason: "Bad magic header: 0x\(actualHex), expected GGUF",
-                    sizeBytes: sizeBytes
-                )
-            }
-        }
+        // GGUF magic-byte verification is gone with the retired GGUF tier;
+        // the live E2B path goes through swift-transformers HubApi which
+        // validates downloads via eTag.
 
         if let expectedHash = expectedChecksums[tier] {
             if !verifyChecksum(at: url, expected: expectedHash) {
@@ -198,8 +180,7 @@ public actor ModelLoader: NSObject {
     /// Loose minimum sizes — meant to catch truncated downloads, not enforce exact size.
     private nonisolated func minimumExpectedSize(for tier: ModelTier) -> Int64 {
         switch tier {
-        case .e2b:        return 800_000_000
-        case .distilbert: return 1_000_000
+        case .e2b: return 800_000_000
         }
     }
 
@@ -265,9 +246,10 @@ public actor ModelLoader: NSObject {
     private nonisolated func remoteURL(for tier: ModelTier) -> URL {
         switch tier {
         case .e2b:
-            return URL(string: "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it.gguf")!
-        case .distilbert:
-            return URL(string: "https://huggingface.co/distilbert-base-uncased/resolve/main/distilbert.mlmodelc.zip")!
+            // Note: production E2B downloads go through MLXModelDownloader
+            // (swift-transformers HubApi), not this URLSession path. This
+            // URL exists only as a fallback / legacy reference.
+            return URL(string: "https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit")!
         }
     }
 }

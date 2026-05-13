@@ -66,26 +66,6 @@ final class InferenceEngineTests: XCTestCase {
         }
     }
 
-    func testGenerate_DistilbertTier_Throws() async throws {
-        // The engine doesn't serve the distilbert tier — that runs in the SMS
-        // Filter extension via CoreML, not here. Confirm it rejects.
-        await e2bBackend.preload()
-
-        let loader = ModelLoader()
-        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
-
-        do {
-            _ = try await engine.generate(task: "test", modelTier: .distilbert)
-            XCTFail("Expected modelNotLoaded for distilbert tier")
-        } catch let error as GemScanError {
-            if case .modelNotLoaded(let tier) = error {
-                XCTAssertEqual(tier, .distilbert)
-            } else {
-                XCTFail("Expected modelNotLoaded, got: \(error)")
-            }
-        }
-    }
-
     // MARK: - Token Streaming
 
     func testGenerate_StreamsTokens() async throws {

@@ -29,21 +29,6 @@ public struct GrammarConstraint: Sendable {
 
     // MARK: - Factory Methods
 
-    /// Grammar for the SMS triage agent's JSON output.
-    ///
-    /// Expects output like: `{"label": "spam", "confidence": 0.95}`
-    public static func smsTriage() -> GrammarConstraint {
-        GrammarConstraint(
-            name: "sms_triage",
-            rawGBNF: """
-            root   ::= "{" ws "\"label\"" ws ":" ws label ws "," ws "\"confidence\"" ws ":" ws number ws "}"
-            label  ::= "\"spam\"" | "\"ham\"" | "\"phishing\"" | "\"promotion\""
-            number ::= [0-9] "." [0-9]+
-            ws     ::= [ \\t\\n]*
-            """
-        )
-    }
-
     /// Grammar for the gem grading agent's JSON output.
     ///
     /// Expects output like: `{"color": "D", "clarity": "VS1", "cut": "Excellent", "carat": 1.25}`

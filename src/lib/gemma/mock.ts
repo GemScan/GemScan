@@ -101,7 +101,7 @@ export class GemmaPluginMock implements GemmaPlugin {
 
   async isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }> {
     logger.info('isReady() called', MODULE)
-    const allModels: ModelId[] = ['e2b', 'distilbert']
+    const allModels: ModelId[] = ['e2b']
     const missingModels = allModels.filter((m) => !this.modelsDownloaded.has(m))
     return { ready: missingModels.length === 0, missingModels }
   }
@@ -110,9 +110,7 @@ export class GemmaPluginMock implements GemmaPlugin {
     logger.info('downloadModels() called', MODULE, { modelIds: options.modelIds })
 
     for (const modelId of options.modelIds) {
-      const totalBytes =
-        modelId === 'e2b' ? 3_400_000_000 :
-        5_000_000
+      const totalBytes = 3_400_000_000
       const steps = 20
       const chunkSize = totalBytes / steps
 
@@ -143,11 +141,7 @@ export class GemmaPluginMock implements GemmaPlugin {
       return { valid: false, reason: 'Not downloaded', sizeBytes: 0 }
     }
 
-    const sizeBytes =
-      options.modelId === 'e2b' ? 3_400_000_000 :
-      5_000_000
-
-    return { valid: true, sizeBytes }
+    return { valid: true, sizeBytes: 3_400_000_000 }
   }
 
   async analyse(task: AgentTask): Promise<AgentResult> {

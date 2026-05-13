@@ -15,12 +15,6 @@ interface ModelMeta {
 
 const MODELS: ModelMeta[] = [
   {
-    id: 'distilbert',
-    name: 'SMS Triage',
-    sizeBytes: 5_000_000,
-    description: 'Lightweight SMS pre-classifier',
-  },
-  {
     id: 'e2b',
     name: 'Gemma 4 E2B',
     sizeBytes: 3_400_000_000,
@@ -98,7 +92,6 @@ function Spinner() {
 
 export default function ModelDownloadSection() {
   const [statuses, setStatuses] = useState<Record<ModelId, ModelStatus>>({
-    distilbert: { kind: 'unknown' },
     e2b: { kind: 'unknown' },
   })
   const inFlight = useRef<Set<ModelId>>(new Set())
@@ -244,10 +237,7 @@ function isLoadedInRAM(
   status: ReturnType<typeof useDeviceStatus>
 ): boolean | null {
   if (!status) return null
-  if (modelId === 'e2b') return status.e2bLoaded
-  // DistilBERT: tiny, lives inside the SMS Filter extension; treat as
-  // active whenever the host-app status is reachable.
-  return true
+  return status.e2bLoaded
 }
 
 function StatusPill({ loaded }: { loaded: boolean | null }) {

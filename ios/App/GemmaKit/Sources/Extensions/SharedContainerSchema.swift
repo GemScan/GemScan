@@ -7,8 +7,6 @@ import Foundation
 public enum SharedContainerSchema {
     /// The App Group identifier shared between the host app and extensions.
     public static let appGroupId = "group.com.gemscan"
-    /// UserDefaults key for the path to the DistilBERT model on disk.
-    public static let distilbertModelPath = "gemscan.distilbertModelPath"
     /// UserDefaults key for the path to the scam patterns bundle.
     public static let scamPatternsBundlePath = "gemscan.scamPatternsBundlePath"
     /// UserDefaults key for the user's preferred language code (BCP-47).

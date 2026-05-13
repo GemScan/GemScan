@@ -4,7 +4,7 @@ import Foundation
 public struct InferenceMetrics: Codable, Sendable {
     /// The task identifier this metric belongs to.
     public let taskId: String
-    /// The model tier used (e.g. "e2b", "distilbert").
+    /// The model tier used (currently always "e2b").
     public let modelTier: String
     /// Whether the verdict was forced to `.scam` by the orchestrator's
     /// low-confidence safety fallback (the agent's own confidence was below

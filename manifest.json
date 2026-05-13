@@ -12,17 +12,6 @@
       "quantization": "mlx-4bit",
       "minIOSVersion": "17.0",
       "minRAMBytes": 3565158400
-    },
-    {
-      "id": "distilbert",
-      "displayName": "DistilBERT (Background Triage)",
-      "sha256": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-      "sizeBytes": 5000000,
-      "downloadUrl": "https://models.gemscan.app/distilbert-scam-coreml.mlpackage.zip",
-      "downloadPolicy": "required",
-      "quantization": "float16",
-      "minIOSVersion": "16.0",
-      "minRAMBytes": 5242880
     }
   ],
   "signature": ""

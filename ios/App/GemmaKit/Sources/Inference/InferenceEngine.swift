@@ -7,8 +7,7 @@ import os
 ///
 /// `InferenceEngine` owns a single Gemma 4 E2B backend, routes generation
 /// requests to it, and enforces safety guards for memory pressure, thermal
-/// state, and execution timeouts. DistilBERT runs separately in the SMS
-/// Filter extension and is not handled here.
+/// state, and execution timeouts.
 public actor InferenceEngine {
 
     // MARK: - Properties
@@ -56,9 +55,8 @@ public actor InferenceEngine {
     ///
     /// - Parameters:
     ///   - task: The prompt string describing the task.
-    ///   - modelTier: Which model tier to use for generation. Only `.e2b` is
-    ///     served by this engine; `.distilbert` is rejected (use the SMS
-    ///     Filter extension's CoreML model instead).
+    ///   - modelTier: Which model tier to use for generation. Currently only
+    ///     `.e2b` exists; the parameter is preserved for forward compatibility.
     ///   - grammar: An optional grammar constraint for structured output.
     ///   - tokenHandler: A closure called with each incremental token as it is generated.
     /// - Returns: The fully concatenated generated text.
@@ -81,11 +79,6 @@ public actor InferenceEngine {
         guard rss < maxRSSBytes else {
             logger.error("RSS \(rss) exceeds limit \(self.maxRSSBytes) — refusing generation")
             throw GemScanError.memoryPressure(currentBytes: rss, limitBytes: maxRSSBytes)
-        }
-
-        guard modelTier == .e2b else {
-            logger.error("Tier \(modelTier.rawValue) is not served by InferenceEngine")
-            throw GemScanError.modelNotLoaded(tier: modelTier)
         }
 
         guard await e2bBackend.isLoaded else {
@@ -148,13 +141,12 @@ public actor InferenceEngine {
 
     /// Returns whether the given tier is currently loaded in RAM.
     ///
-    /// - Parameter tier: `.e2b` returns the backend's load state.
-    ///   `.distilbert` runs in the SMS Filter extension, not in this engine,
-    ///   and always returns `false`.
+    /// - Parameter tier: `.e2b` returns the backend's load state. The enum
+    ///   is single-case today; the parameter is preserved so call sites that
+    ///   thread tier through their logs still compile.
     public func isModelLoaded(tier: ModelTier) async -> Bool {
         switch tier {
-        case .e2b:        return await e2bBackend.isLoaded
-        case .distilbert: return false
+        case .e2b: return await e2bBackend.isLoaded
         }
     }
 

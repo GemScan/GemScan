@@ -11,7 +11,6 @@ const config: CapacitorConfig = {
   plugins: {
     GemmaPlugin: {
       e2bModelId: 'mlx-community/gemma-4-e2b-it-4bit',
-      distilbertModelId: 'GemScan/sms-triage-distilbert',
       confidenceThreshold: 0.75,
     },
     SplashScreen: {

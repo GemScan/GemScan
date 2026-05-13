@@ -3,11 +3,10 @@ import os
 
 /// Specialist agent for SMS and email scam classification.
 ///
-/// `TextAgent` implements a two-tier analysis strategy:
-/// 1. **DistilBERT fast-path**: If ``SMSTriage`` confidence exceeds 0.95 and the
-///    label is safe, the result is returned immediately without invoking the LLM.
-/// 2. **E2B LLM fallback**: For uncertain triage results, the agent gathers
-///    context from MCP tools and runs grammar-constrained generation.
+/// `TextAgent` runs every input through Gemma 4 E2B with MCP-tool context
+/// and grammar-constrained generation. The earlier DistilBERT fast-path
+/// was retired together with the SMS triage tier — everything is the LLM
+/// path now.
 ///
 /// MCP tools used: `scam_patterns`, `sqlite_vec`, `contacts`, `url_reputation`,
 /// `phone_reputation`, `message_filter`.
@@ -18,25 +17,16 @@ public actor TextAgent {
     /// The on-device inference engine for LLM generation.
     private let inferenceEngine: InferenceEngine
 
-    /// The DistilBERT-based SMS triage classifier for fast-path filtering.
-    private let smsTriage: SMSTriage
-
     /// Logger for agent events.
     private let logger = GemScanLogger.agents
 
-    /// Confidence threshold above which DistilBERT safe results skip the LLM.
-    private let fastPathThreshold: Double = 0.95
-
     // MARK: - Initialization
 
-    /// Creates a new text agent with the given inference engine and triage classifier.
+    /// Creates a new text agent with the given inference engine.
     ///
-    /// - Parameters:
-    ///   - inferenceEngine: The shared inference engine for LLM calls.
-    ///   - smsTriage: The DistilBERT classifier for SMS fast-path.
-    public init(inferenceEngine: InferenceEngine, smsTriage: SMSTriage = SMSTriage()) {
+    /// - Parameter inferenceEngine: The shared inference engine for LLM calls.
+    public init(inferenceEngine: InferenceEngine) {
         self.inferenceEngine = inferenceEngine
-        self.smsTriage = smsTriage
     }
 
     // MARK: - Public API
@@ -53,20 +43,6 @@ public actor TextAgent {
         guard case let .text(content, language) = task.payload else {
             throw GemScanError.inferenceError(message: "TextAgent received non-text payload")
         }
-
-        // MARK: DistilBERT fast-path for SMS
-
-        if task.type == .classifySMS {
-            if let fastResult = try await attemptFastPath(
-                task: task,
-                content: content,
-                startTime: startTime
-            ) {
-                return fastResult
-            }
-        }
-
-        // MARK: LLM analysis with MCP tool context
 
         var toolCallRecords: [ToolCallRecord] = []
 
@@ -130,48 +106,6 @@ public actor TextAgent {
     }
 
     // MARK: - Private Helpers
-
-    /// Attempts the DistilBERT fast-path for SMS classification.
-    ///
-    /// - Returns: An ``AgentResult`` if the fast-path succeeds, or `nil` if the LLM path is needed.
-    private func attemptFastPath(
-        task: AgentTask,
-        content: String,
-        startTime: CFAbsoluteTime
-    ) async throws -> AgentResult? {
-        let senderHash = content.hashValue.description
-        let messageHash = content.data(using: .utf8)?.hashValue.description ?? ""
-
-        do {
-            let triageResult = try await smsTriage.classify(
-                senderHash: senderHash,
-                messageHash: messageHash
-            )
-
-            if triageResult.label == .safe, triageResult.confidence > fastPathThreshold {
-                let latencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-                logger.info("TextAgent fast-path: safe with confidence \(String(format: "%.3f", triageResult.confidence)) in \(latencyMs)ms")
-
-                return AgentResult(
-                    taskId: task.id,
-                    agentId: AgentID.textAgent,
-                    verdict: .safe,
-                    confidence: triageResult.confidence,
-                    reasoning: ["Message passed DistilBERT fast-path check with high confidence."],
-                    language: task.payload.language ?? "en",
-                    toolCallsLog: [],
-                    latencyMs: latencyMs,
-                    modelTier: .distilbert
-                )
-            }
-
-            logger.info("TextAgent fast-path inconclusive (label=\(triageResult.label.rawValue), confidence=\(String(format: "%.3f", triageResult.confidence))), falling through to LLM")
-        } catch {
-            logger.warning("TextAgent fast-path failed: \(error.localizedDescription), falling through to LLM")
-        }
-
-        return nil
-    }
 
     /// Gathers MCP tool context for the LLM prompt.
     ///

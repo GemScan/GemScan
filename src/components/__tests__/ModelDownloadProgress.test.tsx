@@ -59,15 +59,11 @@ describe('ModelDownloadProgress', () => {
     expect(container.querySelector('[data-testid="download-progress"]')).not.toBeInTheDocument()
   })
 
-  it('renders progress bars for each model', () => {
-    const progress = new Map([
-      ['e2b', 0.5],
-      ['distilbert', 0.3],
-    ])
+  it('renders progress bar for the model', () => {
+    const progress = new Map([['e2b', 0.5]])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
     expect(screen.getByTestId('progress-e2b')).toBeInTheDocument()
-    expect(screen.getByTestId('progress-distilbert')).toBeInTheDocument()
   })
 
   it('displays model labels in uppercase', () => {
@@ -78,14 +74,10 @@ describe('ModelDownloadProgress', () => {
   })
 
   it('displays percentage values correctly', () => {
-    const progress = new Map([
-      ['e2b', 0.75],
-      ['distilbert', 0.42],
-    ])
+    const progress = new Map([['e2b', 0.75]])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
     expect(screen.getByTestId('percent-e2b')).toHaveTextContent('75%')
-    expect(screen.getByTestId('percent-distilbert')).toHaveTextContent('42%')
   })
 
   it('shows downloading status text while downloading', () => {
@@ -96,20 +88,14 @@ describe('ModelDownloadProgress', () => {
   })
 
   it('shows complete message when all models are done', () => {
-    const progress = new Map([
-      ['e2b', 1.0],
-      ['distilbert', 1.0],
-    ])
+    const progress = new Map([['e2b', 1.0]])
     render(<ModelDownloadProgress progress={progress} isDownloading={false} />)
 
     expect(screen.getByTestId('download-complete')).toHaveTextContent('All models downloaded')
   })
 
   it('does not show complete message when still downloading', () => {
-    const progress = new Map([
-      ['e2b', 1.0],
-      ['distilbert', 0.8],
-    ])
+    const progress = new Map([['e2b', 0.8]])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
     expect(screen.queryByTestId('download-complete')).not.toBeInTheDocument()

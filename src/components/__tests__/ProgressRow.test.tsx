@@ -22,7 +22,7 @@ describe('ProgressRow', () => {
   })
 
   it('has correct aria-valuenow', () => {
-    render(<ProgressRow label="DistilBERT" progress={1} totalSize="5 MB" />)
+    render(<ProgressRow label="Gemma 4 E2B" progress={1} totalSize="3.4 GB" />)
     const bar = screen.getByRole('progressbar')
     expect(bar.getAttribute('aria-valuenow')).toBe('100')
   })

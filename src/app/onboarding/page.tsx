@@ -7,7 +7,6 @@ import { useModelDownload } from '@/hooks/useModelDownload'
 import ProgressRow from '@/components/ProgressRow'
 
 const models = [
-  { id: 'distilbert', label: 'DistilBERT', size: '5 MB' },
   { id: 'e2b', label: 'Gemma 4 E2B', size: '3.4 GB' },
 ] as const
 

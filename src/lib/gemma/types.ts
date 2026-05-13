@@ -26,7 +26,7 @@ export interface AgentTask {
 
 export type ScamVerdict = 'safe' | 'suspicious' | 'scam'
 
-export type ModelId = 'e2b' | 'distilbert'
+export type ModelId = 'e2b'
 
 export interface ToolCallRecord {
   serverName: string
@@ -45,7 +45,7 @@ export interface AgentResult {
   language: string
   toolCallsLog: ToolCallRecord[]
   latencyMs: number
-  modelTier: 'e2b' | 'distilbert'
+  modelTier: 'e2b'
   /**
    * Whether the orchestrator forced the verdict to `'scam'` because the
    * underlying agent's confidence was below the safety threshold. The

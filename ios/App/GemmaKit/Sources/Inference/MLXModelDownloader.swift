@@ -20,12 +20,6 @@ public enum MLXModelRegistry {
             // memory budget. Requires com.apple.developer.kernel.increased-memory-limit
             // on the app to raise the per-process cap above the default ~2 GB.
             return ModelConfiguration(id: "mlx-community/gemma-4-e2b-it-4bit")
-        case .distilbert:
-            // DistilBERT is not an MLX model; the production SMS triage path
-            // ships as bundled CoreML. This entry exists only so the switch
-            // is exhaustive; callers that route through MLX for this tier
-            // will fail at load time.
-            return ModelConfiguration(id: "distilbert-base-uncased")
         }
     }
 }

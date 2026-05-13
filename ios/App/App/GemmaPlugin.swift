@@ -294,7 +294,7 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isReady(_ call: CAPPluginCall) {
         Task {
-            let tiers: [ModelTier] = [.e2b, .distilbert]
+            let tiers: [ModelTier] = [.e2b]
             var missing: [String] = []
             for tier in tiers {
                 if await modelLoader.localPath(for: tier) == nil {
@@ -325,39 +325,20 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 for tier in tiers {
-                    switch tier {
-                    case .e2b:
-                        // MLX tier: fetch via swift-transformers HubApi so
-                        // the bytes the user "downloads" are exactly the
-                        // bytes inference will load from cache later.
-                        try await MLXModelDownloader.preload(tier: tier) { [weak self] progress in
-                            guard let self = self else { return }
-                            self.notifyListeners(
-                                "downloadProgress",
-                                data: [
-                                    "modelId": tier.rawValue,
-                                    "progress": progress.fractionCompleted,
-                                    "bytesDownloaded": Int(progress.completedUnitCount),
-                                    "totalBytes": Int(progress.totalUnitCount),
-                                ]
-                            )
-                        }
-                    case .distilbert:
-                        // CoreML tier: still uses the URLSession path because
-                        // it doesn't live on the HF MLX hub. (In production
-                        // this model ships bundled inside the app.)
-                        try await modelLoader.download(tier: tier) { [weak self] progress in
-                            guard let self = self else { return }
-                            self.notifyListeners(
-                                "downloadProgress",
-                                data: [
-                                    "modelId": tier.rawValue,
-                                    "progress": progress,
-                                    "bytesDownloaded": -1,
-                                    "totalBytes": -1,
-                                ]
-                            )
-                        }
+                    // Only tier is .e2b. Fetch via swift-transformers HubApi
+                    // so the bytes the user "downloads" are exactly the bytes
+                    // inference will load from cache later.
+                    try await MLXModelDownloader.preload(tier: tier) { [weak self] progress in
+                        guard let self = self else { return }
+                        self.notifyListeners(
+                            "downloadProgress",
+                            data: [
+                                "modelId": tier.rawValue,
+                                "progress": progress.fractionCompleted,
+                                "bytesDownloaded": Int(progress.completedUnitCount),
+                                "totalBytes": Int(progress.totalUnitCount),
+                            ]
+                        )
                     }
                     // Final 1.0 emit in case the underlying progress source
                     // stopped slightly before completion.
@@ -393,26 +374,14 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         Task {
-            switch tier {
-            case .e2b:
-                // swift-transformers HubApi validates downloads via the HF
-                // backend's eTag and refuses to load partial/corrupt files,
-                // so the JS-side verification step is a no-op for the MLX tier.
-                call.resolve([
-                    "valid": true,
-                    "sizeBytes": -1,
-                ])
-            case .distilbert:
-                let result = await modelLoader.verify(tier: tier)
-                var payload: [String: Any] = [
-                    "valid": result.valid,
-                    "sizeBytes": result.sizeBytes,
-                ]
-                if let reason = result.reason {
-                    payload["reason"] = reason
-                }
-                call.resolve(payload)
-            }
+            _ = tier
+            // swift-transformers HubApi validates downloads via the HF
+            // backend's eTag and refuses to load partial/corrupt files,
+            // so the JS-side verification step is a no-op for the MLX tier.
+            call.resolve([
+                "valid": true,
+                "sizeBytes": -1,
+            ])
         }
     }
 
@@ -425,7 +394,7 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         // honest: if the engine isn't ready, JS gets a clear error rather
         // than a silent hang. Wire up engine init here when ready.
         Task {
-            let tiers: [ModelTier] = [.e2b, .distilbert]
+            let tiers: [ModelTier] = [.e2b]
             var missing: [String] = []
             for tier in tiers {
                 if await modelLoader.localPath(for: tier) == nil {

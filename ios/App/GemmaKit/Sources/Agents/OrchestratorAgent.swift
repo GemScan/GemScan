@@ -13,13 +13,10 @@ import os
 /// - If E2B confidence is below 0.75, force the verdict to `.scam` (the
 ///   conservative choice — false-positive a few benign messages rather than
 ///   miss a real scam).
-/// - If DistilBERT confidence is below 0.90, do the same.
 ///
-/// There is no E4B escalation tier on iOS: the 4-bit gemma-4-e2b quant is the
-/// largest Gemma 4 model that fits in the iOS app memory budget, so E2B is
-/// the highest-quality verdict we can produce. The dedicated dispute
-/// adjudication step (formerly `JudgeAgent`) is therefore gone — there is no
-/// second opinion to weigh against.
+/// Gemma 4 E2B is the only on-device model: no E4B escalation, no DistilBERT
+/// fast-path. The dedicated dispute adjudication step (formerly `JudgeAgent`)
+/// is gone with it — there is no second opinion to weigh against.
 public actor OrchestratorAgent {
 
     // MARK: - Properties
@@ -47,9 +44,6 @@ public actor OrchestratorAgent {
 
     /// Confidence threshold below which E2B results are forced to `.scam`.
     private let e2bLowConfidenceThreshold: Double = 0.75
-
-    /// Confidence threshold below which DistilBERT results are forced to `.scam`.
-    private let distilbertLowConfidenceThreshold: Double = 0.90
 
     // MARK: - Initialization
 
@@ -98,14 +92,8 @@ public actor OrchestratorAgent {
         let finalResult: AgentResult
         let totalLatencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
 
-        let threshold: Double
-        switch specialistResult.modelTier {
-        case .e2b:        threshold = e2bLowConfidenceThreshold
-        case .distilbert: threshold = distilbertLowConfidenceThreshold
-        }
-
-        if specialistResult.confidence < threshold, specialistResult.verdict != .scam {
-            logger.info("Orchestrator forcing scam verdict on task \(task.id): \(specialistResult.modelTier.rawValue) confidence \(String(format: "%.3f", specialistResult.confidence)) < \(threshold)")
+        if specialistResult.confidence < e2bLowConfidenceThreshold, specialistResult.verdict != .scam {
+            logger.info("Orchestrator forcing scam verdict on task \(task.id): \(specialistResult.modelTier.rawValue) confidence \(String(format: "%.3f", specialistResult.confidence)) < \(self.e2bLowConfidenceThreshold)")
             finalResult = specialistResult.markingLowConfidenceScam(latencyMs: totalLatencyMs)
         } else {
             finalResult = specialistResult
