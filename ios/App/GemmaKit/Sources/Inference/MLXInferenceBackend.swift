@@ -1,5 +1,6 @@
 import Foundation
 import os
+import UIKit
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
@@ -42,6 +43,13 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
     public func loadModel(tier: ModelTier) async throws {
         logger.info("Loading model \(tier.rawValue) via MLX")
 
+        // Register a background task so iOS gives us ~30s of grace time if
+        // the app backgrounds mid-load. Without this, the Metal command
+        // buffer for weight upload is rejected with
+        // `kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted`.
+        let taskID = await Self.beginBackgroundTask(name: "MLXLoadModel-\(tier.rawValue)")
+        defer { Task.detached { await Self.endBackgroundTask(taskID) } }
+
         let configuration = MLXModelRegistry.configuration(for: tier)
         let container = try await LLMModelFactory.shared.loadContainer(
             from: #hubDownloader(),
@@ -72,6 +80,12 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         let (stream, continuation) = AsyncStream<String>.makeStream()
 
         Task {
+            // Same background-task guard as loadModel — Metal command buffers
+            // submitted while the app is in the background are rejected by
+            // iOS. beginBackgroundTask buys ~30s of grace before suspension.
+            let taskID = await Self.beginBackgroundTask(name: "MLXGenerate")
+            defer { Task.detached { await Self.endBackgroundTask(taskID) } }
+
             do {
                 let output: String = try await container.perform { context in
                     let userInput = UserInput(prompt: prompt)
@@ -111,5 +125,31 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 
         return stream
     }
-}
 
+    // MARK: - Background-task helpers
+
+    /// Registers a `UIApplication` background task and returns its identifier.
+    ///
+    /// MLX inference submits work to the Metal command queue, which iOS
+    /// rejects with `kIOGPUCommandBufferCallbackErrorBackgroundExecutionNotPermitted`
+    /// if the app's process is in the background state. Wrapping the GPU
+    /// work in a `beginBackgroundTask` / `endBackgroundTask` pair tells iOS
+    /// to keep the app alive (≈30s of grace time) so the in-flight Metal
+    /// command buffers can complete before suspension.
+    ///
+    /// Returns `UIBackgroundTaskIdentifier.invalid` if the system declines
+    /// to grant background time — caller should still proceed; the GPU
+    /// work simply has no extra grace if the app is later backgrounded.
+    @MainActor
+    private static func beginBackgroundTask(name: String) -> UIBackgroundTaskIdentifier {
+        UIApplication.shared.beginBackgroundTask(withName: name, expirationHandler: nil)
+    }
+
+    /// Ends a previously-registered background task. Safe to call with
+    /// `.invalid`; UIKit ignores those.
+    @MainActor
+    private static func endBackgroundTask(_ identifier: UIBackgroundTaskIdentifier) {
+        guard identifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(identifier)
+    }
+}
