@@ -106,11 +106,8 @@ public actor OrchestratorAgent {
 
         let totalLatencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
         let confidenceStr = String(format: "%.3f", finalResult.confidence)
-        logger.info(
-            "Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), "
-            + "confidence=\(confidenceStr), totalLatency=\(totalLatencyMs)ms, "
-            + "escalated=\(finalResult.escalatedToE4B)"
-        )
+        // swiftlint:disable:next line_length
+        logger.info("Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), confidence=\(confidenceStr), totalLatency=\(totalLatencyMs)ms, escalated=\(finalResult.escalatedToE4B)")
 
         return finalResult
     }
