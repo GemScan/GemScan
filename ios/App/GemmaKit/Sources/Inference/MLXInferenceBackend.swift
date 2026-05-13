@@ -79,11 +79,18 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
                     let input = try await context.processor.prepare(input: userInput)
                     var parameters = GenerateParameters()
                     parameters.maxTokens = maxTokens
-                    let result = try MLXLMCommon.generate(
+                    // Explicit closure-arg type and explicit return type pick
+                    // the [Int]-callback overload that returns GenerateResult
+                    // (vs. the Int-callback overload that returns
+                    // GenerateCompletionInfo). The compiler ICEs without
+                    // these annotations because the overload is ambiguous.
+                    let result: GenerateResult = try MLXLMCommon.generate(
                         input: input,
                         parameters: parameters,
                         context: context
-                    ) { _ in .more }
+                    ) { (_: [Int]) -> GenerateDisposition in
+                        .more
+                    }
                     return result.output
                 }
 

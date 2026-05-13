@@ -54,7 +54,7 @@ public final class SMSTriage: @unchecked Sendable {
         // Run prediction
         let prediction: MLFeatureProvider
         do {
-            prediction = try coreMLModel.prediction(from: featureProvider)
+            prediction = try await coreMLModel.prediction(from: featureProvider)
         } catch {
             throw GemScanError.modelLoadFailed(reason: "Core ML prediction failed: \(error.localizedDescription)")
         }
@@ -158,8 +158,10 @@ public final class SMSTriage: @unchecked Sendable {
     /// Parses the Core ML prediction output into a ``TriageResult``.
     private func parseTriageOutput(prediction: MLFeatureProvider, senderHash: String) -> TriageResult {
         // Attempt to read standard classification outputs
-        if let labelValue = prediction.featureValue(for: "label"),
-           let labelString = labelValue.stringValue {
+        if let labelValue = prediction.featureValue(for: "label") {
+            // MLFeatureValue.stringValue is non-Optional (returns "" if the
+            // feature isn't a string), so it can't be unwrapped via if-let.
+            let labelString = labelValue.stringValue
             let label = TriageLabel(rawValue: labelString) ?? .unknown
 
             let confidence: Double

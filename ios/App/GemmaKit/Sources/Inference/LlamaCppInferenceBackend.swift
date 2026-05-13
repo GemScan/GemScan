@@ -202,7 +202,9 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
         )
 
         if let grammar = grammar {
-            llama_grammar_sample(grammar, context, &candidatesArray)
+            // llama.cpp@b3442 renamed this to llama_sample_grammar(ctx, candidates, grammar)
+            // — arg order changed too.
+            llama_sample_grammar(context, &candidatesArray, grammar)
         }
 
         llama_sample_top_k(context, &candidatesArray, 40, 1)
@@ -219,12 +221,20 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
     }
 
     /// Compiles a GBNF grammar string into a llama grammar pointer.
+    ///
+    /// llama.cpp@b3442 dropped the internal `llama_grammar_init_impl` helper
+    /// that accepted a raw GBNF string. The public `llama_grammar_init` takes
+    /// pre-parsed `llama_grammar_element` rules instead, which requires a
+    /// GBNF parser we don't ship. Until that's wired, the LlamaCpp backend
+    /// runs without sampling-time grammar constraints; the MLX backend
+    /// remains the primary path for Gemma 4 and uses post-hoc validation in
+    /// MLXInferenceBackend.generate(). Callers that need constrained
+    /// decoding should prefer MLX or rely on the post-hoc validator.
     private func compileGrammar(gbnf: String, model: OpaquePointer) -> OpaquePointer? {
-        guard let grammar = llama_grammar_init_impl(model, gbnf, "root") else {
-            logger.warning("Failed to compile GBNF grammar, proceeding without constraint")
-            return nil
-        }
-        return grammar
+        _ = gbnf
+        _ = model
+        logger.warning("GBNF grammar compilation not supported by llama.cpp@b3442 path; falling back to post-hoc validation")
+        return nil
     }
 
     /// Decodes a single token ID back into a UTF-8 string.

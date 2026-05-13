@@ -1,6 +1,7 @@
 import Foundation
 import CallKit
 import os
+import GemmaKit
 
 // MARK: - GemmaPlugin CallKit Integration
 
