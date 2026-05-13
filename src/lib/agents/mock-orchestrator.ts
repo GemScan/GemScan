@@ -40,18 +40,18 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
     ],
     latencyMs: 340,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   },
 
   classifyEmail: {
     taskId: '',
     agentId: 'text-agent',
-    verdict: 'suspicious' as ScamVerdict,
+    verdict: 'scam' as ScamVerdict,
     confidence: 0.68,
     reasoning: [
       'Email contains a link that does not match the claimed sender domain.',
       'Urgency language detected: "act now" and "account suspended".',
-      'Escalated to E4B for deeper analysis.',
+      'Confidence is below the safety threshold — defaulted to scam.',
     ],
     language: 'en',
     toolCallsLog: [
@@ -71,8 +71,8 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       },
     ],
     latencyMs: 1200,
-    modelTier: 'e4b',
-    escalatedToE4B: true,
+    modelTier: 'e2b',
+    lowConfidenceFallback: true,
   },
 
   checkURL: {
@@ -104,7 +104,7 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
     ],
     latencyMs: 520,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   },
 
   analyseScreenshot: {
@@ -134,8 +134,8 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       },
     ],
     latencyMs: 2100,
-    modelTier: 'e4b',
-    escalatedToE4B: false,
+    modelTier: 'e2b',
+    lowConfidenceFallback: false,
   },
 
   scoreVoice: {
@@ -166,7 +166,7 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
     ],
     latencyMs: 1800,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   },
 
   explainVerdict: {
@@ -182,7 +182,7 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
     toolCallsLog: [],
     latencyMs: 180,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   },
 }
 

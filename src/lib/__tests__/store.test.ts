@@ -41,7 +41,7 @@ function makeResult(taskId: string): AgentResult {
     toolCallsLog: [],
     latencyMs: 100,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   }
 }
 

@@ -90,8 +90,7 @@ public actor URLAgent {
             language: "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 

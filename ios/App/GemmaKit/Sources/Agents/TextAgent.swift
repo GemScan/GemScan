@@ -125,8 +125,7 @@ public actor TextAgent {
             language: language ?? "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 
@@ -162,8 +161,7 @@ public actor TextAgent {
                     language: task.payload.language ?? "en",
                     toolCallsLog: [],
                     latencyMs: latencyMs,
-                    modelTier: .distilbert,
-                    escalatedToE4B: false
+                    modelTier: .distilbert
                 )
             }
 

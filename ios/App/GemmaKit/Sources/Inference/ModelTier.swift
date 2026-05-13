@@ -4,10 +4,9 @@ import Foundation
 ///
 /// Each tier maps to a specific model size and RAM budget.
 public enum ModelTier: String, Codable, Sendable {
-    /// Gemma 2B — lightweight triage model.
+    /// Gemma 4 E2B — the primary on-device model (multimodal: text + vision + audio).
+    /// Runs as the 4-bit MLX quant on iOS; ~3.4 GB working set.
     case e2b = "e2b"
-    /// Gemma 4B — full deep-scan model.
-    case e4b = "e4b"
     /// DistilBERT — ultra-light classifier for background extensions.
     case distilbert = "distilbert"
 
@@ -15,9 +14,7 @@ public enum ModelTier: String, Codable, Sendable {
     public var expectedRAMBytes: Int {
         switch self {
         case .e2b:
-            return 1_800 * 1_024 * 1_024
-        case .e4b:
-            return 3_200 * 1_024 * 1_024
+            return 3_400 * 1_024 * 1_024
         case .distilbert:
             return 5 * 1_024 * 1_024
         }
@@ -27,7 +24,7 @@ public enum ModelTier: String, Codable, Sendable {
     /// Used by ``ModelLoader/verify(tier:)`` to decide whether to check magic bytes.
     public var usesGGUFFormat: Bool {
         switch self {
-        case .e2b, .e4b:    return true
+        case .e2b:          return true
         case .distilbert:   return false
         }
     }

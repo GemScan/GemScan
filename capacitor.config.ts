@@ -10,11 +10,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     GemmaPlugin: {
-      e2bModelId: 'GemScan/gemma-4-e2b-it-GemScan-q4km',
-      e4bModelId: 'GemScan/gemma-4-e4b-it-GemScan-q4km',
+      e2bModelId: 'mlx-community/gemma-4-e2b-it-4bit',
       distilbertModelId: 'GemScan/sms-triage-distilbert',
       confidenceThreshold: 0.75,
-      e4bResidentAboveGB: 8,
     },
     SplashScreen: {
       launchShowDuration: 0,

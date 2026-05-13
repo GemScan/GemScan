@@ -52,7 +52,7 @@ describe('AgentTask serialization', () => {
 })
 
 describe('AgentResult serialization', () => {
-  it('round-trips with toolCallsLog array and escalatedToE4B boolean', () => {
+  it('round-trips with toolCallsLog array and lowConfidenceFallback boolean', () => {
     const toolCall: ToolCallRecord = {
       serverName: 'voice-mcp',
       toolName: 'analyseVoicePrint',
@@ -70,8 +70,8 @@ describe('AgentResult serialization', () => {
       language: 'en',
       toolCallsLog: [toolCall],
       latencyMs: 680,
-      modelTier: 'e4b',
-      escalatedToE4B: true,
+      modelTier: 'e2b',
+      lowConfidenceFallback: true,
     }
 
     const deserialized: AgentResult = JSON.parse(JSON.stringify(result))
@@ -79,8 +79,8 @@ describe('AgentResult serialization', () => {
     expect(deserialized).toEqual(result)
     expect(deserialized.toolCallsLog).toHaveLength(1)
     expect(deserialized.toolCallsLog[0].serverName).toBe('voice-mcp')
-    expect(deserialized.escalatedToE4B).toBe(true)
-    expect(typeof deserialized.escalatedToE4B).toBe('boolean')
+    expect(deserialized.lowConfidenceFallback).toBe(true)
+    expect(typeof deserialized.lowConfidenceFallback).toBe('boolean')
   })
 
   it('round-trips with empty toolCallsLog', () => {
@@ -94,12 +94,12 @@ describe('AgentResult serialization', () => {
       toolCallsLog: [],
       latencyMs: 120,
       modelTier: 'e2b',
-      escalatedToE4B: false,
+      lowConfidenceFallback: false,
     }
 
     const deserialized: AgentResult = JSON.parse(JSON.stringify(result))
     expect(deserialized.toolCallsLog).toEqual([])
-    expect(deserialized.escalatedToE4B).toBe(false)
+    expect(deserialized.lowConfidenceFallback).toBe(false)
   })
 })
 

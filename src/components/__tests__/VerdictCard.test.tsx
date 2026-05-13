@@ -15,7 +15,7 @@ function makeResult(verdict: 'safe' | 'suspicious' | 'scam'): AgentResult {
     toolCallsLog: [],
     latencyMs: 300,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   }
 }
 

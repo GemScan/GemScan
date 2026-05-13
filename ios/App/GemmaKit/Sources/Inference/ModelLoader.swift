@@ -199,7 +199,6 @@ public actor ModelLoader: NSObject {
     private nonisolated func minimumExpectedSize(for tier: ModelTier) -> Int64 {
         switch tier {
         case .e2b:        return 800_000_000
-        case .e4b:        return 2_000_000_000
         case .distilbert: return 1_000_000
         }
     }
@@ -267,8 +266,6 @@ public actor ModelLoader: NSObject {
         switch tier {
         case .e2b:
             return URL(string: "https://huggingface.co/google/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it.gguf")!
-        case .e4b:
-            return URL(string: "https://huggingface.co/google/gemma-2-4b-it-GGUF/resolve/main/gemma-2-4b-it.gguf")!
         case .distilbert:
             return URL(string: "https://huggingface.co/distilbert-base-uncased/resolve/main/distilbert.mlmodelc.zip")!
         }

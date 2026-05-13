@@ -1,21 +1,18 @@
 import XCTest
 @testable import GemmaKit
 
-/// Tests for InferenceEngine using mock backends.
+/// Tests for InferenceEngine using a mock backend.
 final class InferenceEngineTests: XCTestCase {
 
     private var e2bBackend: MockInferenceBackend!
-    private var e4bBackend: MockInferenceBackend!
 
     override func setUp() async throws {
         try await super.setUp()
         e2bBackend = MockInferenceBackend()
-        e4bBackend = MockInferenceBackend()
     }
 
     override func tearDown() async throws {
         e2bBackend = nil
-        e4bBackend = nil
         try await super.tearDown()
     }
 
@@ -23,11 +20,7 @@ final class InferenceEngineTests: XCTestCase {
 
     func testWarmLoadE2B_LoadsModel() async throws {
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        _ = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         // MockInferenceBackend starts unloaded, so loadModel should be called
         await e2bBackend.preload()
@@ -42,11 +35,7 @@ final class InferenceEngineTests: XCTestCase {
         await e2bBackend.setOutput("{\"verdict\":\"safe\",\"confidence\":0.95}")
 
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         let result = try await engine.generate(
             task: "Classify this message",
@@ -60,36 +49,10 @@ final class InferenceEngineTests: XCTestCase {
         XCTAssertEqual(calls[0].prompt, "Classify this message")
     }
 
-    func testGenerate_E4B_ReturnsTokens() async throws {
-        await e4bBackend.preload()
-        await e4bBackend.setOutput("{\"verdict\":\"scam\",\"confidence\":0.98}")
-
-        let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
-
-        let result = try await engine.generate(
-            task: "Deep scan this message",
-            modelTier: .e4b
-        )
-
-        XCTAssertEqual(result, "{\"verdict\":\"scam\",\"confidence\":0.98}")
-
-        let calls = await e4bBackend.generateCalls
-        XCTAssertEqual(calls.count, 1)
-    }
-
     func testGenerate_ModelNotLoaded_Throws() async throws {
         // e2bBackend is NOT preloaded
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         do {
             _ = try await engine.generate(task: "test", modelTier: .e2b)
@@ -103,6 +66,26 @@ final class InferenceEngineTests: XCTestCase {
         }
     }
 
+    func testGenerate_DistilbertTier_Throws() async throws {
+        // The engine doesn't serve the distilbert tier — that runs in the SMS
+        // Filter extension via CoreML, not here. Confirm it rejects.
+        await e2bBackend.preload()
+
+        let loader = ModelLoader()
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
+
+        do {
+            _ = try await engine.generate(task: "test", modelTier: .distilbert)
+            XCTFail("Expected modelNotLoaded for distilbert tier")
+        } catch let error as GemScanError {
+            if case .modelNotLoaded(let tier) = error {
+                XCTAssertEqual(tier, .distilbert)
+            } else {
+                XCTFail("Expected modelNotLoaded, got: \(error)")
+            }
+        }
+    }
+
     // MARK: - Token Streaming
 
     func testGenerate_StreamsTokens() async throws {
@@ -110,11 +93,7 @@ final class InferenceEngineTests: XCTestCase {
         await e2bBackend.setTokens(["Hello", " ", "world", "!"])
 
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         var receivedTokens: [String] = []
         let result = try await engine.generate(
@@ -136,11 +115,7 @@ final class InferenceEngineTests: XCTestCase {
         await e2bBackend.setNextError(GemScanError.inferenceError(message: "test failure"))
 
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         do {
             _ = try await engine.generate(task: "test", modelTier: .e2b)
@@ -157,11 +132,7 @@ final class InferenceEngineTests: XCTestCase {
         await e2bBackend.setOutput("{\"verdict\":\"safe\"}")
 
         let loader = ModelLoader()
-        let engine = InferenceEngine(
-            e2bBackend: e2bBackend,
-            e4bBackend: e4bBackend,
-            modelLoader: loader
-        )
+        let engine = InferenceEngine(e2bBackend: e2bBackend, modelLoader: loader)
 
         let grammar = GrammarConstraint.json
         _ = try await engine.generate(

@@ -4,25 +4,14 @@
   "models": [
     {
       "id": "e2b",
-      "displayName": "Gemma 2B (Triage)",
-      "sha256": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
-      "sizeBytes": 1500000000,
-      "downloadUrl": "https://models.gemscan.app/gemma-2b-scam-q8_0.gguf",
+      "displayName": "Gemma 4 E2B (Multimodal)",
+      "sha256": "",
+      "sizeBytes": 3400000000,
+      "downloadUrl": "https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit",
       "downloadPolicy": "required",
-      "quantization": "q8_0",
-      "minIOSVersion": "16.0",
-      "minRAMBytes": 1887436800
-    },
-    {
-      "id": "e4b",
-      "displayName": "Gemma 4B (Deep Scan)",
-      "sha256": "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
-      "sizeBytes": 2800000000,
-      "downloadUrl": "https://models.gemscan.app/gemma-4b-scam-q8_0.gguf",
-      "downloadPolicy": "on_demand",
-      "quantization": "q8_0",
-      "minIOSVersion": "16.0",
-      "minRAMBytes": 3355443200
+      "quantization": "mlx-4bit",
+      "minIOSVersion": "17.0",
+      "minRAMBytes": 3565158400
     },
     {
       "id": "distilbert",

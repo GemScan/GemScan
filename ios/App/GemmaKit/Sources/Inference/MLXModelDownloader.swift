@@ -16,9 +16,10 @@ public enum MLXModelRegistry {
     public static func configuration(for tier: ModelTier) -> ModelConfiguration {
         switch tier {
         case .e2b:
-            return ModelConfiguration(id: "mlx-community/gemma-4-e2b-it-8bit")
-        case .e4b:
-            return ModelConfiguration(id: "mlx-community/gemma-4-e4b-it-8bit")
+            // 4-bit (3.4 GB) is the largest gemma-4-e2b quant that fits in iOS's
+            // memory budget. Requires com.apple.developer.kernel.increased-memory-limit
+            // on the app to raise the per-process cap above the default ~2 GB.
+            return ModelConfiguration(id: "mlx-community/gemma-4-e2b-it-4bit")
         case .distilbert:
             // DistilBERT is not an MLX model; the production SMS triage path
             // ships as bundled CoreML. This entry exists only so the switch
@@ -45,7 +46,7 @@ public enum MLXModelDownloader {
     /// inference backend.
     ///
     /// - Parameters:
-    ///   - tier: The MLX model tier to fetch (`.e2b` or `.e4b`).
+    ///   - tier: The MLX model tier to fetch (`.e2b`).
     ///   - progressHandler: Foundation.Progress callback. Fired only on
     ///     cache-miss runs; cache-hit runs complete without progress events.
     /// - Throws: HF or filesystem errors from swift-transformers.

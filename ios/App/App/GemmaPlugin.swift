@@ -294,7 +294,7 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isReady(_ call: CAPPluginCall) {
         Task {
-            let tiers: [ModelTier] = [.e2b, .e4b, .distilbert]
+            let tiers: [ModelTier] = [.e2b, .distilbert]
             var missing: [String] = []
             for tier in tiers {
                 if await modelLoader.localPath(for: tier) == nil {
@@ -326,8 +326,8 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
             do {
                 for tier in tiers {
                     switch tier {
-                    case .e2b, .e4b:
-                        // MLX tiers: fetch via swift-transformers HubApi so
+                    case .e2b:
+                        // MLX tier: fetch via swift-transformers HubApi so
                         // the bytes the user "downloads" are exactly the
                         // bytes inference will load from cache later.
                         try await MLXModelDownloader.preload(tier: tier) { [weak self] progress in
@@ -373,8 +373,12 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
                 }
                 call.resolve()
             } catch {
-                self.logger.error("Download failed: \(error.localizedDescription)")
-                call.reject(error.localizedDescription, nil, error)
+                // HuggingFace.HTTPClientError conforms to CustomStringConvertible
+                // but its bridged NSError.localizedDescription drops the status
+                // code and detail. String(describing:) preserves them.
+                let detail = String(describing: error)
+                self.logger.error("Download failed: \(detail)")
+                call.reject(detail, nil, error)
             }
         }
     }
@@ -390,10 +394,10 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
 
         Task {
             switch tier {
-            case .e2b, .e4b:
+            case .e2b:
                 // swift-transformers HubApi validates downloads via the HF
                 // backend's eTag and refuses to load partial/corrupt files,
-                // so the JS-side verification step is a no-op for MLX tiers.
+                // so the JS-side verification step is a no-op for the MLX tier.
                 call.resolve([
                     "valid": true,
                     "sizeBytes": -1,
@@ -421,7 +425,7 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         // honest: if the engine isn't ready, JS gets a clear error rather
         // than a silent hang. Wire up engine init here when ready.
         Task {
-            let tiers: [ModelTier] = [.e2b, .e4b, .distilbert]
+            let tiers: [ModelTier] = [.e2b, .distilbert]
             var missing: [String] = []
             for tier in tiers {
                 if await modelLoader.localPath(for: tier) == nil {
@@ -472,10 +476,8 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
             // instantiated yet (no analyse() call has happened), nothing is
             // loaded — even if the weights are on disk.
             var e2bLoaded = false
-            var e4bLoaded = false
             if let engine = inferenceEngine {
                 e2bLoaded = await engine.isModelLoaded(tier: .e2b)
-                e4bLoaded = await engine.isModelLoaded(tier: .e4b)
             }
 
             let battery = await MainActor.run { () -> Double in
@@ -488,7 +490,6 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve([
                 "availableMemoryBytes": memory,
                 "e2bLoaded": e2bLoaded,
-                "e4bLoaded": e4bLoaded,
                 "thermalState": thermal,
                 "batteryLevel": battery,
                 "screeningMode": "active",

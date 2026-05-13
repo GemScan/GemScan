@@ -58,10 +58,6 @@ public actor MCPClient {
         AgentID.voiceAgent: [
             "sqlite_vec", "phone_reputation", "contacts"
         ],
-        AgentID.judgeAgent: [
-            "scam_patterns", "sqlite_vec", "url_reputation",
-            "phone_reputation", "contacts"
-        ],
         AgentID.orchestrator: [
             "scam_patterns", "sqlite_vec", "contacts",
             "url_reputation", "phone_reputation", "message_filter",

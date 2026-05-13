@@ -140,8 +140,7 @@ final class AgentRoundTripTests: XCTestCase {
             language: "en",
             toolCallsLog: [],
             latencyMs: 200,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
 
         await mockRouter.setVerdict(.scam, confidence: 0.97)

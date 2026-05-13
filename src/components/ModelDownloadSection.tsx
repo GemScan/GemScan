@@ -23,14 +23,8 @@ const MODELS: ModelMeta[] = [
   {
     id: 'e2b',
     name: 'Gemma 4 E2B',
-    sizeBytes: 1_500_000_000,
-    description: 'Always-on screening (2.3B params)',
-  },
-  {
-    id: 'e4b',
-    name: 'Gemma 4 E4B',
-    sizeBytes: 3_000_000_000,
-    description: 'Deep reasoning, on demand (4.5B params)',
+    sizeBytes: 3_400_000_000,
+    description: 'On-device multimodal scam analysis (4-bit quant)',
   },
 ]
 
@@ -106,7 +100,6 @@ export default function ModelDownloadSection() {
   const [statuses, setStatuses] = useState<Record<ModelId, ModelStatus>>({
     distilbert: { kind: 'unknown' },
     e2b: { kind: 'unknown' },
-    e4b: { kind: 'unknown' },
   })
   const inFlight = useRef<Set<ModelId>>(new Set())
   const { progress } = useModelDownload()
@@ -252,7 +245,6 @@ function isLoadedInRAM(
 ): boolean | null {
   if (!status) return null
   if (modelId === 'e2b') return status.e2bLoaded
-  if (modelId === 'e4b') return status.e4bLoaded
   // DistilBERT: tiny, lives inside the SMS Filter extension; treat as
   // active whenever the host-app status is reachable.
   return true

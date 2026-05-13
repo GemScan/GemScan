@@ -1,6 +1,6 @@
 import Foundation
 
-/// Unique string identifiers for each agent in the six-agent pipeline.
+/// Unique string identifiers for each agent in the pipeline.
 ///
 /// Uses a caseless enum namespace to prevent instantiation while
 /// providing compile-time–constant agent identifiers that match
@@ -16,6 +16,4 @@ public enum AgentID {
     public static let imageAgent = "image-agent"
     /// Handles voice call deepfake detection and transcription analysis.
     public static let voiceAgent = "voice-agent"
-    /// Adjudicates disputed verdicts using the PhishDebate pattern.
-    public static let judgeAgent = "judge-agent"
 }

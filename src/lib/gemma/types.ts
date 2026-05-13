@@ -26,7 +26,7 @@ export interface AgentTask {
 
 export type ScamVerdict = 'safe' | 'suspicious' | 'scam'
 
-export type ModelId = 'e2b' | 'e4b' | 'distilbert'
+export type ModelId = 'e2b' | 'distilbert'
 
 export interface ToolCallRecord {
   serverName: string
@@ -45,14 +45,19 @@ export interface AgentResult {
   language: string
   toolCallsLog: ToolCallRecord[]
   latencyMs: number
-  modelTier: 'e2b' | 'e4b' | 'distilbert'
-  escalatedToE4B: boolean
+  modelTier: 'e2b' | 'distilbert'
+  /**
+   * Whether the orchestrator forced the verdict to `'scam'` because the
+   * underlying agent's confidence was below the safety threshold. The
+   * agent's original confidence is preserved in `confidence` so the UI can
+   * show a "we weren't sure — defaulted to scam" indicator.
+   */
+  lowConfidenceFallback: boolean
 }
 
 export interface DeviceStatus {
   availableMemoryBytes: number
   e2bLoaded: boolean
-  e4bLoaded: boolean
   thermalState: 'nominal' | 'fair' | 'serious' | 'critical'
   batteryLevel: number
   screeningMode: 'passive' | 'active' | 'guardian'

@@ -5,12 +5,10 @@ final class GemmaKitTests: XCTestCase {
 
     func testModelTierRawValues() {
         XCTAssertEqual(ModelTier.e2b.rawValue, "e2b")
-        XCTAssertEqual(ModelTier.e4b.rawValue, "e4b")
         XCTAssertEqual(ModelTier.distilbert.rawValue, "distilbert")
     }
 
     func testModelTierExpectedRAM() {
-        XCTAssertGreaterThan(ModelTier.e4b.expectedRAMBytes, ModelTier.e2b.expectedRAMBytes)
         XCTAssertGreaterThan(ModelTier.e2b.expectedRAMBytes, ModelTier.distilbert.expectedRAMBytes)
     }
 

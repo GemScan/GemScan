@@ -4,10 +4,12 @@ import Foundation
 public struct InferenceMetrics: Codable, Sendable {
     /// The task identifier this metric belongs to.
     public let taskId: String
-    /// The model tier used (e.g. "e2b", "e4b", "distilbert").
+    /// The model tier used (e.g. "e2b", "distilbert").
     public let modelTier: String
-    /// Whether the task was escalated from e2b to e4b.
-    public let escalatedToE4B: Bool
+    /// Whether the verdict was forced to `.scam` by the orchestrator's
+    /// low-confidence safety fallback (the agent's own confidence was below
+    /// the safety threshold).
+    public let lowConfidenceFallback: Bool
     /// Time to first token in milliseconds.
     public let firstTokenLatencyMs: Double
     /// Total wall-clock latency in milliseconds.
@@ -30,7 +32,7 @@ public struct InferenceMetrics: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case taskId
         case modelTier
-        case escalatedToE4B
+        case lowConfidenceFallback
         case firstTokenLatencyMs
         case totalLatencyMs
         case tokensPerSecond
@@ -45,7 +47,7 @@ public struct InferenceMetrics: Codable, Sendable {
     public init(
         taskId: String,
         modelTier: String,
-        escalatedToE4B: Bool,
+        lowConfidenceFallback: Bool,
         firstTokenLatencyMs: Double,
         totalLatencyMs: Double,
         tokensPerSecond: Double,
@@ -58,7 +60,7 @@ public struct InferenceMetrics: Codable, Sendable {
     ) {
         self.taskId = taskId
         self.modelTier = modelTier
-        self.escalatedToE4B = escalatedToE4B
+        self.lowConfidenceFallback = lowConfidenceFallback
         self.firstTokenLatencyMs = firstTokenLatencyMs
         self.totalLatencyMs = totalLatencyMs
         self.tokensPerSecond = tokensPerSecond
@@ -79,7 +81,7 @@ public struct InferenceMetrics: Codable, Sendable {
         InferenceMetrics(
             taskId: taskId,
             modelTier: tier,
-            escalatedToE4B: false,
+            lowConfidenceFallback: false,
             firstTokenLatencyMs: 0,
             totalLatencyMs: 0,
             tokensPerSecond: 0,

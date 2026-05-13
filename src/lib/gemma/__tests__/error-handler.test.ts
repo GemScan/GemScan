@@ -31,6 +31,6 @@ describe('makeConservativeResult', () => {
     expect(result.agentId).toBe('error-handler')
     expect(result.reasoning).toHaveLength(1)
     expect(result.modelTier).toBe('e2b')
-    expect(result.escalatedToE4B).toBe(false)
+    expect(result.lowConfidenceFallback).toBe(false)
   })
 })

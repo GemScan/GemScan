@@ -7,20 +7,21 @@ public struct MetricsSummary: Sendable {
     public let medianLatencyMs: Double
     /// 95th-percentile total latency in milliseconds.
     public let p95LatencyMs: Double
-    /// Fraction of tasks that were escalated from E2B to E4B (0.0-1.0).
-    public let escalationRate: Double
+    /// Fraction of tasks where the verdict was forced to `.scam` by the
+    /// orchestrator's low-confidence safety fallback (0.0-1.0).
+    public let lowConfidenceFallbackRate: Double
     /// Number of tasks with verdict "safe" and confidence below 0.7.
     public let lowConfidenceSafeCount: Int
 
     public init(
         medianLatencyMs: Double,
         p95LatencyMs: Double,
-        escalationRate: Double,
+        lowConfidenceFallbackRate: Double,
         lowConfidenceSafeCount: Int
     ) {
         self.medianLatencyMs = medianLatencyMs
         self.p95LatencyMs = p95LatencyMs
-        self.escalationRate = escalationRate
+        self.lowConfidenceFallbackRate = lowConfidenceFallbackRate
         self.lowConfidenceSafeCount = lowConfidenceSafeCount
     }
 }
@@ -83,14 +84,15 @@ public actor MetricsStore {
 
     /// Computes a summary of all currently buffered metrics.
     ///
-    /// - Returns: A ``MetricsSummary`` with median/p95 latency, escalation rate,
-    ///   and low-confidence safe count. Returns zeroed summary if the buffer is empty.
+    /// - Returns: A ``MetricsSummary`` with median/p95 latency, low-confidence
+    ///   fallback rate, and low-confidence safe count. Returns zeroed summary
+    ///   if the buffer is empty.
     public func summary() -> MetricsSummary {
         guard !buffer.isEmpty else {
             return MetricsSummary(
                 medianLatencyMs: 0,
                 p95LatencyMs: 0,
-                escalationRate: 0,
+                lowConfidenceFallbackRate: 0,
                 lowConfidenceSafeCount: 0
             )
         }
@@ -100,15 +102,15 @@ public actor MetricsStore {
         let median = percentile(sorted: latencies, quantile: 0.50)
         let p95 = percentile(sorted: latencies, quantile: 0.95)
 
-        let escalatedCount = buffer.filter(\.escalatedToE4B).count
-        let escalationRate = Double(escalatedCount) / Double(buffer.count)
+        let fallbackCount = buffer.filter(\.lowConfidenceFallback).count
+        let fallbackRate = Double(fallbackCount) / Double(buffer.count)
 
         let lowConfSafe = buffer.filter { $0.verdict == "safe" && $0.confidence < 0.7 }.count
 
         return MetricsSummary(
             medianLatencyMs: median,
             p95LatencyMs: p95,
-            escalationRate: escalationRate,
+            lowConfidenceFallbackRate: fallbackRate,
             lowConfidenceSafeCount: lowConfSafe
         )
     }

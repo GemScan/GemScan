@@ -107,37 +107,6 @@ final class MCPServerTests: XCTestCase {
         }
     }
 
-    func testJudgeAgent_AccessMatrix() async throws {
-        await mockClient.setAccessControl([
-            AgentID.judgeAgent: [
-                "scam_patterns", "sqlite_vec", "url_reputation",
-                "phone_reputation", "contacts"
-            ]
-        ])
-
-        // Should succeed
-        let result = try await mockClient.call(
-            agentId: AgentID.judgeAgent,
-            server: "contacts",
-            tool: "lookup",
-            input: ["phone": "+1234567890"]
-        )
-        XCTAssertNotNil(result)
-
-        // Should fail
-        do {
-            _ = try await mockClient.call(
-                agentId: AgentID.judgeAgent,
-                server: "reverse_image",
-                tool: "search",
-                input: ["hash": "abc123"]
-            )
-            XCTFail("Expected access denied error")
-        } catch {
-            // Expected
-        }
-    }
-
     // MARK: - Call Tracking
 
     func testCallHistory_TracksAllCalls() async throws {

@@ -62,8 +62,10 @@ public struct AgentResult: Codable, Sendable {
     public let latencyMs: Int
     /// The model tier that produced this result.
     public let modelTier: ModelTier
-    /// Whether the task was escalated from E2B to E4B.
-    public let escalatedToE4B: Bool
+    /// Whether the verdict was forced to `.scam` by the orchestrator because
+    /// the underlying agent returned a confidence below the safety threshold.
+    /// The agent's original confidence is preserved in ``confidence``.
+    public let lowConfidenceFallback: Bool
 
     public init(
         taskId: String,
@@ -75,7 +77,7 @@ public struct AgentResult: Codable, Sendable {
         toolCallsLog: [ToolCallRecord] = [],
         latencyMs: Int,
         modelTier: ModelTier,
-        escalatedToE4B: Bool = false
+        lowConfidenceFallback: Bool = false
     ) {
         self.taskId = taskId
         self.agentId = agentId
@@ -86,22 +88,24 @@ public struct AgentResult: Codable, Sendable {
         self.toolCallsLog = toolCallsLog
         self.latencyMs = latencyMs
         self.modelTier = modelTier
-        self.escalatedToE4B = escalatedToE4B
+        self.lowConfidenceFallback = lowConfidenceFallback
     }
 
-    /// Returns a copy of this result marked as escalated with updated latency.
-    public func markingEscalated(latencyMs override: Int) -> AgentResult {
+    /// Returns a copy of this result with the verdict forced to `.scam`,
+    /// the `lowConfidenceFallback` flag set, and updated latency. The agent's
+    /// original confidence is preserved so the UI can show how unsure we were.
+    public func markingLowConfidenceScam(latencyMs override: Int) -> AgentResult {
         AgentResult(
             taskId: taskId,
             agentId: agentId,
-            verdict: verdict,
+            verdict: .scam,
             confidence: confidence,
             reasoning: reasoning,
             language: language,
             toolCallsLog: toolCallsLog,
             latencyMs: override,
             modelTier: modelTier,
-            escalatedToE4B: true
+            lowConfidenceFallback: true
         )
     }
 }

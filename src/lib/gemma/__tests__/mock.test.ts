@@ -13,8 +13,8 @@ describe('GemmaPluginMock', () => {
     it('returns { ready: false, missingModels: [...] } when no models downloaded', async () => {
       const status = await mock.isReady()
       expect(status.ready).toBe(false)
-      expect(status.missingModels).toEqual(expect.arrayContaining(['e2b', 'e4b', 'distilbert']))
-      expect(status.missingModels).toHaveLength(3)
+      expect(status.missingModels).toEqual(expect.arrayContaining(['e2b', 'distilbert']))
+      expect(status.missingModels).toHaveLength(2)
     })
   })
 
@@ -41,7 +41,7 @@ describe('GemmaPluginMock', () => {
       expect(result.confidence).toBeLessThanOrEqual(1)
       expect(Array.isArray(result.reasoning)).toBe(true)
       expect(Array.isArray(result.toolCallsLog)).toBe(true)
-      expect(typeof result.escalatedToE4B).toBe('boolean')
+      expect(typeof result.lowConfidenceFallback).toBe('boolean')
     })
   })
 

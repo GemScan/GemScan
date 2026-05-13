@@ -2,8 +2,9 @@ import Foundation
 
 /// Prompt templates for the ``ImageAgent`` (screenshot and image analysis).
 ///
-/// All prompts are designed for grammar-constrained generation with Gemma E4B
-/// (multimodal vision) and target a sixth-grade reading level for reasoning.
+/// All prompts are designed for grammar-constrained generation with Gemma 4
+/// E2B (multimodal vision tower retained in the 4-bit quant) and target a
+/// sixth-grade reading level for reasoning.
 public enum ImageAgentPrompts {
 
     /// System prompt establishing the image agent's role and output contract.

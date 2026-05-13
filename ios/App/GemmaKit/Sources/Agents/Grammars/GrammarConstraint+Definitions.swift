@@ -86,21 +86,6 @@ extension GrammarConstraint {
         )
     }
 
-    /// Grammar for ``JudgeAgent`` JSON output.
-    ///
-    /// Constrains the model to produce a final adjudicated verdict with
-    /// `defenceArguments` and `prosecutionArguments` arrays from the
-    /// three-pass PhishDebate pattern.
-    public static func judgeAgentGrammar() -> GrammarConstraint {
-        GrammarConstraint(
-            name: "judge_agent_verdict",
-            rawGBNF: """
-            root       ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"defenceArguments\"" ws ":" ws arguments ws "," ws "\"prosecutionArguments\"" ws ":" ws arguments ws "}"
-            arguments  ::= "[" ws string (ws "," ws string)* ws "]"
-            \(verdictGBNF)
-            """
-        )
-    }
 }
 
 // swiftlint:enable line_length

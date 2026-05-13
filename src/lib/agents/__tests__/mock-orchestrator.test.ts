@@ -32,7 +32,7 @@ describe('mockOrchestrate', () => {
   it('returns a result for analyseScreenshot', async () => {
     const result = await mockOrchestrate(makeTask('analyseScreenshot'))
     expect(result.agentId).toBe('image-agent')
-    expect(result.modelTier).toBe('e4b')
+    expect(result.modelTier).toBe('e2b')
   })
 
   it('returns a result for scoreVoice', async () => {

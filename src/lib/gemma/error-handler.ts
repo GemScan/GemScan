@@ -47,6 +47,6 @@ export function makeConservativeResult(taskId: string, error: unknown): AgentRes
     toolCallsLog: [],
     latencyMs: 0,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
   }
 }

@@ -6,12 +6,20 @@ import os
 /// `OrchestratorAgent` implements the ReAct pattern (Reason-Act-Observe):
 /// 1. **Reason**: Determine which specialist agent should handle the task.
 /// 2. **Act**: Dispatch to the specialist agent.
-/// 3. **Observe**: Evaluate the result and decide whether escalation is needed.
+/// 3. **Observe**: Evaluate the result and apply the conservative low-confidence
+///    fallback when the specialist isn't sure enough.
 ///
-/// Escalation logic:
-/// - If E2B confidence is below 0.75, re-run the task with E4B.
-/// - If specialist agents produce disputed verdicts, invoke ``JudgeAgent``
-///   for PhishDebate adjudication.
+/// Low-confidence fallback:
+/// - If E2B confidence is below 0.75, force the verdict to `.scam` (the
+///   conservative choice — false-positive a few benign messages rather than
+///   miss a real scam).
+/// - If DistilBERT confidence is below 0.90, do the same.
+///
+/// There is no E4B escalation tier on iOS: the 4-bit gemma-4-e2b quant is the
+/// largest Gemma 4 model that fits in the iOS app memory budget, so E2B is
+/// the highest-quality verdict we can produce. The dedicated dispute
+/// adjudication step (formerly `JudgeAgent`) is therefore gone — there is no
+/// second opinion to weigh against.
 public actor OrchestratorAgent {
 
     // MARK: - Properties
@@ -34,14 +42,14 @@ public actor OrchestratorAgent {
     /// The voice analysis specialist agent.
     private var voiceAgent: VoiceAgent?
 
-    /// The adjudication agent for disputed verdicts.
-    private var judgeAgent: JudgeAgent?
-
     /// Logger for orchestrator events.
     private let logger = GemScanLogger.agents
 
-    /// Confidence threshold below which E2B results trigger E4B escalation.
-    private let escalationThreshold: Double = 0.75
+    /// Confidence threshold below which E2B results are forced to `.scam`.
+    private let e2bLowConfidenceThreshold: Double = 0.75
+
+    /// Confidence threshold below which DistilBERT results are forced to `.scam`.
+    private let distilbertLowConfidenceThreshold: Double = 0.90
 
     // MARK: - Initialization
 
@@ -59,7 +67,6 @@ public actor OrchestratorAgent {
         self.urlAgent = URLAgent(inferenceEngine: inferenceEngine)
         self.imageAgent = ImageAgent(inferenceEngine: inferenceEngine)
         self.voiceAgent = VoiceAgent(inferenceEngine: inferenceEngine)
-        self.judgeAgent = JudgeAgent(inferenceEngine: inferenceEngine)
 
         logger.info("OrchestratorAgent configured with all specialist agents")
     }
@@ -69,7 +76,7 @@ public actor OrchestratorAgent {
     /// Dispatches a task through the agent pipeline using the ReAct pattern.
     ///
     /// Routes the task to the appropriate specialist agent, evaluates the result,
-    /// and escalates if needed.
+    /// and applies the low-confidence safety fallback if needed.
     ///
     /// - Parameter task: The agent task to process.
     /// - Returns: An ``AgentResult`` with the final verdict.
@@ -86,50 +93,29 @@ public actor OrchestratorAgent {
 
         let specialistResult = try await routeToSpecialist(task: task)
 
-        // MARK: Observe — Evaluate result and decide on escalation
+        // MARK: Observe — Apply low-confidence safety fallback if needed
 
         let finalResult: AgentResult
+        let totalLatencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
 
-        if specialistResult.modelTier == .e2b, specialistResult.confidence < escalationThreshold {
-            // Escalate to E4B
-            logger.info("Orchestrator escalating task \(task.id): E2B confidence \(String(format: "%.3f", specialistResult.confidence)) < \(self.escalationThreshold)")
+        let threshold: Double
+        switch specialistResult.modelTier {
+        case .e2b:        threshold = e2bLowConfidenceThreshold
+        case .distilbert: threshold = distilbertLowConfidenceThreshold
+        }
 
-            finalResult = try await escalateToE4B(task: task, originalResult: specialistResult, startTime: startTime)
-        } else if specialistResult.modelTier == .distilbert, specialistResult.confidence < 0.90 {
-            // DistilBERT result was below comfort threshold, run full LLM path
-            logger.info("Orchestrator escalating task \(task.id): DistilBERT confidence \(String(format: "%.3f", specialistResult.confidence)) below comfort threshold")
-
-            finalResult = try await escalateToE4B(task: task, originalResult: specialistResult, startTime: startTime)
+        if specialistResult.confidence < threshold, specialistResult.verdict != .scam {
+            logger.info("Orchestrator forcing scam verdict on task \(task.id): \(specialistResult.modelTier.rawValue) confidence \(String(format: "%.3f", specialistResult.confidence)) < \(threshold)")
+            finalResult = specialistResult.markingLowConfidenceScam(latencyMs: totalLatencyMs)
         } else {
             finalResult = specialistResult
         }
 
-        let totalLatencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
         let confidenceStr = String(format: "%.3f", finalResult.confidence)
         // swiftlint:disable:next line_length
-        logger.info("Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), confidence=\(confidenceStr), totalLatency=\(totalLatencyMs)ms, escalated=\(finalResult.escalatedToE4B)")
+        logger.info("Orchestrator completed task \(task.id): verdict=\(finalResult.verdict.rawValue), confidence=\(confidenceStr), totalLatency=\(totalLatencyMs)ms, lowConfidenceFallback=\(finalResult.lowConfidenceFallback)")
 
         return finalResult
-    }
-
-    /// Handles disputed verdicts by invoking the JudgeAgent for PhishDebate adjudication.
-    ///
-    /// - Parameters:
-    ///   - task: The original task.
-    ///   - disputedResults: The conflicting results from specialist agents.
-    /// - Returns: The judge's final ``AgentResult``.
-    /// - Throws: ``GemScanError`` on configuration or inference errors.
-    public func adjudicateDispute(
-        task: AgentTask,
-        disputedResults: [AgentResult]
-    ) async throws -> AgentResult {
-        guard let judgeAgent else {
-            throw GemScanError.inferenceError(message: "JudgeAgent not available. Configure the orchestrator first.")
-        }
-
-        logger.info("Orchestrator invoking JudgeAgent for dispute adjudication on task \(task.id)")
-
-        return try await judgeAgent.adjudicate(task: task, disputedResults: disputedResults)
     }
 
     // MARK: - Private Helpers
@@ -168,53 +154,6 @@ public actor OrchestratorAgent {
             // For explain-verdict tasks, the orchestrator handles them directly
             return try await handleExplainVerdict(task: task)
         }
-    }
-
-    /// Escalates a low-confidence E2B result to E4B.
-    ///
-    /// Re-runs the full specialist agent analysis but this time with E4B loaded,
-    /// or dispatches to the JudgeAgent if the original and escalated results disagree.
-    ///
-    /// - Parameters:
-    ///   - task: The original task.
-    ///   - originalResult: The low-confidence E2B result.
-    ///   - startTime: The pipeline start time for latency tracking.
-    /// - Returns: The escalated ``AgentResult``.
-    private func escalateToE4B(
-        task: AgentTask,
-        originalResult: AgentResult,
-        startTime: CFAbsoluteTime
-    ) async throws -> AgentResult {
-        guard let inferenceEngine else {
-            throw GemScanError.inferenceError(message: "InferenceEngine not available for escalation")
-        }
-
-        // Load E4B if needed
-        try await inferenceEngine.loadE4BIfNeeded()
-
-        // Re-run the specialist with a fresh task
-        let escalatedResult = try await routeToSpecialist(task: task)
-
-        // If verdicts disagree, invoke the JudgeAgent
-        if escalatedResult.verdict != originalResult.verdict {
-            logger.info("Orchestrator: E2B and E4B verdicts disagree — invoking JudgeAgent")
-
-            guard let judgeAgent else {
-                // Fall back to the escalated result if JudgeAgent is unavailable
-                let latencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-                return escalatedResult.markingEscalated(latencyMs: latencyMs)
-            }
-
-            let judgeResult = try await judgeAgent.adjudicate(
-                task: task,
-                disputedResults: [originalResult, escalatedResult]
-            )
-
-            return judgeResult
-        }
-
-        let latencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-        return escalatedResult.markingEscalated(latencyMs: latencyMs)
     }
 
     /// Handles explainVerdict tasks by summarizing a prior result at sixth-grade level.
@@ -258,8 +197,7 @@ public actor OrchestratorAgent {
             language: "en",
             toolCallsLog: [],
             latencyMs: latencyMs,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 }

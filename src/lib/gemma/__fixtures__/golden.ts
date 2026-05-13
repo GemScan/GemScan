@@ -10,7 +10,7 @@ function makeResult(
     toolCallsLog: [],
     latencyMs: 120,
     modelTier: 'e2b',
-    escalatedToE4B: false,
+    lowConfidenceFallback: false,
     ...overrides,
   }
 }
@@ -39,8 +39,6 @@ export const goldenFixtures: Record<string, AgentResult> = {
       'Spectral analysis detects synthesis artefacts.',
       'Urgency and ransom demand detected.',
     ],
-    modelTier: 'e4b',
-    escalatedToE4B: true,
     latencyMs: 680,
     toolCallsLog: [
       {
@@ -128,8 +126,6 @@ export const goldenFixtures: Record<string, AgentResult> = {
       'URL bar shows suspicious domain.',
       'Layout mimics bank portal.',
     ],
-    modelTier: 'e4b',
-    escalatedToE4B: true,
     latencyMs: 520,
     toolCallsLog: [
       {

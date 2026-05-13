@@ -50,8 +50,7 @@ actor MockMessageRouter: MessageRouterProtocol {
             language: "en",
             toolCallsLog: [],
             latencyMs: 100,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 
@@ -76,8 +75,7 @@ actor MockMessageRouter: MessageRouterProtocol {
             language: "en",
             toolCallsLog: [],
             latencyMs: 50,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 

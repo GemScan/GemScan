@@ -5,18 +5,16 @@ import os
 
 /// The central coordinator for on-device inference in GemScan.
 ///
-/// `InferenceEngine` manages two model tiers (E2B and E4B), routes generation
-/// requests to the appropriate backend, and enforces safety guards for memory
-/// pressure, thermal state, and execution timeouts.
+/// `InferenceEngine` owns a single Gemma 4 E2B backend, routes generation
+/// requests to it, and enforces safety guards for memory pressure, thermal
+/// state, and execution timeouts. DistilBERT runs separately in the SMS
+/// Filter extension and is not handled here.
 public actor InferenceEngine {
 
     // MARK: - Properties
 
-    /// Backend used for the lightweight Gemma 2B model.
+    /// Backend used for the Gemma 4 E2B model (the only on-device LLM tier).
     private let e2bBackend: any InferenceBackend
-
-    /// Backend used for the higher-quality Gemma 4B model.
-    private let e4bBackend: any InferenceBackend
 
     /// Handles model downloading, verification, and local path management.
     public let modelLoader: ModelLoader
@@ -25,26 +23,26 @@ public actor InferenceEngine {
     private let logger = GemScanLogger.inference
 
     /// Maximum RSS (in bytes) before refusing to load additional models.
-    private let maxRSSBytes: Int = 1_500_000_000 // 1.5 GB
+    ///
+    /// Sized for the 4-bit gemma-4-e2b quant (~3.4 GB on disk, ~4 GB working
+    /// set under the increased-memory entitlement on iPhone 15/16 Pro).
+    private let maxRSSBytes: Int = 4_500_000_000 // 4.5 GB
 
     /// Default generation timeout in seconds.
     private let defaultTimeoutSeconds: TimeInterval = 120
 
     // MARK: - Initialization
 
-    /// Creates a new inference engine with the provided backends.
+    /// Creates a new inference engine with the provided backend.
     ///
     /// - Parameters:
-    ///   - e2bBackend: The backend for Gemma 2B inference.
-    ///   - e4bBackend: The backend for Gemma 4B inference.
+    ///   - e2bBackend: The backend for Gemma 4 E2B inference.
     ///   - modelLoader: The model loader for downloading and verifying weights.
     public init(
         e2bBackend: any InferenceBackend,
-        e4bBackend: any InferenceBackend,
         modelLoader: ModelLoader
     ) {
         self.e2bBackend = e2bBackend
-        self.e4bBackend = e4bBackend
         self.modelLoader = modelLoader
     }
 
@@ -58,7 +56,9 @@ public actor InferenceEngine {
     ///
     /// - Parameters:
     ///   - task: The prompt string describing the task.
-    ///   - modelTier: Which model tier to use for generation.
+    ///   - modelTier: Which model tier to use for generation. Only `.e2b` is
+    ///     served by this engine; `.distilbert` is rejected (use the SMS
+    ///     Filter extension's CoreML model instead).
     ///   - grammar: An optional grammar constraint for structured output.
     ///   - tokenHandler: A closure called with each incremental token as it is generated.
     /// - Returns: The fully concatenated generated text.
@@ -83,9 +83,12 @@ public actor InferenceEngine {
             throw GemScanError.memoryPressure(currentBytes: rss, limitBytes: maxRSSBytes)
         }
 
-        let backend: any InferenceBackend = (modelTier == .e2b) ? e2bBackend : e4bBackend
+        guard modelTier == .e2b else {
+            logger.error("Tier \(modelTier.rawValue) is not served by InferenceEngine")
+            throw GemScanError.modelNotLoaded(tier: modelTier)
+        }
 
-        guard await backend.isLoaded else {
+        guard await e2bBackend.isLoaded else {
             logger.error("Model \(modelTier.rawValue) is not loaded")
             throw GemScanError.modelNotLoaded(tier: modelTier)
         }
@@ -93,7 +96,7 @@ public actor InferenceEngine {
         let startTime = CFAbsoluteTimeGetCurrent()
         var tokenCount = 0
 
-        let stream = try await backend.generate(
+        let stream = try await e2bBackend.generate(
             prompt: task,
             grammar: grammar,
             maxTokens: 2048
@@ -135,8 +138,8 @@ public actor InferenceEngine {
 
     /// Warm-loads the E2B model at app launch for fast inference.
     ///
-    /// Call this early in the app lifecycle so the lightweight model is ready
-    /// when the first inference request arrives.
+    /// Call this early in the app lifecycle so the model is ready when the
+    /// first inference request arrives.
     public func warmLoadE2B() async throws {
         logger.info("Warm-loading E2B model")
         try await e2bBackend.loadModel(tier: .e2b)
@@ -145,17 +148,17 @@ public actor InferenceEngine {
 
     /// Returns whether the given tier is currently loaded in RAM.
     ///
-    /// - Parameter tier: `.e2b`, `.e4b`. (`.distilbert` runs in the SMS
-    ///   Filter extension, not in this engine, and always returns `false`.)
+    /// - Parameter tier: `.e2b` returns the backend's load state.
+    ///   `.distilbert` runs in the SMS Filter extension, not in this engine,
+    ///   and always returns `false`.
     public func isModelLoaded(tier: ModelTier) async -> Bool {
         switch tier {
         case .e2b:        return await e2bBackend.isLoaded
-        case .e4b:        return await e4bBackend.isLoaded
         case .distilbert: return false
         }
     }
 
-    /// Unloads both E2B and E4B from RAM, freeing weights and KV cache.
+    /// Unloads E2B from RAM, freeing weights and KV cache.
     ///
     /// Used by the host app to reclaim memory when the app has been backgrounded
     /// long enough that an idle inference engine no longer justifies the RAM
@@ -165,37 +168,6 @@ public actor InferenceEngine {
             logger.info("Unloading E2B from RAM")
             await e2bBackend.unloadModel()
         }
-        if await e4bBackend.isLoaded {
-            logger.info("Unloading E4B from RAM")
-            await e4bBackend.unloadModel()
-        }
-    }
-
-    /// Loads the E4B model on demand, with thermal and memory guards.
-    ///
-    /// If the device is under thermal or memory pressure the load is refused
-    /// and a ``GemScanError`` is thrown.
-    public func loadE4BIfNeeded() async throws {
-        guard await !e4bBackend.isLoaded else {
-            logger.info("E4B model already loaded")
-            return
-        }
-
-        let thermalState = checkThermalState()
-        guard thermalState != .critical, thermalState != .serious else {
-            logger.warning("Thermal state \(String(describing: thermalState)) — refusing E4B load")
-            throw GemScanError.thermalThrottled
-        }
-
-        let rss = currentRSSBytes()
-        guard rss < maxRSSBytes else {
-            logger.warning("RSS \(rss) exceeds limit — refusing E4B load")
-            throw GemScanError.memoryPressure(currentBytes: rss, limitBytes: maxRSSBytes)
-        }
-
-        logger.info("Loading E4B model on demand")
-        try await e4bBackend.loadModel(tier: .e4b)
-        logger.info("E4B model loaded successfully")
     }
 
     // MARK: - System Helpers

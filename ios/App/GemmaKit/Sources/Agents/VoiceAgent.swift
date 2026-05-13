@@ -147,8 +147,7 @@ public actor VoiceAgent {
             language: asrResult.language,
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 

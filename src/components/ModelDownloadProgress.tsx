@@ -9,8 +9,7 @@ interface ModelDownloadProgressProps {
 
 const modelMeta: Record<string, { label: string; sizeMB: number }> = {
   distilbert: { label: 'DistilBERT', sizeMB: 5 },
-  e2b: { label: 'Gemma E2B', sizeMB: 1800 },
-  e4b: { label: 'Gemma E4B', sizeMB: 3200 },
+  e2b: { label: 'Gemma 4 E2B', sizeMB: 3400 },
 }
 
 export default function ModelDownloadProgress({
@@ -21,7 +20,7 @@ export default function ModelDownloadProgress({
 
   if (!isDownloading && progress.size === 0) return null
 
-  const models = ['distilbert', 'e2b', 'e4b'] as const
+  const models = ['distilbert', 'e2b'] as const
 
   return (
     <div className="w-full max-w-sm space-y-4" aria-label="Model download progress">

@@ -8,8 +8,7 @@ import ProgressRow from '@/components/ProgressRow'
 
 const models = [
   { id: 'distilbert', label: 'DistilBERT', size: '5 MB' },
-  { id: 'e2b', label: 'Gemma E2B', size: '1.8 GB' },
-  { id: 'e4b', label: 'Gemma E4B', size: '3.2 GB' },
+  { id: 'e2b', label: 'Gemma 4 E2B', size: '3.4 GB' },
 ] as const
 
 export default function OnboardingPage() {
@@ -22,7 +21,7 @@ export default function OnboardingPage() {
     setDownloadStarted(true)
     try {
       const plugin = await getGemmaPlugin()
-      await plugin.downloadModels({ modelIds: ['e2b', 'e4b'] })
+      await plugin.downloadModels({ modelIds: ['e2b'] })
       setDownloadComplete(true)
       router.push('/')
     } catch {

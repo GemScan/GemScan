@@ -20,7 +20,7 @@ public protocol InferenceBackend: Sendable {
 
     /// Loads a model of the specified tier into memory.
     ///
-    /// - Parameter tier: The model tier to load (e.g. `.e2b` or `.e4b`).
+    /// - Parameter tier: The model tier to load (e.g. `.e2b`).
     func loadModel(tier: ModelTier) async throws
 
     /// Unloads the currently loaded model and frees associated memory.

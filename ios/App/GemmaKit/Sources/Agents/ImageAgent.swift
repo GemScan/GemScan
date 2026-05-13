@@ -3,8 +3,10 @@ import os
 
 /// Specialist agent for screenshot and image scam analysis.
 ///
-/// `ImageAgent` always uses Gemma E4B (multimodal vision required) and follows
-/// a two-step process:
+/// `ImageAgent` runs on Gemma 4 E2B (the only on-device Gemma 4 tier that
+/// fits in the iOS app memory budget). The 4-bit quant keeps the multimodal
+/// vision tower, so screenshot analysis still works. The agent follows a
+/// two-step process:
 /// 1. Call `reverse_image/extract_text_urls` for OCR to extract text and URLs.
 /// 2. Run `generateVision()` with grammar constraints on the image + OCR context.
 ///
@@ -32,8 +34,8 @@ public actor ImageAgent {
 
     /// Analyses a screenshot for scam indicators and returns a verdict.
     ///
-    /// This method always uses E4B because multimodal vision is required for
-    /// screenshot analysis. The E4B model is loaded on demand if not already resident.
+    /// Uses Gemma 4 E2B (4-bit, multimodal). The vision tower is part of the
+    /// E2B quant — no separate model load is required.
     ///
     /// - Parameter task: The agent task containing an `.image` payload.
     /// - Returns: An ``AgentResult`` with the classification verdict.
@@ -45,9 +47,6 @@ public actor ImageAgent {
         guard case let .image(base64Data, _) = task.payload else {
             throw GemScanError.inferenceError(message: "ImageAgent received non-image payload")
         }
-
-        // Ensure E4B is loaded for multimodal vision
-        try await inferenceEngine.loadE4BIfNeeded()
 
         // MARK: Step 1 — OCR via reverse_image/extract_text_urls
 
@@ -85,7 +84,7 @@ public actor ImageAgent {
 
         let rawOutput = try await inferenceEngine.generate(
             task: prompt,
-            modelTier: .e4b,
+            modelTier: .e2b,
             grammar: grammar
         )
 
@@ -111,8 +110,7 @@ public actor ImageAgent {
             language: "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,
-            modelTier: .e4b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
     }
 

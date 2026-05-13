@@ -101,7 +101,7 @@ export class GemmaPluginMock implements GemmaPlugin {
 
   async isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }> {
     logger.info('isReady() called', MODULE)
-    const allModels: ModelId[] = ['e2b', 'e4b', 'distilbert']
+    const allModels: ModelId[] = ['e2b', 'distilbert']
     const missingModels = allModels.filter((m) => !this.modelsDownloaded.has(m))
     return { ready: missingModels.length === 0, missingModels }
   }
@@ -111,8 +111,7 @@ export class GemmaPluginMock implements GemmaPlugin {
 
     for (const modelId of options.modelIds) {
       const totalBytes =
-        modelId === 'e4b' ? 3_000_000_000 :
-        modelId === 'e2b' ? 1_500_000_000 :
+        modelId === 'e2b' ? 3_400_000_000 :
         5_000_000
       const steps = 20
       const chunkSize = totalBytes / steps
@@ -145,8 +144,7 @@ export class GemmaPluginMock implements GemmaPlugin {
     }
 
     const sizeBytes =
-      options.modelId === 'e4b' ? 3_000_000_000 :
-      options.modelId === 'e2b' ? 1_500_000_000 :
+      options.modelId === 'e2b' ? 3_400_000_000 :
       5_000_000
 
     return { valid: true, sizeBytes }
@@ -156,7 +154,7 @@ export class GemmaPluginMock implements GemmaPlugin {
     logger.info('analyse() called', MODULE, { taskId: task.id, type: task.type })
 
     const result = pickFixture(task)
-    const simulatedLatency = result.escalatedToE4B ? 400 : 100
+    const simulatedLatency = result.lowConfidenceFallback ? 400 : 100
 
     // Simulate token streaming
     const tokens = result.reasoning.join(' ').split(' ')
@@ -186,7 +184,6 @@ export class GemmaPluginMock implements GemmaPlugin {
     return {
       availableMemoryBytes: 3_000_000_000,
       e2bLoaded: this.modelsLoadedInRAM.has('e2b'),
-      e4bLoaded: this.modelsLoadedInRAM.has('e4b'),
       thermalState: 'nominal',
       batteryLevel: 0.85,
       screeningMode: 'active',

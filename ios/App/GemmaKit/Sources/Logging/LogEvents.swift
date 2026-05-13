@@ -29,10 +29,11 @@ public enum LogEvent: CustomStringConvertible, Sendable {
     /// An MCP tool call completed.
     case toolCallCompleted(server: String, tool: String, durationMs: Int, success: Bool)
 
-    // MARK: - Escalation
+    // MARK: - Low-confidence fallback
 
-    /// A task was escalated from E2B to E4B due to low confidence.
-    case escalation(taskId: String, fromTier: ModelTier, toTier: ModelTier, confidence: Double)
+    /// The orchestrator forced a verdict to `.scam` because the underlying
+    /// agent's confidence was below the safety threshold.
+    case lowConfidenceFallback(taskId: String, tier: ModelTier, confidence: Double)
 
     // MARK: - Verdict
 
@@ -61,8 +62,8 @@ public enum LogEvent: CustomStringConvertible, Sendable {
         case let .toolCallCompleted(server, tool, durationMs, success):
             let status = success ? "ok" : "failed"
             return "[mcp] Tool call completed: \(server)/\(tool) duration=\(durationMs)ms status=\(status)"
-        case let .escalation(taskId, fromTier, toTier, confidence):
-            return "[escalation] Task \(taskId) escalated \(fromTier.rawValue)->\(toTier.rawValue) confidence=\(String(format: "%.2f", confidence))"
+        case let .lowConfidenceFallback(taskId, tier, confidence):
+            return "[fallback] Task \(taskId) forced to scam (tier=\(tier.rawValue), confidence=\(String(format: "%.2f", confidence)))"
         case let .verdictProduced(taskId, verdict, confidence, modelTier):
             return "[verdict] Task \(taskId) verdict=\(verdict.rawValue) confidence=\(String(format: "%.2f", confidence)) model=\(modelTier.rawValue)"
         case let .thermalDowngrade(from, to):
@@ -101,7 +102,7 @@ public enum LogEvent: CustomStringConvertible, Sendable {
             return GemScanLogger.router
         case .toolCallStarted, .toolCallCompleted:
             return GemScanLogger.mcp
-        case .escalation, .verdictProduced:
+        case .lowConfidenceFallback, .verdictProduced:
             return GemScanLogger.agents
         case .thermalDowngrade:
             return GemScanLogger.metrics

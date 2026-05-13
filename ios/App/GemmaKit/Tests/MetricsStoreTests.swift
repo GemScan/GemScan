@@ -13,7 +13,7 @@ final class MetricsStoreTests: XCTestCase {
 
         XCTAssertEqual(summary.medianLatencyMs, 0)
         XCTAssertEqual(summary.p95LatencyMs, 0)
-        XCTAssertEqual(summary.escalationRate, 0)
+        XCTAssertEqual(summary.lowConfidenceFallbackRate, 0)
         XCTAssertEqual(summary.lowConfidenceSafeCount, 0)
     }
 
@@ -115,19 +115,19 @@ final class MetricsStoreTests: XCTestCase {
         XCTAssertLessThanOrEqual(summary.p95LatencyMs, 1000.0)
     }
 
-    func testSummary_EscalationRate() async {
+    func testSummary_LowConfidenceFallbackRate() async {
         let store = MetricsStore(maxCapacity: 100)
 
-        // 3 escalated out of 10
+        // 3 fallback'd out of 10
         for i in 0..<10 {
             await store.record(metrics: makeMetrics(
                 taskId: "t\(i)",
-                escalated: i < 3
+                lowConfidenceFallback: i < 3
             ))
         }
 
         let summary = await store.summary()
-        XCTAssertEqual(summary.escalationRate, 0.3, accuracy: 0.01)
+        XCTAssertEqual(summary.lowConfidenceFallbackRate, 0.3, accuracy: 0.01)
     }
 
     func testSummary_LowConfidenceSafeCount() async {
@@ -205,12 +205,12 @@ final class MetricsStoreTests: XCTestCase {
         latencyMs: Double = 200.0,
         verdict: String = "safe",
         confidence: Double = 0.9,
-        escalated: Bool = false
+        lowConfidenceFallback: Bool = false
     ) -> InferenceMetrics {
         InferenceMetrics(
             taskId: taskId,
-            modelTier: escalated ? "e4b" : "e2b",
-            escalatedToE4B: escalated,
+            modelTier: "e2b",
+            lowConfidenceFallback: lowConfidenceFallback,
             firstTokenLatencyMs: latencyMs * 0.1,
             totalLatencyMs: latencyMs,
             tokensPerSecond: 25.0,

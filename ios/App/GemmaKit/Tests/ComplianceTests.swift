@@ -52,8 +52,7 @@ final class ComplianceTests: XCTestCase {
             language: "en",
             toolCallsLog: [],
             latencyMs: 200,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
 
         // Verify the result can be serialized
@@ -88,15 +87,14 @@ final class ComplianceTests: XCTestCase {
 
     func testModelTier_RAMBudgets() {
         // Verify RAM budgets are within Apple's recommended limits
-        // for background extensions (< 50 MB for DistilBERT)
-        // and foreground operations (< 4 GB for main models)
-        let maxForegroundRAM = 4_000 * 1_024 * 1_024  // 4 GB
+        // for background extensions (< 50 MB for DistilBERT) and foreground
+        // operations with the increased-memory entitlement (< 5 GB for
+        // the gemma-4-e2b 4-bit quant).
+        let maxForegroundRAM = 5_000 * 1_024 * 1_024  // 5 GB
         let maxBackgroundRAM = 50 * 1_024 * 1_024       // 50 MB
 
         XCTAssertLessThan(ModelTier.e2b.expectedRAMBytes, maxForegroundRAM,
             "E2B should be within foreground RAM budget")
-        XCTAssertLessThan(ModelTier.e4b.expectedRAMBytes, maxForegroundRAM,
-            "E4B should be within foreground RAM budget")
         XCTAssertLessThan(ModelTier.distilbert.expectedRAMBytes, maxBackgroundRAM,
             "DistilBERT should be within background RAM budget")
     }
@@ -104,7 +102,6 @@ final class ComplianceTests: XCTestCase {
     func testModelTier_HasExpectedValues() {
         // Verify model tier raw values match the manifest format
         XCTAssertEqual(ModelTier.e2b.rawValue, "e2b")
-        XCTAssertEqual(ModelTier.e4b.rawValue, "e4b")
         XCTAssertEqual(ModelTier.distilbert.rawValue, "distilbert")
     }
 
@@ -149,10 +146,6 @@ final class ComplianceTests: XCTestCase {
             ],
             AgentID.voiceAgent: [
                 "sqlite_vec", "phone_reputation", "contacts"
-            ],
-            AgentID.judgeAgent: [
-                "scam_patterns", "sqlite_vec", "url_reputation",
-                "phone_reputation", "contacts"
             ],
         ]
 
@@ -208,8 +201,7 @@ final class ComplianceTests: XCTestCase {
                 )
             ],
             latencyMs: 350,
-            modelTier: .e2b,
-            escalatedToE4B: false
+            modelTier: .e2b
         )
 
         let encoder = JSONEncoder()

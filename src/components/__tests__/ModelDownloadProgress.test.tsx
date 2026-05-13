@@ -62,12 +62,12 @@ describe('ModelDownloadProgress', () => {
   it('renders progress bars for each model', () => {
     const progress = new Map([
       ['e2b', 0.5],
-      ['e4b', 0.3],
+      ['distilbert', 0.3],
     ])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
     expect(screen.getByTestId('progress-e2b')).toBeInTheDocument()
-    expect(screen.getByTestId('progress-e4b')).toBeInTheDocument()
+    expect(screen.getByTestId('progress-distilbert')).toBeInTheDocument()
   })
 
   it('displays model labels in uppercase', () => {
@@ -80,12 +80,12 @@ describe('ModelDownloadProgress', () => {
   it('displays percentage values correctly', () => {
     const progress = new Map([
       ['e2b', 0.75],
-      ['e4b', 0.42],
+      ['distilbert', 0.42],
     ])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
     expect(screen.getByTestId('percent-e2b')).toHaveTextContent('75%')
-    expect(screen.getByTestId('percent-e4b')).toHaveTextContent('42%')
+    expect(screen.getByTestId('percent-distilbert')).toHaveTextContent('42%')
   })
 
   it('shows downloading status text while downloading', () => {
@@ -98,7 +98,7 @@ describe('ModelDownloadProgress', () => {
   it('shows complete message when all models are done', () => {
     const progress = new Map([
       ['e2b', 1.0],
-      ['e4b', 1.0],
+      ['distilbert', 1.0],
     ])
     render(<ModelDownloadProgress progress={progress} isDownloading={false} />)
 
@@ -108,7 +108,7 @@ describe('ModelDownloadProgress', () => {
   it('does not show complete message when still downloading', () => {
     const progress = new Map([
       ['e2b', 1.0],
-      ['e4b', 0.8],
+      ['distilbert', 0.8],
     ])
     render(<ModelDownloadProgress progress={progress} isDownloading={true} />)
 
