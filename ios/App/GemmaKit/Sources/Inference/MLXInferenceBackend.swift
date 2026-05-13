@@ -105,12 +105,17 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 private extension ModelConfiguration {
 
     /// Returns the appropriate MLX model configuration for the given tier.
+    ///
+    /// E2B and E4B use the mlx-community 8-bit quantised Gemma 4 conversions,
+    /// which MLXLLM resolves via the HuggingFace hub on first call to
+    /// `ModelContainer.load(configuration:)`. DistilBERT is currently a
+    /// placeholder; the production SMS triage model ships as bundled CoreML.
     static func configuration(for tier: ModelTier) -> ModelConfiguration {
         switch tier {
         case .e2b:
-            return ModelConfiguration(id: "google/gemma-2-2b-it")
+            return ModelConfiguration(id: "mlx-community/gemma-4-e2b-it-8bit")
         case .e4b:
-            return ModelConfiguration(id: "google/gemma-2-4b-it")
+            return ModelConfiguration(id: "mlx-community/gemma-4-e4b-it-8bit")
         case .distilbert:
             return ModelConfiguration(id: "distilbert-base-uncased")
         }
