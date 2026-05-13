@@ -2,6 +2,9 @@ import Foundation
 import os
 import MLXLLM
 import MLXLMCommon
+import MLXHuggingFace
+import HuggingFace
+import Tokenizers
 
 // MARK: - MLXInferenceBackend
 
@@ -32,9 +35,7 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 
     public var isLoaded: Bool {
         get async {
-            lock.lock()
-            defer { lock.unlock() }
-            return modelContainer != nil
+            lock.withLock { modelContainer != nil }
         }
     }
 
@@ -42,19 +43,19 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         logger.info("Loading model \(tier.rawValue) via MLX")
 
         let configuration = MLXModelRegistry.configuration(for: tier)
-        let container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        let container = try await LLMModelFactory.shared.loadContainer(
+            from: #hubDownloader(),
+            using: #huggingFaceTokenizerLoader(),
+            configuration: configuration
+        )
 
-        lock.lock()
-        modelContainer = container
-        lock.unlock()
+        lock.withLock { modelContainer = container }
 
         logger.info("MLX model \(tier.rawValue) loaded")
     }
 
     public func unloadModel() async {
-        lock.lock()
-        modelContainer = nil
-        lock.unlock()
+        lock.withLock { modelContainer = nil }
         logger.info("MLX model unloaded")
     }
 
@@ -63,12 +64,10 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         grammar: GrammarConstraint?,
         maxTokens: Int
     ) async throws -> AsyncStream<String> {
-        lock.lock()
-        guard let container = modelContainer else {
-            lock.unlock()
+        let current = lock.withLock { modelContainer }
+        guard let container = current else {
             throw GemScanError.modelNotLoaded(tier: .e2b)
         }
-        lock.unlock()
 
         let (stream, continuation) = AsyncStream<String>.makeStream()
 

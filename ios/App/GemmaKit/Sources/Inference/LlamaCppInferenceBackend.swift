@@ -37,9 +37,7 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
 
     public var isLoaded: Bool {
         get async {
-            lock.lock()
-            defer { lock.unlock() }
-            return model != nil && context != nil
+            lock.withLock { model != nil && context != nil }
         }
     }
 
@@ -66,27 +64,27 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
             throw GemScanError.modelLoadFailed(reason: "llama_new_context_with_model returned nil for \(tier.rawValue)")
         }
 
-        lock.lock()
-        self.model = loadedModel
-        self.context = loadedContext
-        self.modelPath = path
-        lock.unlock()
+        lock.withLock {
+            self.model = loadedModel
+            self.context = loadedContext
+            self.modelPath = path
+        }
 
         logger.info("llama.cpp model \(tier.rawValue) loaded from \(path)")
     }
 
     public func unloadModel() async {
-        lock.lock()
-        if let ctx = context {
-            llama_free(ctx)
+        lock.withLock {
+            if let ctx = context {
+                llama_free(ctx)
+            }
+            if let mdl = model {
+                llama_free_model(mdl)
+            }
+            context = nil
+            model = nil
+            modelPath = nil
         }
-        if let mdl = model {
-            llama_free_model(mdl)
-        }
-        context = nil
-        model = nil
-        modelPath = nil
-        lock.unlock()
         logger.info("llama.cpp model unloaded")
     }
 
@@ -95,12 +93,10 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
         grammar: GrammarConstraint?,
         maxTokens: Int
     ) async throws -> AsyncStream<String> {
-        lock.lock()
-        guard let mdl = model, let ctx = context else {
-            lock.unlock()
+        let snapshot = lock.withLock { (model: model, context: context) }
+        guard let mdl = snapshot.model, let ctx = snapshot.context else {
             throw GemScanError.modelNotLoaded(tier: .e2b)
         }
-        lock.unlock()
 
         let (stream, continuation) = AsyncStream<String>.makeStream()
 

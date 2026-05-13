@@ -1,6 +1,9 @@
 import Foundation
 import MLXLLM
 import MLXLMCommon
+import MLXHuggingFace
+import HuggingFace
+import Tokenizers
 
 /// Canonical MLX model identifiers for each tier.
 ///
@@ -53,6 +56,8 @@ public enum MLXModelDownloader {
     ) async throws -> ModelContainer {
         let configuration = MLXModelRegistry.configuration(for: tier)
         return try await LLMModelFactory.shared.loadContainer(
+            from: #hubDownloader(),
+            using: #huggingFaceTokenizerLoader(),
             configuration: configuration,
             progressHandler: progressHandler
         )
