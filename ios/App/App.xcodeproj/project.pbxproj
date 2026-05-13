@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -15,6 +15,10 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		F2CD51C32FB4386F00DEBAB9 /* GemmaKit in Frameworks */ = {isa = PBXBuildFile; productRef = F2CD51C22FB4386F00DEBAB9 /* GemmaKit */; };
+		F2CD51C72FB43A0A00DEBAB9 /* GemmaPlugin+MCP 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C62FB43A0A00DEBAB9 /* GemmaPlugin+MCP 2.swift */; };
+		F2CD51C82FB43A0A00DEBAB9 /* GemmaPlugin 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin 2.swift */; };
+		F2CD51C92FB43A0A00DEBAB9 /* GemmaPlugin+CallKit 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C52FB43A0A00DEBAB9 /* GemmaPlugin+CallKit 2.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +33,9 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
+		F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin 2.swift"; sourceTree = "<group>"; };
+		F2CD51C52FB43A0A00DEBAB9 /* GemmaPlugin+CallKit 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin+CallKit 2.swift"; sourceTree = "<group>"; };
+		F2CD51C62FB43A0A00DEBAB9 /* GemmaPlugin+MCP 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin+MCP 2.swift"; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -38,6 +45,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */,
+				F2CD51C32FB4386F00DEBAB9 /* GemmaKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,6 +81,9 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin 2.swift */,
+				F2CD51C52FB43A0A00DEBAB9 /* GemmaPlugin+CallKit 2.swift */,
+				F2CD51C62FB43A0A00DEBAB9 /* GemmaPlugin+MCP 2.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -143,6 +154,7 @@
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
+				F2CD51C12FB4386F00DEBAB9 /* XCLocalSwiftPackageReference "GemmaKit" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -210,6 +222,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F2CD51C72FB43A0A00DEBAB9 /* GemmaPlugin+MCP 2.swift in Sources */,
+				F2CD51C82FB43A0A00DEBAB9 /* GemmaPlugin 2.swift in Sources */,
+				F2CD51C92FB43A0A00DEBAB9 /* GemmaPlugin+CallKit 2.swift in Sources */,
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -289,7 +304,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -346,7 +361,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -364,7 +379,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -387,7 +402,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -423,6 +438,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F2CD51C12FB4386F00DEBAB9 /* XCLocalSwiftPackageReference "GemmaKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = GemmaKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F2CD51C22FB4386F00DEBAB9 /* GemmaKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = GemmaKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 504EC2FC1FED79650016851F /* Project object */;
 }
