@@ -325,24 +325,42 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         Task {
             do {
                 for tier in tiers {
-                    try await modelLoader.download(tier: tier) { [weak self] progress in
-                        guard let self = self else { return }
-                        self.notifyListeners(
-                            "downloadProgress",
-                            data: [
-                                "modelId": tier.rawValue,
-                                "progress": progress,
-                                // bytesDownloaded / totalBytes are reported by the
-                                // URLSession delegate but not surfaced through the
-                                // current ModelLoader callback signature; emit -1
-                                // sentinels so the JS side can tolerate them.
-                                "bytesDownloaded": -1,
-                                "totalBytes": -1,
-                            ]
-                        )
+                    switch tier {
+                    case .e2b, .e4b:
+                        // MLX tiers: fetch via swift-transformers HubApi so
+                        // the bytes the user "downloads" are exactly the
+                        // bytes inference will load from cache later.
+                        try await MLXModelDownloader.preload(tier: tier) { [weak self] progress in
+                            guard let self = self else { return }
+                            self.notifyListeners(
+                                "downloadProgress",
+                                data: [
+                                    "modelId": tier.rawValue,
+                                    "progress": progress.fractionCompleted,
+                                    "bytesDownloaded": Int(progress.completedUnitCount),
+                                    "totalBytes": Int(progress.totalUnitCount),
+                                ]
+                            )
+                        }
+                    case .distilbert:
+                        // CoreML tier: still uses the URLSession path because
+                        // it doesn't live on the HF MLX hub. (In production
+                        // this model ships bundled inside the app.)
+                        try await modelLoader.download(tier: tier) { [weak self] progress in
+                            guard let self = self else { return }
+                            self.notifyListeners(
+                                "downloadProgress",
+                                data: [
+                                    "modelId": tier.rawValue,
+                                    "progress": progress,
+                                    "bytesDownloaded": -1,
+                                    "totalBytes": -1,
+                                ]
+                            )
+                        }
                     }
-                    // Emit a final 1.0 in case the URLSession delegate stopped
-                    // calling slightly before completion.
+                    // Final 1.0 emit in case the underlying progress source
+                    // stopped slightly before completion.
                     notifyListeners(
                         "downloadProgress",
                         data: [
@@ -371,15 +389,26 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         Task {
-            let result = await modelLoader.verify(tier: tier)
-            var payload: [String: Any] = [
-                "valid": result.valid,
-                "sizeBytes": result.sizeBytes,
-            ]
-            if let reason = result.reason {
-                payload["reason"] = reason
+            switch tier {
+            case .e2b, .e4b:
+                // swift-transformers HubApi validates downloads via the HF
+                // backend's eTag and refuses to load partial/corrupt files,
+                // so the JS-side verification step is a no-op for MLX tiers.
+                call.resolve([
+                    "valid": true,
+                    "sizeBytes": -1,
+                ])
+            case .distilbert:
+                let result = await modelLoader.verify(tier: tier)
+                var payload: [String: Any] = [
+                    "valid": result.valid,
+                    "sizeBytes": result.sizeBytes,
+                ]
+                if let reason = result.reason {
+                    payload["reason"] = reason
+                }
+                call.resolve(payload)
             }
-            call.resolve(payload)
         }
     }
 
