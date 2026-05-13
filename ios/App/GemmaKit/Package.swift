@@ -8,14 +8,14 @@ let package = Package(
         .library(name: "GemmaKit", targets: ["GemmaKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/ml-explore/mlx-swift-examples", exact: "1.18.2"),
+        .package(url: "https://github.com/ml-explore/mlx-swift-examples", exact: "2.29.1"),
         .package(url: "https://github.com/ggerganov/llama.cpp", revision: "b3442"),
     ],
     targets: [
         .target(
             name: "GemmaKit",
             dependencies: [
-                .product(name: "LLM", package: "mlx-swift-examples"),
+                .product(name: "MLXLLM", package: "mlx-swift-examples"),
                 .product(name: "llama", package: "llama.cpp"),
             ],
             path: "Sources"
