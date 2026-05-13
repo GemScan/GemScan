@@ -15,7 +15,7 @@ let package = Package(
         .target(
             name: "GemmaKit",
             dependencies: [
-                .product(name: "MLXLLM", package: "mlx-swift-examples"),
+                .product(name: "LLM", package: "mlx-swift-examples"),
                 .product(name: "llama", package: "llama.cpp"),
             ],
             path: "Sources"
