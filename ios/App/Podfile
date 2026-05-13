@@ -22,4 +22,20 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+
+  # Capacitor's Podfile sets `disable_input_output_paths => true`, which leaves
+  # the [CP] script phases without input/output file lists. Xcode then warns
+  # they run on every build. Mark them as intentionally always-run so the
+  # warning goes away without re-enabling the input/output paths (which would
+  # break Capacitor's Cordova-plugin caching workaround).
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_project.native_targets.each do |target|
+      target.build_phases.each do |phase|
+        if phase.respond_to?(:name) && phase.name && phase.name.start_with?('[CP]')
+          phase.always_out_of_date = '1'
+        end
+      end
+    end
+    aggregate_target.user_project.save
+  end
 end

@@ -15,9 +15,9 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		A1B2C3D40000000000000001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* MainViewController.swift */; };
 		F2CD51C32FB4386F00DEBAB9 /* GemmaKit in Frameworks */ = {isa = PBXBuildFile; productRef = F2CD51C22FB4386F00DEBAB9 /* GemmaKit */; };
 		F2CD51C72FB43A0A00DEBAB9 /* GemmaPlugin+MCP.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C62FB43A0A00DEBAB9 /* GemmaPlugin+MCP.swift */; };
-		A1B2C3D40000000000000001 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000002 /* MainViewController.swift */; };
 		F2CD51C82FB43A0A00DEBAB9 /* GemmaPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin.swift */; };
 		F2CD51C92FB43A0A00DEBAB9 /* GemmaPlugin+CallKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CD51C52FB43A0A00DEBAB9 /* GemmaPlugin+CallKit.swift */; };
 /* End PBXBuildFile section */
@@ -32,12 +32,12 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		A1B2C3D40000000000000002 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
-		F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin.swift"; sourceTree = "<group>"; };
+		F2CD51C42FB43A0A00DEBAB9 /* GemmaPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemmaPlugin.swift; sourceTree = "<group>"; };
 		F2CD51C52FB43A0A00DEBAB9 /* GemmaPlugin+CallKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin+CallKit.swift"; sourceTree = "<group>"; };
 		F2CD51C62FB43A0A00DEBAB9 /* GemmaPlugin+MCP.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GemmaPlugin+MCP.swift"; sourceTree = "<group>"; };
-		A1B2C3D40000000000000002 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -187,6 +187,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		6634F4EFEBD30273BCE97C65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -205,6 +206,7 @@
 		};
 		9592DBEFFC6D2A0C8D5DEB22 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
