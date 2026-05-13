@@ -22,6 +22,16 @@ public enum MLXModelRegistry {
             return ModelConfiguration(id: "mlx-community/gemma-4-e2b-it-4bit")
         }
     }
+
+    /// HuggingFace repo ID (`org/repo`) used by ``configuration(for:)`` for a
+    /// tier. Exposed as a plain string so callers outside GemmaKit don't have
+    /// to import MLXLMCommon just to inspect the cache path.
+    public static func repoID(for tier: ModelTier) -> String {
+        switch tier {
+        case .e2b:
+            return "mlx-community/gemma-4-e2b-it-4bit"
+        }
+    }
 }
 
 /// Resolves weights for an MLX tier via the HuggingFace hub, surfacing

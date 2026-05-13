@@ -295,17 +295,30 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func isReady(_ call: CAPPluginCall) {
         Task {
             let tiers: [ModelTier] = [.e2b]
-            var missing: [String] = []
-            for tier in tiers {
-                if await modelLoader.localPath(for: tier) == nil {
-                    missing.append(tier.rawValue)
-                }
-            }
+            let missing = tiers.filter { !Self.isModelCached(tier: $0) }
+                              .map(\.rawValue)
             call.resolve([
                 "ready": missing.isEmpty,
                 "missingModels": missing,
             ])
         }
+    }
+
+    /// Returns whether the MLX weights for a tier are sitting in the app's
+    /// Caches directory. swift-transformers HubApi writes downloaded files
+    /// atomically and emits a `<file>.metadata` sidecar per file under
+    /// `<sandbox>/Library/Caches/models/<repo-id>/.cache/huggingface/download/`.
+    /// Presence of `config.json` is a quick proxy for "download succeeded".
+    private static func isModelCached(tier: ModelTier) -> Bool {
+        guard let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+            return false
+        }
+        let repoId = MLXModelRegistry.repoID(for: tier)
+        let configFile = cachesURL
+            .appendingPathComponent("models")
+            .appendingPathComponent(repoId)
+            .appendingPathComponent("config.json")
+        return FileManager.default.fileExists(atPath: configFile.path)
     }
 
     // MARK: - downloadModels
@@ -388,31 +401,87 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     // MARK: - analyse
 
     @objc func analyse(_ call: CAPPluginCall) {
-        // The full analyse() pipeline depends on InferenceEngine being
-        // instantiated with backends (MLX or llama.cpp), which requires the
-        // models to be downloaded first. This stub keeps the bridge contract
-        // honest: if the engine isn't ready, JS gets a clear error rather
-        // than a silent hang. Wire up engine init here when ready.
-        Task {
-            let tiers: [ModelTier] = [.e2b]
-            var missing: [String] = []
-            for tier in tiers {
-                if await modelLoader.localPath(for: tier) == nil {
-                    missing.append(tier.rawValue)
-                }
-            }
-            if !missing.isEmpty {
-                call.reject(
-                    "Models not downloaded: \(missing.joined(separator: ", "))",
-                    "MODELS_NOT_READY"
-                )
+        // Capture the JS task dictionary now — Capacitor's CAPPluginCall is
+        // bound to the WebView's serializer, so we re-encode it as JSON and
+        // decode into a Swift AgentTask via Codable.
+        guard let taskDict = call.options as? [String: Any],
+              let payloadJSON = try? JSONSerialization.data(withJSONObject: taskDict) else {
+            call.reject("Could not serialise task payload", "INVALID_TASK")
+            return
+        }
+
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            // Don't even try to set up the engine if the model bytes aren't
+            // on disk — surface a clear "download first" error instead of
+            // letting MLX throw a confusing missing-file error mid-load.
+            guard Self.isModelCached(tier: .e2b) else {
+                call.reject("Model e2b is not downloaded", "MODELS_NOT_READY")
                 return
             }
 
-            // Engine wiring goes here. For now, return a clear unimplemented error
-            // so the JS analyse flow surfaces something actionable.
-            call.reject("Inference pipeline not yet wired in native plugin", "NOT_IMPLEMENTED")
+            let task: AgentTask
+            do {
+                task = try JSONDecoder().decode(AgentTask.self, from: payloadJSON)
+            } catch {
+                self.logger.error("analyse: decode failed: \(String(describing: error))")
+                call.reject("Could not decode AgentTask: \(error.localizedDescription)", "INVALID_TASK")
+                return
+            }
+
+            do {
+                let orchestrator = try await self.ensureOrchestratorReady()
+                self.recordActivityNow()
+                let result = try await orchestrator.dispatch(task: task)
+                let resultData = try JSONEncoder().encode(result)
+                guard let resultDict = try JSONSerialization.jsonObject(with: resultData) as? [String: Any] else {
+                    call.reject("Could not serialise AgentResult", "RESULT_SERIALIZATION_FAILED")
+                    return
+                }
+                call.resolve(resultDict)
+            } catch {
+                let detail = String(describing: error)
+                self.logger.error("analyse failed: \(detail)")
+                call.reject(detail, "ANALYSE_FAILED", error)
+            }
         }
+    }
+
+    /// Lazily creates the InferenceEngine + warms E2B + configures the
+    /// OrchestratorAgent. Idempotent: concurrent callers share the same
+    /// in-flight setup task.
+    private func ensureOrchestratorReady() async throws -> OrchestratorAgent {
+        if let existing = setupTask {
+            try await existing.value
+            return OrchestratorAgent.shared
+        }
+
+        let task = Task<Void, Error> { [weak self] in
+            guard let self = self else { return }
+            self.logger.info("Bootstrapping InferenceEngine + OrchestratorAgent")
+
+            let backend = MLXInferenceBackend()
+            let engine = InferenceEngine(e2bBackend: backend, modelLoader: self.modelLoader)
+            self.inferenceEngine = engine
+
+            // Warm-load E2B so the first dispatch doesn't pay the load cost.
+            try await engine.warmLoadE2B()
+
+            await OrchestratorAgent.shared.configure(inferenceEngine: engine)
+            self.logger.info("OrchestratorAgent ready")
+        }
+        self.setupTask = task
+
+        do {
+            try await task.value
+        } catch {
+            // Reset on failure so the next call gets a fresh attempt.
+            self.setupTask = nil
+            self.inferenceEngine = nil
+            throw error
+        }
+        return OrchestratorAgent.shared
     }
 
     // MARK: - setScreeningMode
