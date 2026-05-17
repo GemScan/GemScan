@@ -50,7 +50,6 @@ describe('useGemScanStore', () => {
     storage.clear()
     const { setState } = useGemScanStore
     setState({
-      screeningMode: 'active',
       guardianModeEnabled: false,
       trustedContactId: null,
       preferredLanguage: 'en',
@@ -59,21 +58,9 @@ describe('useGemScanStore', () => {
   })
 
   describe('initial state', () => {
-    it('has screeningMode === "active"', () => {
-      const state = useGemScanStore.getState()
-      expect(state.screeningMode).toBe('active')
-    })
-
     it('has guardianModeEnabled === false', () => {
       const state = useGemScanStore.getState()
       expect(state.guardianModeEnabled).toBe(false)
-    })
-  })
-
-  describe('setScreeningMode', () => {
-    it('updates screening mode', () => {
-      useGemScanStore.getState().setScreeningMode('guardian')
-      expect(useGemScanStore.getState().screeningMode).toBe('guardian')
     })
   })
 

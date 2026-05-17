@@ -26,39 +26,3 @@ public enum SharedContainerSchema {
     /// UserDefaults key for the Safari content blocker list version string.
     public static let safariBlocklistVersion = "gemscan.safariBlocklistVersion"
 }
-
-// MARK: - ScamPhoneEntry
-
-/// A phone number entry in the scam phone reputation database.
-///
-/// Stored in the shared container for use by the CallDirectory extension
-/// and the phone reputation MCP server.
-public struct ScamPhoneEntry: Codable, Sendable {
-    /// SHA-256 hash of the E.164 phone number.
-    public let phoneHash: String
-    /// Risk score in the range [0, 1].
-    public let riskScore: Double
-    /// Identifier of the data source (e.g. "ftc-robocall-db").
-    public let sourceId: String
-    /// Timestamp when this entry was last updated (Unix milliseconds).
-    public let timestampMs: Int64
-
-    public init(
-        phoneHash: String,
-        riskScore: Double,
-        sourceId: String,
-        timestampMs: Int64 = Int64(Date().timeIntervalSince1970 * 1000)
-    ) {
-        self.phoneHash = phoneHash
-        self.riskScore = riskScore
-        self.sourceId = sourceId
-        self.timestampMs = timestampMs
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case phoneHash = "phone_hash"
-        case riskScore = "risk_score"
-        case sourceId = "source_id"
-        case timestampMs = "timestamp_ms"
-    }
-}

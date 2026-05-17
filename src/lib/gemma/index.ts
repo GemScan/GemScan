@@ -14,7 +14,6 @@ export type {
   DeviceStatus,
   PluginListenerHandle,
   ModelVerificationResult,
-  ScreeningMode,
 } from './types'
 
 let instance: GemmaPlugin | null = null

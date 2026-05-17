@@ -1,7 +1,7 @@
 import XCTest
 @testable import GemmaKit
 
-/// Tests all six agent task types through the mock pipeline to ensure
+/// Tests every agent task type through the mock pipeline to ensure
 /// end-to-end routing, processing, and result delivery.
 final class AgentRoundTripTests: XCTestCase {
 
@@ -111,21 +111,6 @@ final class AgentRoundTripTests: XCTestCase {
         XCTAssertEqual(result.verdict, .suspicious)
         let lastTask = await mockRouter.lastTask
         XCTAssertEqual(lastTask?.type, .analyseScreenshot)
-    }
-
-    // MARK: - scoreVoice
-
-    func testScoreVoice() async throws {
-        await mockRouter.setVerdict(.scam, confidence: 0.88)
-
-        let task = AgentTask(
-            type: .scoreVoice,
-            payload: .audio("base64encodedaudio==", durationSeconds: 45.0)
-        )
-
-        let result = try await mockRouter.dispatch(task: task)
-
-        XCTAssertEqual(result.verdict, .scam)
     }
 
     // MARK: - explainVerdict

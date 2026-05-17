@@ -25,7 +25,6 @@ public protocol MessageRouterProtocol: Sendable {
 /// - `classifySMS`, `classifyEmail` -> TextAgent (via Orchestrator)
 /// - `checkURL` -> URLAgent (via Orchestrator)
 /// - `analyseScreenshot` -> ImageAgent (via Orchestrator)
-/// - `scoreVoice` -> VoiceAgent (via Orchestrator)
 /// - `explainVerdict` -> OrchestratorAgent directly
 public actor MessageRouter: MessageRouterProtocol {
 
@@ -103,8 +102,6 @@ public actor MessageRouter: MessageRouterProtocol {
             return AgentID.urlAgent
         case .analyseScreenshot:
             return AgentID.imageAgent
-        case .scoreVoice:
-            return AgentID.voiceAgent
         case .explainVerdict:
             return AgentID.orchestrator
         }

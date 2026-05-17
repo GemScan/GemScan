@@ -3,13 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AgentResult } from './gemma/types'
 
 export interface GemScanStore {
-  screeningMode: 'passive' | 'active' | 'guardian'
   guardianModeEnabled: boolean
   trustedContactId: string | null
   preferredLanguage: string
   recentResults: AgentResult[]
 
-  setScreeningMode: (mode: 'passive' | 'active' | 'guardian') => void
   setGuardianModeEnabled: (enabled: boolean) => void
   setTrustedContactId: (contactId: string | null) => void
   setPreferredLanguage: (language: string) => void
@@ -29,13 +27,10 @@ function getDefaultLanguage(): string {
 export const useGemScanStore = create<GemScanStore>()(
   persist(
     (set) => ({
-      screeningMode: 'active',
       guardianModeEnabled: false,
       trustedContactId: null,
       preferredLanguage: getDefaultLanguage(),
       recentResults: [],
-
-      setScreeningMode: (mode) => set({ screeningMode: mode }),
 
       setGuardianModeEnabled: (enabled) => set({ guardianModeEnabled: enabled }),
 
@@ -54,7 +49,6 @@ export const useGemScanStore = create<GemScanStore>()(
       name: 'gemscan-store',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        screeningMode: state.screeningMode,
         guardianModeEnabled: state.guardianModeEnabled,
         trustedContactId: state.trustedContactId,
         preferredLanguage: state.preferredLanguage,

@@ -27,7 +27,6 @@ const EXPECTED_KEYS = [
   'pastePrompt',
   'recentResults',
   'language',
-  'screeningMode',
   'enableGuardian',
   'trustedContact',
   'guardianDescription',

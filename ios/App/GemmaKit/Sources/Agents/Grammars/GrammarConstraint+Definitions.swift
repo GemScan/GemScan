@@ -71,21 +71,6 @@ extension GrammarConstraint {
         )
     }
 
-    /// Grammar for ``VoiceAgent`` JSON output.
-    ///
-    /// Constrains the model to produce a verdict with `isSynthetic` flag
-    /// and `transcriptSnippet` from Whisper ASR.
-    public static func voiceAgentGrammar() -> GrammarConstraint {
-        GrammarConstraint(
-            name: "voice_agent_verdict",
-            rawGBNF: """
-            root      ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"isSynthetic\"" ws ":" ws boolean ws "," ws "\"transcriptSnippet\"" ws ":" ws string ws "}"
-            boolean   ::= "true" | "false"
-            \(verdictGBNF)
-            """
-        )
-    }
-
 }
 
 // swiftlint:enable line_length

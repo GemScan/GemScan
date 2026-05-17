@@ -22,7 +22,7 @@ final class MCPServerTests: XCTestCase {
         await mockClient.setAccessControl([
             AgentID.textAgent: [
                 "scam_patterns", "sqlite_vec", "contacts",
-                "url_reputation", "phone_reputation", "message_filter"
+                "url_reputation", "message_filter"
             ]
         ])
 
@@ -46,7 +46,7 @@ final class MCPServerTests: XCTestCase {
         await mockClient.setAccessControl([
             AgentID.textAgent: [
                 "scam_patterns", "sqlite_vec", "contacts",
-                "url_reputation", "phone_reputation", "message_filter"
+                "url_reputation", "message_filter"
             ]
         ])
 
@@ -89,7 +89,7 @@ final class MCPServerTests: XCTestCase {
         XCTAssertEqual(result["ageInDays"] as? Int, 30)
     }
 
-    func testImageAgent_DeniedAccessToPhoneReputation() async throws {
+    func testImageAgent_DeniedAccessToWhois() async throws {
         await mockClient.setAccessControl([
             AgentID.imageAgent: ["sqlite_vec", "reverse_image", "url_reputation"]
         ])
@@ -97,9 +97,9 @@ final class MCPServerTests: XCTestCase {
         do {
             _ = try await mockClient.call(
                 agentId: AgentID.imageAgent,
-                server: "phone_reputation",
-                tool: "check",
-                input: ["phone": "+1234567890"]
+                server: "whois",
+                tool: "lookup",
+                input: ["domain": "example.com"]
             )
             XCTFail("Expected access denied error")
         } catch {

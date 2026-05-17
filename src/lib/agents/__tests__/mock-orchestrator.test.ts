@@ -35,11 +35,6 @@ describe('mockOrchestrate', () => {
     expect(result.modelTier).toBe('e2b')
   })
 
-  it('returns a result for scoreVoice', async () => {
-    const result = await mockOrchestrate(makeTask('scoreVoice'))
-    expect(result.agentId).toBe('voice-agent')
-  })
-
   it('returns a result for explainVerdict', async () => {
     const result = await mockOrchestrate(makeTask('explainVerdict'))
     expect(result.agentId).toBe('orchestrator')

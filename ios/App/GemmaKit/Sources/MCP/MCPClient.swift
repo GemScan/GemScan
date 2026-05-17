@@ -47,7 +47,7 @@ public actor MCPClient {
     private let accessControl: [String: Set<String>] = [
         AgentID.textAgent: [
             "scam_patterns", "sqlite_vec", "contacts",
-            "url_reputation", "phone_reputation", "message_filter"
+            "url_reputation", "message_filter"
         ],
         AgentID.urlAgent: [
             "sqlite_vec", "url_reputation", "whois"
@@ -55,12 +55,9 @@ public actor MCPClient {
         AgentID.imageAgent: [
             "sqlite_vec", "reverse_image", "url_reputation"
         ],
-        AgentID.voiceAgent: [
-            "sqlite_vec", "phone_reputation", "contacts"
-        ],
         AgentID.orchestrator: [
             "scam_patterns", "sqlite_vec", "contacts",
-            "url_reputation", "phone_reputation", "message_filter",
+            "url_reputation", "message_filter",
             "whois", "reverse_image", "clipboard_watcher", "screen_time"
         ],
     ]

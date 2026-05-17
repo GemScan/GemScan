@@ -32,6 +32,27 @@ public enum MLXModelRegistry {
             return "mlx-community/gemma-4-e2b-it-4bit"
         }
     }
+
+    /// Returns whether the weights for `tier` are present in the local
+    /// HuggingFace snapshot cache that `#hubDownloader()` populates.
+    ///
+    /// On iOS the cache lives at
+    /// `<sandbox>/Library/Caches/huggingface/hub/<kind>--<ns>--<repo>/`, with
+    /// `refs/main` containing the commit hash and the model files materialised
+    /// under `snapshots/<commit>/`. We probe `config.json` of the snapshot
+    /// `refs/main` points to — every HF model repo has one, and `cachedFilePath`
+    /// only returns a non-nil URL when the snapshot file is actually on disk.
+    public static func isCached(tier: ModelTier) -> Bool {
+        guard let repo = Repo.ID(rawValue: repoID(for: tier)) else {
+            return false
+        }
+        return HubCache.default.cachedFilePath(
+            repo: repo,
+            kind: .model,
+            revision: "main",
+            filename: "config.json"
+        ) != nil
+    }
 }
 
 /// Resolves weights for an MLX tier via the HuggingFace hub, surfacing

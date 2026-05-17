@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import TabBar from '@/components/TabBar'
 import HeroSplash from '@/components/HeroSplash'
 import { getGemmaPlugin } from '@/lib/gemma'
-import { useScreeningModeSync } from '@/hooks/useScreeningModeSync'
 
 const MIN_SPLASH_MS = 1200
 const FADE_OUT_MS = 320
@@ -13,17 +12,19 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const [splashVisible, setSplashVisible] = useState(true)
   const [splashMounted, setSplashMounted] = useState(true)
 
-  // Keep the native plugin's idea of "current screening mode" in sync with the
-  // user's preference whenever it changes. Drives mode-aware unload timers.
-  useScreeningModeSync()
-
   useEffect(() => {
     const startedAt = Date.now()
     let cancelled = false
 
     async function waitForReady() {
       try {
-        await getGemmaPlugin()
+        const plugin = await getGemmaPlugin()
+        // Kick off model warm-load in the background. We don't await it — the
+        // splash should clear as soon as the plugin handle exists, and the
+        // weights can finish loading into RAM while the user looks at the
+        // home screen. Failures here are non-fatal (no download yet, etc.)
+        // and surface via the Settings status pill once polling catches up.
+        void plugin.warmUp().catch(() => {})
       } catch {
         // Even if init fails, fall through so the user sees the UI
       }

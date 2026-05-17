@@ -36,9 +36,6 @@ public actor OrchestratorAgent {
     /// The image analysis specialist agent.
     private var imageAgent: ImageAgent?
 
-    /// The voice analysis specialist agent.
-    private var voiceAgent: VoiceAgent?
-
     /// Logger for orchestrator events.
     private let logger = GemScanLogger.agents
 
@@ -60,7 +57,6 @@ public actor OrchestratorAgent {
         self.textAgent = TextAgent(inferenceEngine: inferenceEngine)
         self.urlAgent = URLAgent(inferenceEngine: inferenceEngine)
         self.imageAgent = ImageAgent(inferenceEngine: inferenceEngine)
-        self.voiceAgent = VoiceAgent(inferenceEngine: inferenceEngine)
 
         logger.info("OrchestratorAgent configured with all specialist agents")
     }
@@ -131,12 +127,6 @@ public actor OrchestratorAgent {
                 throw GemScanError.inferenceError(message: "ImageAgent not available")
             }
             return try await imageAgent.analyse(task: task)
-
-        case .scoreVoice:
-            guard let voiceAgent else {
-                throw GemScanError.inferenceError(message: "VoiceAgent not available")
-            }
-            return try await voiceAgent.analyse(task: task)
 
         case .explainVerdict:
             // For explain-verdict tasks, the orchestrator handles them directly

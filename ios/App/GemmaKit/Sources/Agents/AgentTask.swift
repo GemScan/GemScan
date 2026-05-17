@@ -9,7 +9,6 @@ public enum AgentTaskType: String, Codable, Sendable {
     case classifyEmail     = "classifyEmail"
     case checkURL          = "checkURL"
     case analyseScreenshot = "analyseScreenshot"
-    case scoreVoice        = "scoreVoice"
     case explainVerdict    = "explainVerdict"
 }
 
@@ -34,7 +33,6 @@ public enum AgentPayload: Sendable {
     case text(String, language: String?)
     case url(String)
     case image(String, mimeType: ImageMIMEType)
-    case audio(String, durationSeconds: Double)
     case multimodal(parts: [AgentPayload], priorResult: AgentResult?)
 
     /// The language hint, if this is a text payload.
@@ -54,7 +52,7 @@ public enum AgentPayload: Sendable {
 
 extension AgentPayload: Codable {
     private enum CodingKeys: String, CodingKey {
-        case type, content, url, base64, mimeType, durationSeconds, parts, priorResult, language
+        case type, content, url, base64, mimeType, parts, priorResult, language
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -71,10 +69,6 @@ extension AgentPayload: Codable {
             try container.encode("image", forKey: .type)
             try container.encode(base64, forKey: .base64)
             try container.encode(mimeType, forKey: .mimeType)
-        case let .audio(base64, durationSeconds):
-            try container.encode("audio", forKey: .type)
-            try container.encode(base64, forKey: .base64)
-            try container.encode(durationSeconds, forKey: .durationSeconds)
         case let .multimodal(parts, priorResult):
             try container.encode("multimodal", forKey: .type)
             try container.encode(parts, forKey: .parts)
@@ -97,10 +91,6 @@ extension AgentPayload: Codable {
             let base64 = try container.decode(String.self, forKey: .base64)
             let mimeType = try container.decode(ImageMIMEType.self, forKey: .mimeType)
             self = .image(base64, mimeType: mimeType)
-        case "audio":
-            let base64 = try container.decode(String.self, forKey: .base64)
-            let duration = try container.decode(Double.self, forKey: .durationSeconds)
-            self = .audio(base64, durationSeconds: duration)
         case "multimodal":
             let parts = try container.decode([AgentPayload].self, forKey: .parts)
             let prior = try container.decodeIfPresent(AgentResult.self, forKey: .priorResult)

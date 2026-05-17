@@ -33,16 +33,7 @@ export default function GuardianSetupPage() {
   }
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page">
       <button
         className="text-body"
         onClick={() => router.back()}
@@ -89,7 +80,7 @@ export default function GuardianSetupPage() {
         }}
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="page-scroll" style={{ gap: 0 }}>
         {filtered.map((contact) => (
           <button
             key={contact.id}

@@ -14,6 +14,4 @@ public enum AgentID {
     public static let urlAgent = "url-agent"
     /// Handles screenshot and image analysis via multimodal vision.
     public static let imageAgent = "image-agent"
-    /// Handles voice call deepfake detection and transcription analysis.
-    public static let voiceAgent = "voice-agent"
 }

@@ -6,7 +6,6 @@ import type {
   ModelId,
   ModelVerificationResult,
   PluginListenerHandle,
-  ScreeningMode,
 } from './types'
 import { goldenFixtures } from './__fixtures__/golden'
 import { logger } from '../logger'
@@ -19,10 +18,6 @@ function delay(ms: number): Promise<void> {
 
 function pickFixture(task: AgentTask): AgentResult {
   const payload = task.payload
-
-  if (task.type === 'scoreVoice') {
-    return { ...goldenFixtures['scam-voice-deepfake'], taskId: task.id }
-  }
 
   if (task.type === 'checkURL') {
     if (payload.type === 'url' && /amazon\.com|google\.com|apple\.com/.test(payload.url)) {
@@ -68,35 +63,25 @@ export class GemmaPluginMock implements GemmaPlugin {
   private modelsDownloaded = new Set<ModelId>()
   private modelsLoadedInRAM = new Set<ModelId>()
   private listeners = new Map<ListenerEvent, Set<ListenerHandler>>()
-  private screeningMode: ScreeningMode = 'active'
   private unloadTimer: ReturnType<typeof setTimeout> | null = null
 
-  async setScreeningMode(options: { mode: ScreeningMode }): Promise<void> {
-    logger.info(`setScreeningMode: ${options.mode}`, MODULE)
-    this.screeningMode = options.mode
-    this.rescheduleUnload()
-  }
-
   async recordActivity(): Promise<void> {
-    logger.info(`recordActivity (mode=${this.screeningMode})`, MODULE)
-    if (this.screeningMode === 'active' || this.screeningMode === 'guardian') {
-      this.rescheduleUnload()
-    }
+    logger.info('recordActivity', MODULE)
+    this.rescheduleUnload()
     // Reload models if they were unloaded.
     for (const m of this.modelsDownloaded) {
       this.modelsLoadedInRAM.add(m)
     }
   }
 
-  /// Mock uses compressed timings so devs can validate the flow in seconds:
-  /// passive ⇒ 30s, active/guardian idle ⇒ 60s. Real plugin uses 5min / 15min.
+  /// Mock uses a compressed idle timer (60s) so devs can validate the flow
+  /// in seconds. Real plugin uses 15 min.
   private rescheduleUnload(): void {
     if (this.unloadTimer) clearTimeout(this.unloadTimer)
-    const delaySeconds = this.screeningMode === 'passive' ? 30 : 60
     this.unloadTimer = setTimeout(() => {
-      logger.info(`Mock idle unload (mode=${this.screeningMode})`, MODULE)
+      logger.info('Mock idle unload', MODULE)
       this.modelsLoadedInRAM.clear()
-    }, delaySeconds * 1000)
+    }, 60 * 1000)
   }
 
   async isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }> {
@@ -144,6 +129,15 @@ export class GemmaPluginMock implements GemmaPlugin {
     return { valid: true, sizeBytes: 3_400_000_000 }
   }
 
+  async warmUp(): Promise<void> {
+    logger.info('warmUp() called', MODULE)
+    // Mirror native: only "load" what's actually been downloaded.
+    for (const m of this.modelsDownloaded) {
+      this.modelsLoadedInRAM.add(m)
+    }
+    this.rescheduleUnload()
+  }
+
   async analyse(task: AgentTask): Promise<AgentResult> {
     logger.info('analyse() called', MODULE, { taskId: task.id, type: task.type })
 
@@ -167,6 +161,18 @@ export class GemmaPluginMock implements GemmaPlugin {
     }
   }
 
+  async generateHaiku(): Promise<{ haiku: string }> {
+    logger.info('generateHaiku() called', MODULE)
+    await delay(450)
+    const haikus = [
+      'Tiny glowing screen\nThumbs scroll past a thousand lives\nBattery weeps red',
+      'Phone says low power\nCharger lives in the next room\nDoom-scroll a bit more',
+      'Notifications buzz\nIgnoring my friends is hard\nThe cat memes win out',
+      'Five percent battery\nAirport WiFi will not load\nDestiny: a book',
+    ]
+    return { haiku: haikus[Math.floor(Math.random() * haikus.length)] }
+  }
+
   /** Simulate a guardian mode state change (for testing and UI development). */
   emitGuardianModeChanged(enabled: boolean, changedBy: 'self' | 'trustedContact' = 'self'): void {
     logger.info(`guardianModeChanged: enabled=${String(enabled)}`, MODULE)
@@ -180,7 +186,6 @@ export class GemmaPluginMock implements GemmaPlugin {
       e2bLoaded: this.modelsLoadedInRAM.has('e2b'),
       thermalState: 'nominal',
       batteryLevel: 0.85,
-      screeningMode: 'active',
     }
   }
 

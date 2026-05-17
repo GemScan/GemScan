@@ -26,7 +26,6 @@ const strings: Record<Locale, Record<string, string>> = {
     pastePrompt: 'Paste a message, URL, or email to check...',
     recentResults: 'Recent Results',
     language: 'Language',
-    screeningMode: 'Screening Mode',
     enableGuardian: 'Enable Guardian Mode',
     trustedContact: 'Trusted Contact',
     guardianDescription: 'Guardian Mode lets a trusted contact monitor scam alerts on your behalf.',
@@ -63,7 +62,6 @@ const strings: Record<Locale, Record<string, string>> = {
     pastePrompt: 'जांचने के लिए संदेश, URL या ईमेल पेस्ट करें...',
     recentResults: 'हाल के परिणाम',
     language: 'भाषा',
-    screeningMode: 'स्क्रीनिंग मोड',
     enableGuardian: 'गार्जियन मोड सक्षम करें',
     trustedContact: 'विश्वसनीय संपर्क',
     guardianDescription:
@@ -100,7 +98,6 @@ const strings: Record<Locale, Record<string, string>> = {
     pastePrompt: 'メッセージ、URL、またはメールを貼り付けてください...',
     recentResults: '最近の結果',
     language: '言語',
-    screeningMode: 'スクリーニングモード',
     enableGuardian: 'ガーディアンモードを有効にする',
     trustedContact: '信頼できる連絡先',
     guardianDescription:
@@ -137,7 +134,6 @@ const strings: Record<Locale, Record<string, string>> = {
     pastePrompt: 'Pega un mensaje, URL o correo para revisar...',
     recentResults: 'Resultados recientes',
     language: 'Idioma',
-    screeningMode: 'Modo de deteccion',
     enableGuardian: 'Activar Modo Guardian',
     trustedContact: 'Contacto de confianza',
     guardianDescription:
@@ -174,7 +170,6 @@ const strings: Record<Locale, Record<string, string>> = {
     pastePrompt: '粘贴消息、URL 或电子邮件进行检查...',
     recentResults: '最近结果',
     language: '语言',
-    screeningMode: '筛查模式',
     enableGuardian: '启用守护模式',
     trustedContact: '信任联系人',
     guardianDescription: '守护模式让信任的联系人代您监控诈骗警报。',

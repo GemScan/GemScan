@@ -15,7 +15,7 @@ export default function GuardianInvitePage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-12">
+    <main className="page" style={{ alignItems: 'center', justifyContent: 'center' }}>
       <h1 className="text-2xl font-bold mb-4">Guardian Invite</h1>
 
       {!inviteToken && !accepted && (

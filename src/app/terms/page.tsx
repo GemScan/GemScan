@@ -6,16 +6,7 @@ export default function TermsPage() {
   const router = useRouter()
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-element)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page" style={{ gap: 'var(--gap-element)' }}>
       <button
         className="text-body"
         onClick={() => router.back()}
@@ -37,6 +28,7 @@ export default function TermsPage() {
         Terms &amp; Conditions
       </h1>
 
+      <div className="page-scroll" style={{ gap: 'var(--gap-element)' }}>
       <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
         Effective date: 2026-04-25 · Version 1.0
       </span>
@@ -117,6 +109,7 @@ export default function TermsPage() {
         reach out via the contact channel listed in the app&rsquo;s store
         listing.
       </Section>
+      </div>
     </main>
   )
 }

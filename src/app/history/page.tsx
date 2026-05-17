@@ -8,23 +8,17 @@ export default function HistoryPage() {
   const clearResults = useGemScanStore((s) => s.clearResults)
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page">
       <h1 className="text-title" style={{ color: 'var(--text)' }}>
         History
       </h1>
 
       {recentResults.length > 0 ? (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div
+            className="page-scroll"
+            style={{ gap: 0 }}
+          >
             {recentResults.map((result) => (
               <ResultRow
                 key={result.taskId}

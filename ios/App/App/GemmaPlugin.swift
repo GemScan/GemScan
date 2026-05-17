@@ -26,18 +26,11 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "downloadModels", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "verifyModel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "analyse", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "warmUp", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDeviceStatus", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setScreeningMode", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "recordActivity", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "generateHaiku", returnType: CAPPluginReturnPromise),
     ]
-
-    // MARK: - Screening modes
-
-    public enum ScreeningMode: String, Sendable {
-        case passive
-        case active
-        case guardianMode = "guardian"
-    }
 
     // MARK: - Components
 
@@ -53,29 +46,17 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     private var inferenceEngine: InferenceEngine?
     private var setupTask: Task<Void, Error>?
 
-    // MARK: - Mode-aware unload lifecycle
+    // MARK: - Idle unload lifecycle
 
-    /// Passive mode: unload models 5 minutes after the app backgrounds.
-    /// Foreground time doesn't count — the timer only runs while backgrounded.
-    private let passiveBackgroundUnloadSeconds: TimeInterval = 5 * 60
-
-    /// Active / Guardian mode: unload models when no activity has been recorded
-    /// for 15 minutes, regardless of foreground/background state. Activity
-    /// includes incoming notifications from connected extensions, foreground
-    /// returns, and any `analyse()` call. Models are reloaded on next activity.
+    /// Unload models when no activity has been recorded for 15 minutes,
+    /// regardless of foreground/background state. Activity includes incoming
+    /// notifications from connected extensions, foreground returns, and any
+    /// `analyse()` call. Models are reloaded on next activity.
     private let activeIdleUnloadSeconds: TimeInterval = 15 * 60
 
-    /// Current screening mode. Mirrors the JS-side store; updated via
-    /// ``setScreeningMode(_:)``.
-    private var currentScreeningMode: ScreeningMode = .active
-
-    /// Pending unload task. Cancelled and re-scheduled on every state/activity
-    /// change so only the most recent intent is in flight.
+    /// Pending unload task. Cancelled and re-scheduled on every activity event
+    /// so only the most recent intent is in flight.
     private var pendingUnloadTask: Task<Void, Never>?
-
-    /// Background-task handle that keeps iOS from suspending the process
-    /// before the unload timer fires (passive mode only).
-    private var unloadBackgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
     /// Lifecycle observer tokens. Removed on plugin deinit.
     private var lifecycleObservers: [NSObjectProtocol] = []
@@ -98,27 +79,18 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// One-time bootstrap of MCP servers + CallKit. Idempotent.
+    /// One-time bootstrap of MCP servers. Idempotent.
     private func bootstrap() async {
         let client = MCPClient()
         await Self.registerMCPServers(with: client)
         self.mcpClient = client
-        Self.configureCallKit()
         logger.info("GemmaPlugin bootstrap complete")
     }
 
-    /// Sets up `UIApplication` lifecycle notifications so passive-mode and
-    /// active/guardian-mode unload behaviour can be driven from app state.
+    /// Sets up `UIApplication` lifecycle notifications so the idle-unload
+    /// timer can be reset on foreground and cancelled on terminate.
     private func registerLifecycleObservers() {
         let center = NotificationCenter.default
-
-        let didEnterBackground = center.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.handleDidEnterBackground()
-        }
 
         let willEnterForeground = center.addObserver(
             forName: UIApplication.willEnterForegroundNotification,
@@ -133,105 +105,41 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            // OS will reclaim memory anyway; cancel the timer so we don't leak
-            // the background-task handle.
             self?.cancelPendingUnload(reason: "terminating")
         }
 
-        lifecycleObservers = [didEnterBackground, willEnterForeground, willTerminate]
+        lifecycleObservers = [willEnterForeground, willTerminate]
     }
 
     // MARK: Lifecycle handlers
 
     @MainActor
-    private func handleDidEnterBackground() {
-        switch currentScreeningMode {
-        case .passive:
-            // Passive: 5-minute timer that only runs while backgrounded.
-            scheduleBackgroundUnload(delaySeconds: passiveBackgroundUnloadSeconds)
-        case .active, .guardianMode:
-            // Active/Guardian: idle timer continues from wherever it was; no
-            // separate background-only timer. The same Task that started on
-            // last activity will keep counting down even while we're backgrounded.
-            break
-        }
-    }
-
-    @MainActor
     private func handleWillEnterForeground() {
-        // Foreground return is itself an activity — reset the active-mode
-        // idle timer, and tear down any passive-mode background timer.
+        // Foreground return is itself an activity — reset the idle timer.
         cancelPendingUnload(reason: "foreground")
-        switch currentScreeningMode {
-        case .passive:
-            break
-        case .active, .guardianMode:
-            scheduleIdleUnload(delaySeconds: activeIdleUnloadSeconds)
-        }
+        scheduleIdleUnload(delaySeconds: activeIdleUnloadSeconds)
 
         // If models were unloaded during background and we're now back, warm
         // E2B back up so the home screen feels responsive.
         Task { [weak self] in await self?.reloadIfUnloaded() }
     }
 
-    // MARK: Mode + activity entry points
-
-    /// Updates the current screening mode and adjusts the unload timer.
-    public func updateScreeningMode(_ mode: ScreeningMode) {
-        let previous = currentScreeningMode
-        currentScreeningMode = mode
-        logger.info("Screening mode: \(previous.rawValue) → \(mode.rawValue)")
-
-        Task { @MainActor [weak self] in
-            guard let self = self else { return }
-            self.cancelPendingUnload(reason: "mode change")
-
-            let appState = UIApplication.shared.applicationState
-            switch mode {
-            case .passive where appState == .background:
-                self.scheduleBackgroundUnload(delaySeconds: self.passiveBackgroundUnloadSeconds)
-            case .passive:
-                break // foreground passive: nothing to schedule until backgrounded
-            case .active, .guardianMode:
-                self.scheduleIdleUnload(delaySeconds: self.activeIdleUnloadSeconds)
-            }
-        }
-    }
+    // MARK: Activity entry point
 
     /// Records an activity event (incoming SMS analysed by the filter
     /// extension, share-sheet invocation, foreground return, JS analyse call,
-    /// etc.). In active/guardian mode this resets the 15-minute idle timer
-    /// and reloads models if they were unloaded.
+    /// etc.). Resets the 15-minute idle timer and reloads models if they were
+    /// unloaded.
     public func recordActivityNow() {
         Task { @MainActor [weak self] in
             guard let self = self else { return }
-            switch self.currentScreeningMode {
-            case .passive:
-                // Activity doesn't extend the passive timer — but if the
-                // extension woke the host app, we want to make sure models
-                // are warm for the imminent analysis.
-                Task { [weak self] in await self?.reloadIfUnloaded() }
-            case .active, .guardianMode:
-                self.cancelPendingUnload(reason: "activity")
-                self.scheduleIdleUnload(delaySeconds: self.activeIdleUnloadSeconds)
-                Task { [weak self] in await self?.reloadIfUnloaded() }
-            }
+            self.cancelPendingUnload(reason: "activity")
+            self.scheduleIdleUnload(delaySeconds: self.activeIdleUnloadSeconds)
+            Task { [weak self] in await self?.reloadIfUnloaded() }
         }
     }
 
     // MARK: Timer scheduling
-
-    @MainActor
-    private func scheduleBackgroundUnload(delaySeconds: TimeInterval) {
-        pendingUnloadTask?.cancel()
-        unloadBackgroundTaskID = UIApplication.shared.beginBackgroundTask(
-            withName: "GemScanPassiveUnload"
-        ) { [weak self] in
-            Task { @MainActor in self?.endBackgroundTask() }
-        }
-        pendingUnloadTask = makeUnloadTask(delaySeconds: delaySeconds, label: "passive-bg")
-        logger.info("Passive: model unload scheduled in \(Int(delaySeconds))s")
-    }
 
     @MainActor
     private func scheduleIdleUnload(delaySeconds: TimeInterval) {
@@ -259,14 +167,6 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         pendingUnloadTask?.cancel()
         pendingUnloadTask = nil
-        endBackgroundTask()
-    }
-
-    @MainActor
-    private func endBackgroundTask() {
-        guard unloadBackgroundTaskID != .invalid else { return }
-        UIApplication.shared.endBackgroundTask(unloadBackgroundTaskID)
-        unloadBackgroundTaskID = .invalid
     }
 
     // MARK: Unload + reload
@@ -278,7 +178,6 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         } else {
             logger.info("Unload tick (\(reason)) — no engine resident")
         }
-        await MainActor.run { self.endBackgroundTask() }
     }
 
     private func reloadIfUnloaded() async {
@@ -304,21 +203,12 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// Returns whether the MLX weights for a tier are sitting in the app's
-    /// Caches directory. swift-transformers HubApi writes downloaded files
-    /// atomically and emits a `<file>.metadata` sidecar per file under
-    /// `<sandbox>/Library/Caches/models/<repo-id>/.cache/huggingface/download/`.
-    /// Presence of `config.json` is a quick proxy for "download succeeded".
+    /// Returns whether the MLX weights for a tier are present in the local
+    /// HuggingFace snapshot cache that `#hubDownloader()` writes into.
+    /// Delegates to ``MLXModelRegistry/isCached(tier:)`` so the cache-layout
+    /// knowledge lives next to the repo-ID registry.
     private static func isModelCached(tier: ModelTier) -> Bool {
-        guard let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
-            return false
-        }
-        let repoId = MLXModelRegistry.repoID(for: tier)
-        let configFile = cachesURL
-            .appendingPathComponent("models")
-            .appendingPathComponent(repoId)
-            .appendingPathComponent("config.json")
-        return FileManager.default.fileExists(atPath: configFile.path)
+        return MLXModelRegistry.isCached(tier: tier)
     }
 
     // MARK: - downloadModels
@@ -387,13 +277,17 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         Task {
-            _ = tier
             // swift-transformers HubApi validates downloads via the HF
-            // backend's eTag and refuses to load partial/corrupt files,
-            // so the JS-side verification step is a no-op for the MLX tier.
+            // backend's eTag and refuses to load partial/corrupt files, so
+            // "verification" on iOS is just confirming the snapshot is on
+            // disk where the loader will look for it. Without this check,
+            // a Settings-side "Verified" can drift out of sync with what
+            // analyse() finds in the cache.
+            let cached = Self.isModelCached(tier: tier)
             call.resolve([
-                "valid": true,
+                "valid": cached,
                 "sizeBytes": -1,
+                "reason": cached ? "" : "Not downloaded",
             ])
         }
     }
@@ -448,6 +342,38 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // MARK: - warmUp
+
+    /// Eagerly bootstraps the InferenceEngine and loads E2B weights into RAM
+    /// without dispatching any task. Intended to be called once after app
+    /// launch so the Settings pill flips to "Active" and the first analyse()
+    /// call doesn't pay the model-load cost.
+    ///
+    /// No-op if the model bytes aren't on disk yet — best-effort warm-up
+    /// shouldn't fail the call site, which would otherwise have to special-case
+    /// the "not downloaded yet" path.
+    @objc func warmUp(_ call: CAPPluginCall) {
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            guard Self.isModelCached(tier: .e2b) else {
+                self.logger.info("warmUp skipped — E2B weights not on disk yet")
+                call.resolve()
+                return
+            }
+
+            do {
+                _ = try await self.ensureOrchestratorReady()
+                self.recordActivityNow()
+                call.resolve()
+            } catch {
+                let detail = String(describing: error)
+                self.logger.error("warmUp failed: \(detail)")
+                call.reject(detail, "WARMUP_FAILED", error)
+            }
+        }
+    }
+
     /// Lazily creates the InferenceEngine + warms E2B + configures the
     /// OrchestratorAgent. Idempotent: concurrent callers share the same
     /// in-flight setup task.
@@ -484,16 +410,41 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         return OrchestratorAgent.shared
     }
 
-    // MARK: - setScreeningMode
+    // MARK: - generateHaiku
 
-    @objc func setScreeningMode(_ call: CAPPluginCall) {
-        guard let modeStr = call.getString("mode"),
-              let mode = ScreeningMode(rawValue: modeStr) else {
-            call.reject("Invalid 'mode' (expected: passive, active, or guardian)")
-            return
+    @objc func generateHaiku(_ call: CAPPluginCall) {
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            guard Self.isModelCached(tier: .e2b) else {
+                call.reject("Model e2b is not downloaded", "MODELS_NOT_READY")
+                return
+            }
+
+            do {
+                _ = try await self.ensureOrchestratorReady()
+                self.recordActivityNow()
+                guard let engine = self.inferenceEngine else {
+                    call.reject("Inference engine unavailable", "ENGINE_UNAVAILABLE")
+                    return
+                }
+                let prompt = """
+                Write one short, funny haiku (5 lines, 5-7-5 syllables) about \
+                vibe coding additions. Output only the haiku — no title, \
+                no commentary, no quotes.
+                """
+                let haiku = try await engine.generate(
+                    task: prompt,
+                    modelTier: .e2b,
+                    grammar: nil
+                )
+                call.resolve(["haiku": haiku.trimmingCharacters(in: .whitespacesAndNewlines)])
+            } catch {
+                let detail = String(describing: error)
+                self.logger.error("generateHaiku failed: \(detail)")
+                call.reject(detail, "HAIKU_FAILED", error)
+            }
         }
-        updateScreeningMode(mode)
-        call.resolve()
     }
 
     // MARK: - recordActivity
@@ -530,7 +481,6 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
                 "e2bLoaded": e2bLoaded,
                 "thermalState": thermal,
                 "batteryLevel": battery,
-                "screeningMode": "active",
             ])
         }
     }

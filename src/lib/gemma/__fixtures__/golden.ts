@@ -30,27 +30,6 @@ export const goldenFixtures: Record<string, AgentResult> = {
     reasoning: ['Sender matches known contact.', 'Message content is routine.'],
   }),
 
-  'scam-voice-deepfake': makeResult({
-    taskId: 'golden-scam-voice-deepfake',
-    verdict: 'scam',
-    confidence: 0.94,
-    reasoning: [
-      'Voice pattern inconsistent with claimed identity.',
-      'Spectral analysis detects synthesis artefacts.',
-      'Urgency and ransom demand detected.',
-    ],
-    latencyMs: 680,
-    toolCallsLog: [
-      {
-        serverName: 'voice-mcp',
-        toolName: 'analyseVoicePrint',
-        inputSummary: 'audio clip 4.2s',
-        durationMs: 320,
-        success: true,
-      },
-    ],
-  }),
-
   'scam-sms-bank': makeResult({
     taskId: 'golden-scam-sms-bank',
     verdict: 'scam',

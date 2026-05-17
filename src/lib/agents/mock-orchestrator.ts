@@ -1,5 +1,5 @@
 /**
- * Mock orchestrator for the six-agent pipeline.
+ * Mock orchestrator for the agent pipeline.
  *
  * Routes tasks to golden fixture responses by task type, simulating
  * the on-device agent pipeline for development and testing.
@@ -134,37 +134,6 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       },
     ],
     latencyMs: 2100,
-    modelTier: 'e2b',
-    lowConfidenceFallback: false,
-  },
-
-  scoreVoice: {
-    taskId: '',
-    agentId: 'voice-agent',
-    verdict: 'suspicious' as ScamVerdict,
-    confidence: 0.74,
-    reasoning: [
-      'Audio has a moderate probability of being AI-generated.',
-      'Transcript contains pressure tactics about gift card payments.',
-    ],
-    language: 'en',
-    toolCallsLog: [
-      {
-        serverName: 'phone_reputation',
-        toolName: 'check_number',
-        inputSummary: 'Caller ID hash',
-        durationMs: 25,
-        success: true,
-      },
-      {
-        serverName: 'sqlite_vec',
-        toolName: 'similarity_search',
-        inputSummary: 'Transcript embedding',
-        durationMs: 10,
-        success: true,
-      },
-    ],
-    latencyMs: 1800,
     modelTier: 'e2b',
     lowConfidenceFallback: false,
   },

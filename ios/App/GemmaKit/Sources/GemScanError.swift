@@ -15,8 +15,6 @@ public enum GemScanError: Error, CustomStringConvertible, Sendable {
     case grammarViolation(raw: String)
     /// An MCP tool call failed.
     case mcpToolFailed(server: String, tool: String, underlying: Error)
-    /// Audio ingestion is not available.
-    case audioIngestionUnavailable(reason: String)
     /// The device thermal state is too high to safely run inference.
     case thermalThrottled
     /// Resident memory exceeds the safe limit for loading or running a model.
@@ -29,8 +27,6 @@ public enum GemScanError: Error, CustomStringConvertible, Sendable {
     case generationTimeout(seconds: TimeInterval)
     /// Tokenization of the input text failed.
     case tokenizationFailed
-    /// Audio decoding or conversion failed.
-    case audioDecodingFailed(reason: String)
     /// Model checksum verification failed after download.
     case checksumMismatch
     /// A generic inference error with a freeform message.
@@ -49,8 +45,6 @@ public enum GemScanError: Error, CustomStringConvertible, Sendable {
             return "Grammar violation: \(truncated)"
         case let .mcpToolFailed(server, tool, _):
             return "MCP tool '\(tool)' on server '\(server)' failed."
-        case let .audioIngestionUnavailable(reason):
-            return "Audio ingestion unavailable: \(reason)"
         case .thermalThrottled:
             return "Device is thermally throttled."
         case let .memoryPressure(current, limit):
@@ -63,8 +57,6 @@ public enum GemScanError: Error, CustomStringConvertible, Sendable {
             return "Generation timed out after \(Int(seconds)) seconds."
         case .tokenizationFailed:
             return "Failed to tokenize input text."
-        case let .audioDecodingFailed(reason):
-            return "Audio decoding failed: \(reason)"
         case .checksumMismatch:
             return "Downloaded model checksum does not match expected value."
         case let .inferenceError(message):

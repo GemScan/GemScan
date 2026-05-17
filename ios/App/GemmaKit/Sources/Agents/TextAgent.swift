@@ -9,7 +9,7 @@ import os
 /// path now.
 ///
 /// MCP tools used: `scam_patterns`, `sqlite_vec`, `contacts`, `url_reputation`,
-/// `phone_reputation`, `message_filter`.
+/// `message_filter`.
 public actor TextAgent {
 
     // MARK: - Properties
@@ -124,7 +124,7 @@ public actor TextAgent {
     ) async -> String {
         // TODO: Integrate with MCP client to call real tools.
         // For now, return placeholder context indicating tool calls would happen.
-        let tools = ["scam_patterns", "sqlite_vec", "contacts", "url_reputation", "phone_reputation", "message_filter"]
+        let tools = ["scam_patterns", "sqlite_vec", "contacts", "url_reputation", "message_filter"]
         logger.info("TextAgent would call MCP tools: \(tools.joined(separator: ", "))")
 
         return "MCP tool integration pending. Analysing content directly."

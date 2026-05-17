@@ -84,7 +84,6 @@ export default function DebugOverlay() {
           <p>Thermal State: {status.thermalState}</p>
           <p>Battery: {Math.round(status.batteryLevel * 100)}%</p>
           <p>E2B Loaded: {status.e2bLoaded ? 'Yes' : 'No'}</p>
-          <p>Screening Mode: {status.screeningMode}</p>
         </div>
       )}
     </>

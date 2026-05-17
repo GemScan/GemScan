@@ -31,16 +31,7 @@ export default function OnboardingPage() {
   const inProgress = isDownloading || (downloadStarted && !downloadComplete)
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page page--no-tabbar">
       <h1 className="text-title" style={{ color: 'var(--text)' }}>
         Welcome to GemScan
       </h1>

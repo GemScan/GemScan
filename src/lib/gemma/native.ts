@@ -8,7 +8,6 @@ import type {
   ModelId,
   ModelVerificationResult,
   PluginListenerHandle,
-  ScreeningMode,
 } from './types'
 
 /// Capacitor's `registerPlugin` returns a proxy that forwards to the native
@@ -21,9 +20,10 @@ const NativeBridge = registerPlugin<{
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
   verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult>
   analyse(options: { task: AgentTask }): Promise<AgentResult>
+  warmUp(): Promise<void>
   getDeviceStatus(): Promise<DeviceStatus>
-  setScreeningMode(options: { mode: ScreeningMode }): Promise<void>
   recordActivity(): Promise<void>
+  generateHaiku(): Promise<{ haiku: string }>
   addListener(event: string, handler: (data: any) => void): Promise<PluginListenerHandle>
 }>('GemmaPlugin')
 
@@ -44,16 +44,20 @@ export class GemmaPluginNative implements GemmaPlugin {
     return NativeBridge.analyse({ task })
   }
 
+  async warmUp(): Promise<void> {
+    return NativeBridge.warmUp()
+  }
+
   async getDeviceStatus(): Promise<DeviceStatus> {
     return NativeBridge.getDeviceStatus()
   }
 
-  async setScreeningMode(options: { mode: ScreeningMode }): Promise<void> {
-    return NativeBridge.setScreeningMode(options)
-  }
-
   async recordActivity(): Promise<void> {
     return NativeBridge.recordActivity()
+  }
+
+  async generateHaiku(): Promise<{ haiku: string }> {
+    return NativeBridge.generateHaiku()
   }
 
   async addListener(

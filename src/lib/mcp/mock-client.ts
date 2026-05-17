@@ -1,7 +1,7 @@
 /**
  * Web mock MCP client for GemScan.
  *
- * Simulates all 10 MCP server tools with deterministic responses
+ * Simulates the MCP server tools with deterministic responses
  * for use in the web/Capacitor layer during development and testing.
  */
 
@@ -118,20 +118,6 @@ const handlers: Record<string, Record<string, MockHandler>> = {
       const base64Image = (input.base64_image as string) ?? ''
       const hash = base64Image.length.toString(16).padStart(16, '0')
       return { phash: hash }
-    },
-  },
-
-  phone_reputation: {
-    check: (input) => {
-      const excerpt = (input.transcript_excerpt as string) ?? ''
-      // Detect phone-like patterns
-      const phoneRegex = /\+?\d[\d\s\-()]{7,}/g
-      const matches = excerpt.match(phoneRegex) ?? []
-      return {
-        found_numbers: matches.length,
-        max_risk_score: matches.length > 0 ? 0.75 : 0,
-        report_count: matches.length * 42,
-      }
     },
   },
 

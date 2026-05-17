@@ -5,14 +5,12 @@ export type AgentTaskType =
   | 'classifyEmail'
   | 'checkURL'
   | 'analyseScreenshot'
-  | 'scoreVoice'
   | 'explainVerdict'
 
 export type AgentPayload =
   | { type: 'text'; content: string; language?: string }
   | { type: 'url'; url: string }
   | { type: 'image'; base64: string; mimeType: 'image/jpeg' | 'image/png' }
-  | { type: 'audio'; base64: string; durationSeconds: number }
   | { type: 'multimodal'; parts: AgentPayload[] }
 
 export interface AgentTask {
@@ -60,7 +58,6 @@ export interface DeviceStatus {
   e2bLoaded: boolean
   thermalState: 'nominal' | 'fair' | 'serious' | 'critical'
   batteryLevel: number
-  screeningMode: 'passive' | 'active' | 'guardian'
 }
 
 export interface PluginListenerHandle {
@@ -73,16 +70,15 @@ export interface ModelVerificationResult {
   sizeBytes: number
 }
 
-export type ScreeningMode = 'passive' | 'active' | 'guardian'
-
 export interface GemmaPlugin {
   isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }>
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
   verifyModel(options: { modelId: ModelId }): Promise<ModelVerificationResult>
   analyse(task: AgentTask): Promise<AgentResult>
+  warmUp(): Promise<void>
   getDeviceStatus(): Promise<DeviceStatus>
-  setScreeningMode(options: { mode: ScreeningMode }): Promise<void>
   recordActivity(): Promise<void>
+  generateHaiku(): Promise<{ haiku: string }>
   addListener(
     event: 'tokenStream',
     handler: (data: { taskId: string; token: string; done: boolean }) => void

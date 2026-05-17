@@ -110,14 +110,6 @@ describe('mockMCPCall', () => {
     expect(typeof result.phash).toBe('string')
   })
 
-  it('phone_reputation/check returns phone data', async () => {
-    const result = await mockMCPCall('phone_reputation', 'check', {
-      transcript_excerpt: 'Call me at 555-123-4567 now!',
-    })
-    expect(result.found_numbers).toBe(1)
-    expect((result.max_risk_score as number) > 0).toBe(true)
-  })
-
   it('message_filter/check_sender_history returns history', async () => {
     const result = await mockMCPCall('message_filter', 'check_sender_history', {
       sender_hash: 'b12345',

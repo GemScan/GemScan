@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getGemmaPlugin } from '@/lib/gemma'
 import { makeConservativeResult } from '@/lib/gemma/error-handler'
@@ -37,37 +37,59 @@ export default function AnalysePage() {
 
   const { tokens, isStreaming, isDone } = useTokenStream(taskId)
 
-  const handleSubmit = useCallback(async () => {
-    if (!input.trim() || isAnalysing) return
+  const isAnalysingRef = useRef(false)
 
-    const id = `task-${Date.now()}`
-    setTaskId(id)
-    setResult(null)
-    setIsAnalysing(true)
+  const runAnalysis = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isAnalysingRef.current) return
 
-    try {
-      const plugin = await getGemmaPlugin()
-      const taskType = detectTaskType(input)
-      const task: AgentTask = {
-        id,
-        type: taskType,
-        payload: buildPayload(input, taskType),
-        priority: 'realtime',
-        createdAt: Date.now(),
-        timeoutMs: 10000,
+      const id = `task-${Date.now()}`
+      setTaskId(id)
+      setResult(null)
+      setIsAnalysing(true)
+      isAnalysingRef.current = true
+
+      try {
+        const plugin = await getGemmaPlugin()
+        const taskType = detectTaskType(text)
+        const task: AgentTask = {
+          id,
+          type: taskType,
+          payload: buildPayload(text, taskType),
+          priority: 'realtime',
+          createdAt: Date.now(),
+          timeoutMs: 10000,
+        }
+
+        const analysisResult = await plugin.analyse(task)
+        setResult(analysisResult)
+        addResult(analysisResult)
+      } catch (err) {
+        const fallback = makeConservativeResult(id, err)
+        setResult(fallback)
+        addResult(fallback)
+      } finally {
+        setIsAnalysing(false)
+        isAnalysingRef.current = false
       }
+    },
+    [addResult]
+  )
 
-      const analysisResult = await plugin.analyse(task)
-      setResult(analysisResult)
-      addResult(analysisResult)
-    } catch (err) {
-      const fallback = makeConservativeResult(id, err)
-      setResult(fallback)
-      addResult(fallback)
-    } finally {
-      setIsAnalysing(false)
-    }
-  }, [input, isAnalysing, addResult])
+  const handleSubmit = useCallback(() => {
+    void runAnalysis(input)
+  }, [input, runAnalysis])
+
+  // Bootstrap from ?q=... when navigating in from the home screen.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search).get('q')
+    if (!q || !q.trim()) return
+    setInput(q)
+    void runAnalysis(q)
+    // Run once on mount; runAnalysis is stable across re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleDismiss = useCallback(() => {
     router.push('/')
@@ -82,16 +104,7 @@ export default function AnalysePage() {
   }, [trustedContactId, result])
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page">
       <textarea
         className="text-body"
         value={input}
@@ -101,6 +114,7 @@ export default function AnalysePage() {
         aria-label="Content to check"
         style={{
           height: 'var(--height-input)',
+          flex: '0 0 auto',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-input)',
           padding: 16,
@@ -115,9 +129,12 @@ export default function AnalysePage() {
         {isAnalysing ? 'Analysing...' : 'Check this'}
       </button>
 
-      {(isStreaming || (tokens && !isDone)) && <StreamingText tokens={tokens} isDone={isDone} />}
-
-      {result && <VerdictCard result={result} onShare={handleShare} onDismiss={handleDismiss} />}
+      {((isStreaming || (tokens && !isDone)) || result) && (
+        <div className="page-scroll">
+          {(isStreaming || (tokens && !isDone)) && <StreamingText tokens={tokens} isDone={isDone} />}
+          {result && <VerdictCard result={result} onShare={handleShare} onDismiss={handleDismiss} />}
+        </div>
+      )}
     </main>
   )
 }

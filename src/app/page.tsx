@@ -10,20 +10,15 @@ export default function HomePage() {
 
   const handleSubmit = () => {
     if (!input.trim()) return
-    router.push('/analyse')
+    router.push(`/analyse?q=${encodeURIComponent(input)}`)
   }
 
   return (
     <main
+      className="page"
       style={{
-        display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100dvh',
         paddingTop: 32,
-        paddingBottom: 110,
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -32,10 +27,16 @@ export default function HomePage() {
         alt="GemScan logo"
         width={200}
         height={200}
-        style={{ borderRadius: 16, marginTop: 8, marginBottom: 8 }}
+        style={{
+          borderRadius: 16,
+          width: 'min(200px, 40vh)',
+          height: 'auto',
+          flex: '0 1 auto',
+          minHeight: 0,
+        }}
       />
 
-      <p className="text-heading" style={{ color: 'var(--text)', textAlign: 'center', marginTop: 8 }}>
+      <p className="text-heading" style={{ color: 'var(--text)', textAlign: 'center' }}>
         What would you like me to check?
       </p>
 

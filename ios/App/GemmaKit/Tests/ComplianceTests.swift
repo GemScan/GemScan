@@ -129,16 +129,13 @@ final class ComplianceTests: XCTestCase {
         let expectedAccess: [String: Set<String>] = [
             AgentID.textAgent: [
                 "scam_patterns", "sqlite_vec", "contacts",
-                "url_reputation", "phone_reputation", "message_filter"
+                "url_reputation", "message_filter"
             ],
             AgentID.urlAgent: [
                 "sqlite_vec", "url_reputation", "whois"
             ],
             AgentID.imageAgent: [
                 "sqlite_vec", "reverse_image", "url_reputation"
-            ],
-            AgentID.voiceAgent: [
-                "sqlite_vec", "phone_reputation", "contacts"
             ],
         ]
 

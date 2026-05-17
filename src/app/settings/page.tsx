@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGemScanStore } from '@/lib/store'
 import { useLocale as useLocaleHook } from '@/hooks/useLocale'
+import { useDeviceStatus } from '@/hooks/useDeviceStatus'
+import { getGemmaPlugin } from '@/lib/gemma'
 import ModelDownloadSection from '@/components/ModelDownloadSection'
 
 const languages = [
@@ -13,15 +16,8 @@ const languages = [
   { code: 'ja', label: 'Japanese' },
 ]
 
-const screeningOptions = [
-  { value: 'passive', label: 'Passive' },
-  { value: 'active', label: 'Active' },
-] as const
-
 export default function SettingsPage() {
   const router = useRouter()
-  const screeningMode = useGemScanStore((s) => s.screeningMode)
-  const setScreeningMode = useGemScanStore((s) => s.setScreeningMode)
   const guardianModeEnabled = useGemScanStore((s) => s.guardianModeEnabled)
   const setGuardianModeEnabled = useGemScanStore((s) => s.setGuardianModeEnabled)
   const trustedContactId = useGemScanStore((s) => s.trustedContactId)
@@ -34,13 +30,6 @@ export default function SettingsPage() {
     const next = languages[(idx + 1) % languages.length]
     setLocale(next.code)
   }
-
-  // Map UI segmented control to store. The store still accepts 'guardian' as
-  // a screening mode for backwards-compat, but the UI no longer surfaces it
-  // — guardian is its own independent toggle. If the persisted mode is
-  // 'guardian' for some reason, treat it as 'active' for selection purposes.
-  const segmentValue: 'passive' | 'active' =
-    screeningMode === 'passive' ? 'passive' : 'active'
 
   const toggleGuardian = () => {
     if (guardianModeEnabled) {
@@ -55,16 +44,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 'var(--padding-page)',
-        gap: 'var(--gap-section)',
-        minHeight: '100vh',
-        paddingBottom: 100,
-      }}
-    >
+    <main className="page">
       <div
         style={{
           display: 'flex',
@@ -103,62 +83,10 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      <div className="page-scroll">
       <ModelDownloadSection />
 
-      <hr className="divider" />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap-element)' }}>
-        <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
-          Screening mode
-        </span>
-        <div
-          role="radiogroup"
-          aria-label="Screening mode"
-          style={{
-            display: 'flex',
-            padding: 2,
-            backgroundColor: 'var(--surface-alt)',
-            borderRadius: 9,
-            border: '1px solid var(--border)',
-          }}
-        >
-          {screeningOptions.map((opt) => {
-            const selected = segmentValue === opt.value
-            return (
-              <button
-                key={opt.value}
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setScreeningMode(opt.value)}
-                style={{
-                  flex: 1,
-                  height: 32,
-                  minHeight: 32,
-                  minWidth: 0,
-                  border: 'none',
-                  borderRadius: 7,
-                  padding: 0,
-                  backgroundColor: selected ? 'var(--surface)' : 'transparent',
-                  color: 'var(--text)',
-                  fontFamily: 'inherit',
-                  fontSize: '0.882rem',
-                  fontWeight: selected ? 600 : 500,
-                  cursor: 'pointer',
-                  boxShadow: selected ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'background-color 120ms ease, font-weight 120ms ease',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-        <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
-          {segmentValue === 'passive'
-            ? 'Only scan when you ask.'
-            : 'Scan incoming messages in the background.'}
-        </span>
-      </div>
+      <HaikuTestSection />
 
       <hr className="divider" />
 
@@ -284,6 +212,101 @@ export default function SettingsPage() {
       <p className="text-caption" style={{ color: 'var(--text-muted)' }}>
         All processing on-device
       </p>
+      </div>
     </main>
+  )
+}
+
+function HaikuTestSection() {
+  const deviceStatus = useDeviceStatus()
+  const loaded = deviceStatus?.e2bLoaded ?? false
+  const [haiku, setHaiku] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleGenerate = async () => {
+    setBusy(true)
+    setError(null)
+    setHaiku(null)
+    try {
+      const plugin = await getGemmaPlugin()
+      const result = await plugin.generateHaiku()
+      setHaiku(result.haiku)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate haiku')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const disabled = !loaded || busy
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--gap-element)',
+        paddingTop: 8,
+      }}
+    >
+      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        Quick test
+      </span>
+
+      <button
+        onClick={handleGenerate}
+        disabled={disabled}
+        aria-label="Generate a funny haiku to test the model"
+        style={{
+          height: 'var(--height-row)',
+          minHeight: 'var(--height-row)',
+          padding: '0 16px',
+          borderRadius: 10,
+          border: 'none',
+          backgroundColor: disabled ? 'var(--disabled-bg)' : 'var(--text)',
+          color: disabled ? 'var(--text-muted)' : 'var(--surface)',
+          fontFamily: 'inherit',
+          fontSize: '0.95rem',
+          fontWeight: 600,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.7 : 1,
+          transition: 'background-color 120ms ease, opacity 120ms ease',
+        }}
+      >
+        {busy ? 'Generating…' : loaded ? 'Generate funny haiku' : 'Model not active'}
+      </button>
+
+      {haiku && (
+        <pre
+          aria-live="polite"
+          style={{
+            margin: 0,
+            padding: 12,
+            backgroundColor: 'var(--surface-alt)',
+            borderRadius: 10,
+            border: '0.5px solid var(--border)',
+            color: 'var(--text)',
+            fontFamily: 'inherit',
+            fontSize: '0.95rem',
+            lineHeight: 1.45,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {haiku}
+        </pre>
+      )}
+
+      {error && (
+        <span
+          role="alert"
+          className="text-caption"
+          style={{ color: 'var(--scam)' }}
+        >
+          {error}
+        </span>
+      )}
+    </div>
   )
 }

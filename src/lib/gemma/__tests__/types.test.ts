@@ -54,10 +54,10 @@ describe('AgentTask serialization', () => {
 describe('AgentResult serialization', () => {
   it('round-trips with toolCallsLog array and lowConfidenceFallback boolean', () => {
     const toolCall: ToolCallRecord = {
-      serverName: 'voice-mcp',
-      toolName: 'analyseVoicePrint',
-      inputSummary: 'audio clip 4.2s',
-      durationMs: 320,
+      serverName: 'url_reputation',
+      toolName: 'check_url',
+      inputSummary: 'https://example.com',
+      durationMs: 45,
       success: true,
     }
 
@@ -66,7 +66,7 @@ describe('AgentResult serialization', () => {
       agentId: 'orchestrator',
       verdict: 'scam',
       confidence: 0.94,
-      reasoning: ['Voice pattern inconsistent.', 'Synthesis artefacts detected.'],
+      reasoning: ['Suspicious URL detected.', 'Domain mimics a known brand.'],
       language: 'en',
       toolCallsLog: [toolCall],
       latencyMs: 680,
@@ -78,7 +78,7 @@ describe('AgentResult serialization', () => {
 
     expect(deserialized).toEqual(result)
     expect(deserialized.toolCallsLog).toHaveLength(1)
-    expect(deserialized.toolCallsLog[0].serverName).toBe('voice-mcp')
+    expect(deserialized.toolCallsLog[0].serverName).toBe('url_reputation')
     expect(deserialized.lowConfidenceFallback).toBe(true)
     expect(typeof deserialized.lowConfidenceFallback).toBe('boolean')
   })
@@ -164,21 +164,6 @@ describe('AgentPayload discriminated union', () => {
       expect(payload.mimeType).toBe('image/jpeg')
     } else {
       throw new Error('Expected image payload')
-    }
-  })
-
-  it('narrows correctly on type field for audio', () => {
-    const payload: AgentPayload = {
-      type: 'audio',
-      base64: 'audiodata',
-      durationSeconds: 4.2,
-    }
-
-    if (payload.type === 'audio') {
-      expect(payload.base64).toBe('audiodata')
-      expect(payload.durationSeconds).toBe(4.2)
-    } else {
-      throw new Error('Expected audio payload')
     }
   })
 
