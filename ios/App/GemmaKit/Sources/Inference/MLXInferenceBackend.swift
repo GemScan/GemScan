@@ -107,6 +107,15 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
                     let input = try await context.processor.prepare(input: userInput)
                     var parameters = GenerateParameters()
                     parameters.maxTokens = maxTokens
+                    // Greedy / argmax sampling. The library default is 0.6,
+                    // which is fine for chat but unreliable for our
+                    // grammar-constrained verdict JSON — any randomness
+                    // increases the chance of schema-violating tokens
+                    // (e.g. `"verdict": "true"` instead of an enum value)
+                    // and makes the same input produce different verdicts
+                    // across runs. At 0.0, MLX swaps in `ArgMaxSampler`
+                    // for fully deterministic, schema-stable output.
+                    parameters.temperature = 0.0
                     // Explicit closure-arg type and explicit return type pick
                     // the [Int]-callback overload that returns GenerateResult
                     // (vs. the Int-callback overload that returns
