@@ -86,7 +86,11 @@ export default function SettingsPage() {
       <div className="page-scroll">
       <ModelDownloadSection />
 
-      <HaikuTestSection />
+      {/* Quick-test haiku button hidden — the model-active signal it gave is
+          no longer needed now that image OCR + text classification are
+          working end-to-end. Component + plugin plumbing kept in place so
+          this can be uncommented to bring it back. */}
+      {/* <HaikuTestSection /> */}
 
       <hr className="divider" />
 
