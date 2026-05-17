@@ -295,10 +295,11 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     // MARK: - analyse
 
     @objc func analyse(_ call: CAPPluginCall) {
-        // Capture the JS task dictionary now — Capacitor's CAPPluginCall is
-        // bound to the WebView's serializer, so we re-encode it as JSON and
-        // decode into a Swift AgentTask via Codable.
-        guard let taskDict = call.options as? [String: Any],
+        // The JS bridge wraps the task as `{ task: AgentTask }` so we have to
+        // pull the inner object out before re-encoding it as JSON and decoding
+        // into a Swift `AgentTask` via Codable.
+        guard let options = call.options as? [String: Any],
+              let taskDict = options["task"] as? [String: Any],
               let payloadJSON = try? JSONSerialization.data(withJSONObject: taskDict) else {
             call.reject("Could not serialise task payload", "INVALID_TASK")
             return

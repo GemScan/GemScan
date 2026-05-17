@@ -87,6 +87,7 @@ public actor URLAgent {
             verdict: parsed.verdict,
             confidence: parsed.confidence,
             reasoning: parsed.reasoning,
+            suggestion: parsed.suggestion,
             language: "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,

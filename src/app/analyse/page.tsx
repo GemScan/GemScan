@@ -35,7 +35,7 @@ export default function AnalysePage() {
   const addResult = useGemScanStore((s) => s.addResult)
   const trustedContactId = useGemScanStore((s) => s.trustedContactId)
 
-  const { tokens, isStreaming, isDone } = useTokenStream(taskId)
+  const { tokens, isDone } = useTokenStream(taskId)
 
   const isAnalysingRef = useRef(false)
 
@@ -58,7 +58,9 @@ export default function AnalysePage() {
           payload: buildPayload(text, taskType),
           priority: 'realtime',
           createdAt: Date.now(),
-          timeoutMs: 10000,
+          // On-device gen for ~80 tokens at ~10-15 tok/s plus prompt processing
+          // can run 10-20s on a warm model, so allow generous headroom.
+          timeoutMs: 60000,
         }
 
         const analysisResult = await plugin.analyse(task)
@@ -129,9 +131,9 @@ export default function AnalysePage() {
         {isAnalysing ? 'Analysing...' : 'Check this'}
       </button>
 
-      {((isStreaming || (tokens && !isDone)) || result) && (
+      {(tokens || result) && (
         <div className="page-scroll">
-          {(isStreaming || (tokens && !isDone)) && <StreamingText tokens={tokens} isDone={isDone} />}
+          {tokens && !result && <StreamingText tokens={tokens} isDone={isDone} />}
           {result && <VerdictCard result={result} onShare={handleShare} onDismiss={handleDismiss} />}
         </div>
       )}

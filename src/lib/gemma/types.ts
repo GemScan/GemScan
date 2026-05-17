@@ -39,7 +39,16 @@ export interface AgentResult {
   agentId: string
   verdict: ScamVerdict
   confidence: number
+  /**
+   * Short explanation as 1-2 bullets, total under 25 words combined.
+   */
   reasoning: string[]
+  /**
+   * Actionable guidance for the user (40-60 words). Surfaced beneath the
+   * explanation. Optional for backward-compat with results persisted before
+   * this field was added.
+   */
+  suggestion?: string
   language: string
   toolCallsLog: ToolCallRecord[]
   latencyMs: number

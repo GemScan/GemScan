@@ -87,13 +87,51 @@ export default function VerdictCard({ result, onShare, onDismiss }: VerdictCardP
       </div>
 
       {result.reasoning.length > 0 && (
-        <ul style={{ marginTop: 'var(--gap-element)', paddingLeft: 20 }}>
-          {result.reasoning.map((r, i) => (
-            <li key={i} className="text-body">
-              {r}
-            </li>
-          ))}
-        </ul>
+        <>
+          <p
+            className="text-caption"
+            style={{
+              color: 'var(--text-muted)',
+              marginTop: 'var(--gap-section)',
+              textTransform: 'uppercase',
+              letterSpacing: 0.4,
+            }}
+          >
+            Why
+          </p>
+          <ul style={{ marginTop: 4, paddingLeft: 20 }}>
+            {result.reasoning.map((r, i) => (
+              <li key={i} className="text-body">
+                {r}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {result.suggestion && result.suggestion.trim().length > 0 && (
+        <>
+          <p
+            className="text-caption"
+            style={{
+              color: 'var(--text-muted)',
+              marginTop: 'var(--gap-section)',
+              textTransform: 'uppercase',
+              letterSpacing: 0.4,
+            }}
+          >
+            What you should do
+          </p>
+          <p
+            className="text-body"
+            style={{
+              color: 'var(--text)',
+              marginTop: 4,
+            }}
+          >
+            {result.suggestion}
+          </p>
+        </>
       )}
 
       <div

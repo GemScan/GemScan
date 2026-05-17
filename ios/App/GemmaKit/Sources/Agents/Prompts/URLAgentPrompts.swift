@@ -13,8 +13,9 @@ public enum URLAgentPrompts {
 
     Rules:
     - Respond ONLY with valid JSON matching the required schema.
-    - The "reasoning" array must contain 2-3 short bullet points.
-    - Write reasoning at a sixth-grade reading level.
+    - The "reasoning" array is the short explanation: 1-2 bullets, UNDER 25 WORDS combined.
+    - The "suggestion" string tells the user what to do next: 40-60 WORDS, plain sentences, no bullets, no JSON.
+    - Write both fields at a sixth-grade reading level.
     - Consider domain age, WHOIS data, and reputation scores in your analysis.
     - Never visit or execute URLs; rely only on provided tool results.
     """
@@ -55,7 +56,7 @@ public enum URLAgentPrompts {
         \(vectorResult)
         </vector_matches>
 
-        Produce your verdict as JSON with fields: verdict, confidence, reasoning, toolCalls, domainAge, registrar.
+        Produce your verdict as JSON with fields: verdict, confidence, reasoning, toolCalls, suggestion, domainAge, registrar.
         """
     }
 }

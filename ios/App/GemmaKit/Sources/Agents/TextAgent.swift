@@ -98,6 +98,7 @@ public actor TextAgent {
             verdict: parsed.verdict,
             confidence: parsed.confidence,
             reasoning: parsed.reasoning,
+            suggestion: parsed.suggestion,
             language: language ?? "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,

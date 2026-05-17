@@ -52,8 +52,13 @@ public struct AgentResult: Codable, Sendable {
     public let verdict: ScamVerdict
     /// Confidence score in the range [0.0, 1.0].
     public let confidence: Double
-    /// Human-readable reasoning bullets (2-3 items, sixth-grade reading level).
+    /// Short explanation as 1-2 bullets, total under 25 words combined.
     public let reasoning: [String]
+    /// Actionable guidance for the user (40-60 words). Surfaced beneath the
+    /// explanation in the verdict card; tells the user what to do next.
+    /// Optional for backward-compat with results persisted before this field
+    /// was added — current agent runs always populate it.
+    public let suggestion: String?
     /// BCP-47 language tag of the reasoning output.
     public let language: String
     /// Records of all MCP tool calls made during execution.
@@ -73,6 +78,7 @@ public struct AgentResult: Codable, Sendable {
         verdict: ScamVerdict,
         confidence: Double,
         reasoning: [String],
+        suggestion: String? = nil,
         language: String,
         toolCallsLog: [ToolCallRecord] = [],
         latencyMs: Int,
@@ -84,6 +90,7 @@ public struct AgentResult: Codable, Sendable {
         self.verdict = verdict
         self.confidence = confidence
         self.reasoning = reasoning
+        self.suggestion = suggestion
         self.language = language
         self.toolCallsLog = toolCallsLog
         self.latencyMs = latencyMs
@@ -101,6 +108,7 @@ public struct AgentResult: Codable, Sendable {
             verdict: .scam,
             confidence: confidence,
             reasoning: reasoning,
+            suggestion: suggestion,
             language: language,
             toolCallsLog: toolCallsLog,
             latencyMs: override,

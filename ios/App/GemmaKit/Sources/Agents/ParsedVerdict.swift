@@ -11,10 +11,13 @@ public struct ParsedVerdict: Sendable {
     public let verdict: ScamVerdict
     /// Confidence score in the range [0.0, 1.0].
     public let confidence: Double
-    /// Human-readable reasoning bullets (2-3 items, sixth-grade reading level).
+    /// Short explanation as 1-2 bullets, total under 25 words combined.
     public let reasoning: [String]
     /// Names of MCP tools that were invoked during analysis.
     public let toolCalls: [String]
+    /// Actionable user guidance (40-60 words). Empty string if the model
+    /// omitted the field — older grammars did not require it.
+    public let suggestion: String
 
     // MARK: - Initialization
 
@@ -23,12 +26,14 @@ public struct ParsedVerdict: Sendable {
         verdict: ScamVerdict,
         confidence: Double,
         reasoning: [String],
-        toolCalls: [String] = []
+        toolCalls: [String] = [],
+        suggestion: String = ""
     ) {
         self.verdict = verdict
         self.confidence = confidence
         self.reasoning = reasoning
         self.toolCalls = toolCalls
+        self.suggestion = suggestion
     }
 
     // MARK: - Factory
@@ -41,15 +46,22 @@ public struct ParsedVerdict: Sendable {
     ///   "verdict": "safe" | "suspicious" | "scam",
     ///   "confidence": 0.95,
     ///   "reasoning": ["Reason one.", "Reason two."],
-    ///   "toolCalls": ["scam_patterns", "url_reputation"]
+    ///   "toolCalls": ["scam_patterns", "url_reputation"],
+    ///   "suggestion": "What the user should do next."
     /// }
     /// ```
+    ///
+    /// The MLX backend doesn't enforce GBNF at sampling time (only llama.cpp
+    /// does), so the model occasionally wraps the JSON in markdown fences or
+    /// adds explanatory prose. We strip that by finding the first `{` and the
+    /// matching last `}` in the raw output before attempting to parse.
     ///
     /// - Parameter jsonString: The raw JSON string from the model.
     /// - Returns: A fully populated ``ParsedVerdict``.
     /// - Throws: ``GemScanError/grammarViolation(raw:)`` if parsing fails.
     public static func parse(from jsonString: String) throws -> ParsedVerdict {
-        guard let data = jsonString.data(using: .utf8) else {
+        let extracted = Self.extractJSONObject(from: jsonString)
+        guard let data = extracted.data(using: .utf8) else {
             throw GemScanError.grammarViolation(raw: jsonString)
         }
 
@@ -77,12 +89,32 @@ public struct ParsedVerdict: Sendable {
         }
 
         let toolCalls = parsed["toolCalls"] as? [String] ?? []
+        let suggestion = parsed["suggestion"] as? String ?? ""
 
         return ParsedVerdict(
             verdict: verdict,
             confidence: confidence,
             reasoning: reasoning,
-            toolCalls: toolCalls
+            toolCalls: toolCalls,
+            suggestion: suggestion
         )
+    }
+
+    /// Returns the substring from the first `{` to the matching last `}` in
+    /// `raw`, trimmed of surrounding whitespace. If no braces are found we
+    /// return the trimmed input verbatim so `JSONSerialization` can raise a
+    /// precise error.
+    ///
+    /// This is intentionally permissive — it lets us tolerate markdown
+    /// fences (```json … ```), leading prose ("Here is the result:"), and
+    /// trailing chatter that some chat-tuned models add despite a
+    /// JSON-only instruction.
+    private static func extractJSONObject(from raw: String) -> String {
+        if let first = raw.firstIndex(of: "{"),
+           let last = raw.lastIndex(of: "}"),
+           first <= last {
+            return String(raw[first...last])
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

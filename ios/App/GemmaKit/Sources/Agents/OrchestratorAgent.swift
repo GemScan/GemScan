@@ -172,6 +172,7 @@ public actor OrchestratorAgent {
             verdict: parsed.verdict,
             confidence: parsed.confidence,
             reasoning: parsed.reasoning,
+            suggestion: parsed.suggestion,
             language: "en",
             toolCallsLog: [],
             latencyMs: latencyMs,

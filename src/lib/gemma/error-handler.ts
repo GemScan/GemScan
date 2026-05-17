@@ -43,6 +43,10 @@ export function makeConservativeResult(taskId: string, error: unknown): AgentRes
     verdict: friendly.verdict,
     confidence: 0,
     reasoning: [friendly.message],
+    suggestion:
+      'Treat this message as suspicious until you can verify it through a channel you trust. ' +
+      'Do not tap any links, reply with personal details, or call numbers from the message. ' +
+      'If it claims to be from a known service, open that app or website directly.',
     language: 'en',
     toolCallsLog: [],
     latencyMs: 0,

@@ -37,7 +37,7 @@ extension GrammarConstraint {
         GrammarConstraint(
             name: "text_agent_verdict",
             rawGBNF: """
-            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"detectedLanguage\"" ws ":" ws string ws "}"
+            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"suggestion\"" ws ":" ws string ws "," ws "\"detectedLanguage\"" ws ":" ws string ws "}"
             \(verdictGBNF)
             """
         )
@@ -51,7 +51,7 @@ extension GrammarConstraint {
         GrammarConstraint(
             name: "url_agent_verdict",
             rawGBNF: """
-            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"domainAge\"" ws ":" ws number ws "," ws "\"registrar\"" ws ":" ws string ws "}"
+            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"suggestion\"" ws ":" ws string ws "," ws "\"domainAge\"" ws ":" ws number ws "," ws "\"registrar\"" ws ":" ws string ws "}"
             \(verdictGBNF)
             """
         )
@@ -65,7 +65,7 @@ extension GrammarConstraint {
         GrammarConstraint(
             name: "image_agent_verdict",
             rawGBNF: """
-            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"ocrText\"" ws ":" ws string ws "}"
+            root ::= "{" ws "\"verdict\"" ws ":" ws verdict ws "," ws "\"confidence\"" ws ":" ws confidence ws "," ws "\"reasoning\"" ws ":" ws reasoning ws "," ws "\"toolCalls\"" ws ":" ws toolCalls ws "," ws "\"suggestion\"" ws ":" ws string ws "," ws "\"ocrText\"" ws ":" ws string ws "}"
             \(verdictGBNF)
             """
         )

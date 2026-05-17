@@ -14,8 +14,9 @@ public enum ImageAgentPrompts {
 
     Rules:
     - Respond ONLY with valid JSON matching the required schema.
-    - The "reasoning" array must contain 2-3 short bullet points.
-    - Write reasoning at a sixth-grade reading level.
+    - The "reasoning" array is the short explanation: 1-2 bullets, UNDER 25 WORDS combined.
+    - The "suggestion" string tells the user what to do next: 40-60 WORDS, plain sentences, no bullets, no JSON.
+    - Write both fields at a sixth-grade reading level.
     - Look for fake login pages, urgent warnings, prize claims, and impersonation.
     - Cross-reference extracted URLs with reputation data.
     - Never include personal information visible in screenshots in your output.
@@ -62,7 +63,7 @@ public enum ImageAgentPrompts {
         \(vectorResult)
         </vector_matches>
 
-        Produce your verdict as JSON with fields: verdict, confidence, reasoning, toolCalls, ocrText.
+        Produce your verdict as JSON with fields: verdict, confidence, reasoning, toolCalls, suggestion, ocrText.
         """
     }
 }

@@ -21,6 +21,11 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       'Message does not contain urgent language or suspicious links.',
       'Sender matches a known contact pattern.',
     ],
+    suggestion:
+      'This message looks fine. Reply normally if you know the sender. ' +
+      'If a follow-up suddenly asks for money, a verification code, or ' +
+      'personal information, stop and call the person on a number you ' +
+      'already have saved before doing anything they ask.',
     language: 'en',
     toolCallsLog: [
       {
@@ -53,6 +58,12 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       'Urgency language detected: "act now" and "account suspended".',
       'Confidence is below the safety threshold — defaulted to scam.',
     ],
+    suggestion:
+      'Do not click any links or reply to this email. Open the company ' +
+      'directly by typing their address into your browser or using their ' +
+      'app, then check whether anything is actually wrong. If you already ' +
+      'clicked or shared details, change your password and contact your ' +
+      'bank from a number on the back of your card.',
     language: 'en',
     toolCallsLog: [
       {
@@ -85,6 +96,11 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       'URL reputation score is very low across multiple databases.',
       'Domain name mimics a well-known bank.',
     ],
+    suggestion:
+      'Do not visit this link. Close the message or page that sent you ' +
+      'here. If it claimed to be from a service you use, open that ' +
+      'service the normal way through its official app or a bookmark ' +
+      'you saved earlier. Let whoever sent the link know it looks unsafe.',
     language: 'en',
     toolCallsLog: [
       {
@@ -116,6 +132,12 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       'Screenshot shows a fake login page impersonating a major bank.',
       'OCR-extracted URL does not match the real bank domain.',
     ],
+    suggestion:
+      'Do not enter any details into the page shown in the screenshot. ' +
+      'If you already typed your password or codes, change them right ' +
+      'away through the bank\'s official app and watch your account for ' +
+      'new charges. Report the original message to the real company\'s ' +
+      'support team and your phone carrier.',
     language: 'en',
     toolCallsLog: [
       {
@@ -147,6 +169,12 @@ const GOLDEN_FIXTURES: Record<AgentTaskType, AgentResult> = {
       'This message looks safe. It does not have any signs of a scam.',
       'The sender is someone you know.',
     ],
+    suggestion:
+      'Nothing urgent to do here — this looks like everyday safe content. ' +
+      'Keep doing what you normally would. If a later message ever feels ' +
+      'rushed or pressures you to share codes, money, or personal details, ' +
+      'slow down and check by reaching the sender through a different ' +
+      'app or phone call first.',
     language: 'en',
     toolCallsLog: [],
     latencyMs: 180,
