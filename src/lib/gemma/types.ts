@@ -79,6 +79,22 @@ export interface ModelVerificationResult {
   sizeBytes: number
 }
 
+// Payload returned by `GemmaPlugin.getPendingShare()` when the user
+// arrived via the iOS Share Extension. The shape mirrors what the native
+// side packages in the App Group queue: text and URL come through as
+// plain strings; images arrive base64-encoded with their MIME type so
+// the consumer can hand them off to the same /analyse flow the
+// home-screen Upload Picture button uses.
+export type PendingSharePayload =
+  | { type: 'text'; content: string; id?: string }
+  | { type: 'url'; url: string; id?: string }
+  | {
+      type: 'image'
+      base64: string
+      mimeType: 'image/jpeg' | 'image/png' | 'image/heic'
+      id?: string
+    }
+
 export interface GemmaPlugin {
   isReady(): Promise<{ ready: boolean; missingModels: ModelId[] }>
   downloadModels(options: { modelIds: ModelId[] }): Promise<void>
@@ -88,6 +104,7 @@ export interface GemmaPlugin {
   getDeviceStatus(): Promise<DeviceStatus>
   recordActivity(): Promise<void>
   generateHaiku(): Promise<{ haiku: string }>
+  getPendingShare(): Promise<{ payload: PendingSharePayload | null }>
   addListener(
     event: 'tokenStream',
     handler: (data: { taskId: string; token: string; done: boolean }) => void

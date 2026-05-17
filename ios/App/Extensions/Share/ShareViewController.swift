@@ -3,18 +3,38 @@ import Social
 import UniformTypeIdentifiers
 import os
 
+// MARK: - Local constants
+//
+// The extension intentionally does NOT depend on GemmaKit. Pulling in the
+// full inference package would link MLX, llama.cpp, HuggingFace, and
+// swift-transformers into a binary that only shuttles a JSON payload from
+// the share sheet to the host app — a 50 MB+ binary cost for no benefit.
+// Keep these in sync with `SharedContainerSchema` and `GemScanLogger` in
+// the main app target.
+private enum ShareExtensionConstants {
+    /// App Group identifier shared with the host app's entitlements.
+    /// Mirror of `ShareExtensionConstants.appGroupId`.
+    static let appGroupId = "group.com.gemscan"
+    /// UserDefaults key matching `ShareExtensionConstants.pendingAnalysisTasksKey`.
+    static let pendingAnalysisTasksKey = "gemscan.pendingAnalysisTasks"
+}
+
 /// Share Extension for receiving content from other apps and routing it to GemScan.
 ///
 /// Validates the incoming payload type (text, URL, or image), persists it
 /// to the App Group shared container, and deep-links to the main app
 /// via the `gemscan://analyse` URL scheme.
+///
+/// The `@objc` name is referenced by the extension's Info.plist
+/// (`NSExtensionPrincipalClass = $(PRODUCT_MODULE_NAME).ShareViewController`).
+@objc(ShareViewController)
 final class ShareViewController: UIViewController {
 
     /// Logger for extension lifecycle events.
-    private let logger = GemScanLogger.extensions
+    private let logger = Logger(subsystem: "com.gemscan", category: "share-extension")
 
     /// Shared UserDefaults for the App Group container.
-    private let sharedDefaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId)
+    private let sharedDefaults = UserDefaults(suiteName: ShareExtensionConstants.appGroupId)
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -152,9 +172,9 @@ final class ShareViewController: UIViewController {
 
         // Store pending analysis task in App Group
         if let defaults = sharedDefaults {
-            var pending = defaults.array(forKey: SharedContainerSchema.pendingAnalysisTasks) as? [[String: Any]] ?? []
+            var pending = defaults.array(forKey: ShareExtensionConstants.pendingAnalysisTasksKey) as? [[String: Any]] ?? []
             pending.append(payload)
-            defaults.set(pending, forKey: SharedContainerSchema.pendingAnalysisTasks)
+            defaults.set(pending, forKey: ShareExtensionConstants.pendingAnalysisTasksKey)
             defaults.synchronize()
         }
 
@@ -175,7 +195,7 @@ final class ShareViewController: UIViewController {
     private func copyImageToSharedContainer(from sourceURL: URL) -> String? {
         let fileManager = FileManager.default
         guard let containerURL = fileManager.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerSchema.appGroupId
+            forSecurityApplicationGroupIdentifier: ShareExtensionConstants.appGroupId
         ) else { return nil }
 
         let imagesDir = containerURL.appendingPathComponent("SharedImages", isDirectory: true)
@@ -202,7 +222,7 @@ final class ShareViewController: UIViewController {
     private func writeImageDataToSharedContainer(_ data: Data, extension ext: String) -> String? {
         let fileManager = FileManager.default
         guard let containerURL = fileManager.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerSchema.appGroupId
+            forSecurityApplicationGroupIdentifier: ShareExtensionConstants.appGroupId
         ) else { return nil }
 
         let imagesDir = containerURL.appendingPathComponent("SharedImages", isDirectory: true)

@@ -30,6 +30,7 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getDeviceStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "recordActivity", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "generateHaiku", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getPendingShare", returnType: CAPPluginReturnPromise),
     ]
 
     // MARK: - Components
@@ -453,6 +454,89 @@ public class GemmaPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func recordActivity(_ call: CAPPluginCall) {
         recordActivityNow()
         call.resolve()
+    }
+
+    // MARK: - getPendingShare
+    //
+    // Drains one entry from the App Group `pendingAnalysisTasks` queue
+    // populated by the ShareExtension. Called by the JS layer in response
+    // to the `appUrlOpen` event for `gemscan://analyse?task=…`. For image
+    // payloads, reads the file from disk and base64-encodes it so the JS
+    // side can hand off via the same flow used by the home-screen Upload
+    // Picture button.
+    //
+    // Returns `{ payload: null }` if there's nothing queued. We resolve
+    // rather than reject so the JS side can no-op without a try/catch.
+    @objc func getPendingShare(_ call: CAPPluginCall) {
+        guard let defaults = UserDefaults(suiteName: SharedContainerSchema.appGroupId) else {
+            logger.warning("getPendingShare: App Group UserDefaults unavailable")
+            call.resolve(["payload": NSNull()])
+            return
+        }
+
+        var queue = defaults.array(forKey: SharedContainerSchema.pendingAnalysisTasks)
+            as? [[String: Any]] ?? []
+        guard !queue.isEmpty else {
+            call.resolve(["payload": NSNull()])
+            return
+        }
+
+        let entry = queue.removeFirst()
+        // Persist the popped queue before doing any I/O so we never
+        // process the same entry twice if the JS side retries.
+        defaults.set(queue, forKey: SharedContainerSchema.pendingAnalysisTasks)
+        defaults.synchronize()
+
+        guard let type = entry["type"] as? String,
+              let content = entry["content"] as? String else {
+            logger.warning("getPendingShare: dropped malformed queue entry")
+            call.resolve(["payload": NSNull()])
+            return
+        }
+
+        var payload: [String: Any] = ["type": type]
+        if let id = entry["id"] as? String { payload["id"] = id }
+
+        switch type {
+        case "text":
+            payload["content"] = content
+        case "url":
+            payload["url"] = content
+        case "image":
+            // `content` is the absolute path of the file the extension
+            // wrote into the shared container. Read + base64 here so the
+            // JS layer doesn't need filesystem access.
+            let url = URL(fileURLWithPath: content)
+            guard let data = try? Data(contentsOf: url) else {
+                logger.warning("getPendingShare: could not read shared image at \(url.path, privacy: .public)")
+                call.resolve(["payload": NSNull()])
+                return
+            }
+            // Best-effort cleanup so the App Group doesn't accumulate
+            // shared screenshots. Ignored failures are non-fatal.
+            try? FileManager.default.removeItem(at: url)
+
+            payload["base64"] = data.base64EncodedString()
+            payload["mimeType"] = Self.mimeType(for: url.pathExtension)
+        default:
+            logger.warning("getPendingShare: unknown payload type \(type, privacy: .public)")
+            call.resolve(["payload": NSNull()])
+            return
+        }
+
+        call.resolve(["payload": payload])
+    }
+
+    /// Maps a file extension to a MIME type the JS layer understands.
+    /// Falls back to JPEG which is what `UIImage.jpegData` produces in the
+    /// share extension's `writeImageDataToSharedContainer` path.
+    private static func mimeType(for fileExtension: String) -> String {
+        switch fileExtension.lowercased() {
+        case "png":  return "image/png"
+        case "heic": return "image/heic"
+        case "jpg", "jpeg": return "image/jpeg"
+        default: return "image/jpeg"
+        }
     }
 
     // MARK: - getDeviceStatus

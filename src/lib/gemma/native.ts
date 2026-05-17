@@ -7,6 +7,7 @@ import type {
   GemmaPlugin,
   ModelId,
   ModelVerificationResult,
+  PendingSharePayload,
   PluginListenerHandle,
 } from './types'
 
@@ -24,6 +25,7 @@ const NativeBridge = registerPlugin<{
   getDeviceStatus(): Promise<DeviceStatus>
   recordActivity(): Promise<void>
   generateHaiku(): Promise<{ haiku: string }>
+  getPendingShare(): Promise<{ payload: PendingSharePayload | null }>
   addListener(event: string, handler: (data: any) => void): Promise<PluginListenerHandle>
 }>('GemmaPlugin')
 
@@ -58,6 +60,10 @@ export class GemmaPluginNative implements GemmaPlugin {
 
   async generateHaiku(): Promise<{ haiku: string }> {
     return NativeBridge.generateHaiku()
+  }
+
+  async getPendingShare(): Promise<{ payload: PendingSharePayload | null }> {
+    return NativeBridge.getPendingShare()
   }
 
   async addListener(

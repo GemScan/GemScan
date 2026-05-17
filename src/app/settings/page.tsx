@@ -184,10 +184,6 @@ export default function SettingsPage() {
 
       <hr className="divider" />
 
-      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
-        About
-      </span>
-
       <button
         onClick={() => router.push('/terms')}
         style={{
@@ -210,17 +206,40 @@ export default function SettingsPage() {
         </span>
       </button>
 
+      <button
+        onClick={() => router.push('/about')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          height: 'var(--height-row)',
+          padding: 0,
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: 'var(--text)',
+          textAlign: 'left',
+        }}
+      >
+        <span className="text-body">About</span>
+        <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+          ▸
+        </span>
+      </button>
+
       <p className="text-caption" style={{ color: 'var(--text)' }}>
         Version 1.0.0
-      </p>
-      <p className="text-caption" style={{ color: 'var(--text-muted)' }}>
-        All processing on-device
       </p>
       </div>
     </main>
   )
 }
 
+// Kept around while the Settings render that used it is commented out;
+// restore both together. The eslint directive on the next line suppresses
+// the unused-vars warning until that happens.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function HaikuTestSection() {
   const deviceStatus = useDeviceStatus()
   const loaded = deviceStatus?.e2bLoaded ?? false

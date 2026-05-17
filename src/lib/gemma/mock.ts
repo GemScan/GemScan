@@ -5,6 +5,7 @@ import type {
   GemmaPlugin,
   ModelId,
   ModelVerificationResult,
+  PendingSharePayload,
   PluginListenerHandle,
 } from './types'
 import { goldenFixtures } from './__fixtures__/golden'
@@ -171,6 +172,13 @@ export class GemmaPluginMock implements GemmaPlugin {
       'Five percent battery\nAirport WiFi will not load\nDestiny: a book',
     ]
     return { haiku: haikus[Math.floor(Math.random() * haikus.length)] }
+  }
+
+  // No share queue in the browser mock — the iOS share extension is the
+  // only producer. Resolve to null so the JS app-url-open path can no-op
+  // cleanly when running in dev / web preview.
+  async getPendingShare(): Promise<{ payload: PendingSharePayload | null }> {
+    return { payload: null }
   }
 
   /** Simulate a guardian mode state change (for testing and UI development). */
