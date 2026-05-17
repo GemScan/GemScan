@@ -81,6 +81,10 @@ public enum MLXModelDownloader {
         progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
     ) async throws -> ModelContainer {
         let configuration = MLXModelRegistry.configuration(for: tier)
+        // Loaded as a text-only model — image OCR is handled by Apple Vision
+        // (see ``ImageOCR``), so the vision encoder weights would just waste
+        // RAM. See the matching comment in
+        // ``MLXInferenceBackend/loadModel(tier:)``.
         return try await LLMModelFactory.shared.loadContainer(
             from: #hubDownloader(),
             using: #huggingFaceTokenizerLoader(),

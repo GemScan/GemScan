@@ -3,14 +3,18 @@ import os
 
 /// Specialist agent for screenshot and image scam analysis.
 ///
-/// `ImageAgent` runs on Gemma 4 E2B (the only on-device Gemma 4 tier that
-/// fits in the iOS app memory budget). The 4-bit quant keeps the multimodal
-/// vision tower, so screenshot analysis still works. The agent follows a
-/// two-step process:
-/// 1. Call `reverse_image/extract_text_urls` for OCR to extract text and URLs.
-/// 2. Run `generateVision()` with grammar constraints on the image + OCR context.
+/// `ImageAgent` runs a two-stage pipeline:
+/// 1. **OCR** — Apple's `VNRecognizeTextRequest` extracts text from the
+///    screenshot. We use Vision rather than Gemma's vision tower because
+///    Gemma 4 E2B at 4-bit quant has weak character-level OCR fidelity,
+///    while Vision is purpose-built for this task and ships free with iOS.
+/// 2. **Classification** — the extracted text flows through the same
+///    Gemma 4 E2B text path used by ``TextAgent``, producing identical
+///    reasoning / suggestion / verdict output regardless of input modality.
 ///
-/// MCP tools used: `sqlite_vec`, `url_reputation`, `reverse_image`.
+/// If OCR returns no readable text (``ImageOCR/noTextSentinel`` or fewer
+/// than ``minimumOCRCharacters`` characters), we short-circuit to a
+/// low-confidence `safe` verdict rather than guess.
 public actor ImageAgent {
 
     // MARK: - Properties
@@ -20,6 +24,10 @@ public actor ImageAgent {
 
     /// Logger for agent events.
     private let logger = GemScanLogger.agents
+
+    /// Minimum number of characters in OCR output before we attempt
+    /// classification. Below this, transcription is treated as unusable.
+    private static let minimumOCRCharacters = 4
 
     // MARK: - Initialization
 
@@ -34,8 +42,8 @@ public actor ImageAgent {
 
     /// Analyses a screenshot for scam indicators and returns a verdict.
     ///
-    /// Uses Gemma 4 E2B (4-bit, multimodal). The vision tower is part of the
-    /// E2B quant — no separate model load is required.
+    /// Runs the two-stage transcribe-then-classify pipeline described in the
+    /// type-level documentation.
     ///
     /// - Parameter task: The agent task containing an `.image` payload.
     /// - Returns: An ``AgentResult`` with the classification verdict.
@@ -51,30 +59,59 @@ public actor ImageAgent {
         guard let imageBytes = Data(base64Encoded: base64Data) else {
             throw GemScanError.inferenceError(message: "ImageAgent could not decode base64 image payload")
         }
-        logger.info("ImageAgent decoded \(imageBytes.count) bytes of \(mimeType.rawValue) for vision input")
+        logger.info("ImageAgent decoded \(imageBytes.count) bytes of \(mimeType.rawValue) for OCR")
 
-        // MARK: Grammar-constrained vision generation
+        // MARK: Stage 1 — Apple Vision OCR
         //
-        // We hand the raw image bytes to MLX, which routes them through
-        // Gemma 4 E2B's vision tower and fuses the visual tokens with the
-        // text prompt. No OCR pre-pass — the model reads pixels directly.
+        // We use `VNRecognizeTextRequest` rather than Gemma's vision tower.
+        // Gemma 4 E2B at 4-bit quant has weak character-level fidelity (it
+        // hallucinated form-field placeholders during testing), whereas
+        // Vision is purpose-built for OCR and is ~95-99% accurate on screen
+        // text. The extracted string then flows into Gemma's text path so
+        // the LLM still produces the reasoning + verdict.
+        let extractedText = try ImageOCR.extractText(from: imageBytes)
+        logger.info("ImageAgent Vision OCR produced \(extractedText.count) characters of text")
+        // Debug-only: dump the OCR output to the Xcode console. Marked
+        // `.public` because os.Logger redacts string interpolations by
+        // default. Screenshot text can contain PII — gate this behind a
+        // debug build before shipping externally.
+        logger.info("ImageAgent Vision OCR text >>>\n\(extractedText, privacy: .public)\n<<<")
 
-        let toolCallRecords: [ToolCallRecord] = []
+        // No usable text → short-circuit to a friendly safe verdict.
+        if extractedText.isEmpty
+            || extractedText == ImageOCR.noTextSentinel
+            || extractedText.count < Self.minimumOCRCharacters {
+            let latencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
+            logger.info("ImageAgent OCR returned no usable text — returning safe verdict")
+            return AgentResult(
+                taskId: task.id,
+                agentId: AgentID.imageAgent,
+                verdict: .safe,
+                confidence: 0.5,
+                reasoning: ["No readable text was found in the image."],
+                suggestion: "I couldn't pick out any text in this picture to check, so there's nothing for me to compare against known scam patterns. If this image was supposed to show a message, link, or login screen, try a clearer photo or paste the text directly. Otherwise, this is most likely fine.",
+                language: "en",
+                toolCallsLog: [],
+                latencyMs: latencyMs,
+                modelTier: .e2b
+            )
+        }
 
-        let prompt = ImageAgentPrompts.system + "\n\n" + ImageAgentPrompts.analyseScreenshot()
+        // MARK: Stage 2 — classify the extracted text
+        let classifyPrompt = TextAgentPrompts.system
+            + "\n\n"
+            + ImageAgentPrompts.classifyExtractedText(extractedText: extractedText)
+        let grammar = GrammarConstraint.textAgentGrammar()
 
-        let grammar = GrammarConstraint.imageAgentGrammar()
-
-        let rawOutput = try await inferenceEngine.generate(
-            task: prompt,
+        let rawVerdict = try await inferenceEngine.generate(
+            task: classifyPrompt,
             modelTier: .e2b,
-            images: [imageBytes],
             grammar: grammar
         )
 
-        let parsed = try ParsedVerdict.parse(from: rawOutput)
+        let parsed = try ParsedVerdict.parse(from: rawVerdict)
 
-        // Validate reasoning readability
+        // Soft readability check on reasoning.
         let combinedReasoning = parsed.reasoning.joined(separator: " ")
         let (grade, passes) = ExplainerValidator.validate(text: combinedReasoning)
         if !passes {
@@ -82,7 +119,6 @@ public actor ImageAgent {
         }
 
         let latencyMs = Int((CFAbsoluteTimeGetCurrent() - startTime) * 1000)
-
         logger.info("ImageAgent completed: verdict=\(parsed.verdict.rawValue), confidence=\(String(format: "%.3f", parsed.confidence)), latency=\(latencyMs)ms")
 
         return AgentResult(
@@ -93,9 +129,10 @@ public actor ImageAgent {
             reasoning: parsed.reasoning,
             suggestion: parsed.suggestion,
             language: "en",
-            toolCallsLog: toolCallRecords,
+            toolCallsLog: [],
             latencyMs: latencyMs,
             modelTier: .e2b
         )
     }
+
 }

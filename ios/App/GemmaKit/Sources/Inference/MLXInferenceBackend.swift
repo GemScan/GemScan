@@ -52,6 +52,10 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         defer { Task.detached { await Self.endBackgroundTask(taskID) } }
 
         let configuration = MLXModelRegistry.configuration(for: tier)
+        // Loaded as a text-only model via `LLMModelFactory`. The repo also
+        // includes vision-tower weights, but we use Apple Vision for OCR
+        // (see ``ImageOCR``) so loading the vision encoder would just waste
+        // RAM with no functional benefit.
         let container = try await LLMModelFactory.shared.loadContainer(
             from: #hubDownloader(),
             using: #huggingFaceTokenizerLoader(),
