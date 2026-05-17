@@ -1,16 +1,60 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import InputArea from '@/components/InputArea'
+
+const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
+
+interface PendingImage {
+  base64: string
+  mimeType: 'image/jpeg' | 'image/png'
+  previewDataURL: string
+}
 
 export default function HomePage() {
   const router = useRouter()
   const [input, setInput] = useState('')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const handleSubmit = () => {
     if (!input.trim()) return
     router.push(`/analyse?q=${encodeURIComponent(input)}`)
+  }
+
+  const handleUploadClick = () => {
+    setUploadError(null)
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    // Reset the input so picking the same file twice still fires onChange.
+    e.target.value = ''
+    if (!file) return
+
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError('Image is too large. Pick something under 8 MB.')
+      return
+    }
+
+    const mimeType: 'image/jpeg' | 'image/png' =
+      file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+
+    try {
+      const dataURL = await readAsDataURL(file)
+      const base64 = dataURL.split(',')[1] ?? ''
+      const pending: PendingImage = {
+        base64,
+        mimeType,
+        previewDataURL: dataURL,
+      }
+      sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
+      router.push('/analyse?type=image')
+    } catch {
+      setUploadError("Couldn't read that file. Try another one.")
+    }
   }
 
   return (
@@ -87,9 +131,7 @@ export default function HomePage() {
         <button
           className="btn-secondary"
           style={{ flex: 1 }}
-          onClick={() => {
-            /* TODO: open file picker for image upload */
-          }}
+          onClick={handleUploadClick}
           aria-label="Upload a picture from your photo library"
         >
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -112,6 +154,34 @@ export default function HomePage() {
           </span>
         </button>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+      />
+
+      {uploadError && (
+        <p
+          role="alert"
+          className="text-caption"
+          style={{ color: 'var(--scam)', marginTop: -8 }}
+        >
+          {uploadError}
+        </p>
+      )}
     </main>
   )
+}
+
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'))
+    reader.readAsDataURL(file)
+  })
 }

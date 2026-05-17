@@ -64,6 +64,7 @@ public actor TextEmbedder {
         let embeddingPrompt = "<encode>\(text)</encode>"
         let stream = try await backend.generate(
             prompt: embeddingPrompt,
+            images: [],
             grammar: nil,
             maxTokens: 1
         )

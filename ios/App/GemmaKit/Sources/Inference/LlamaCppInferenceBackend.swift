@@ -90,12 +90,19 @@ public final class LlamaCppInferenceBackend: InferenceBackend, @unchecked Sendab
 
     public func generate(
         prompt: String,
+        images: [Data],
         grammar: GrammarConstraint?,
         maxTokens: Int
     ) async throws -> AsyncStream<String> {
         let snapshot = lock.withLock { (model: model, context: context) }
         guard let mdl = snapshot.model, let ctx = snapshot.context else {
             throw GemScanError.modelNotLoaded(tier: .e2b)
+        }
+
+        // llama.cpp text-only path: vision inputs are ignored. The MLX
+        // backend is the multimodal route on iOS.
+        if !images.isEmpty {
+            logger.warning("LlamaCpp backend ignored \(images.count) image payload(s); use MLX for multimodal inference")
         }
 
         let (stream, continuation) = AsyncStream<String>.makeStream()

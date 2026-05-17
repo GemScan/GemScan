@@ -57,12 +57,15 @@ public actor InferenceEngine {
     ///   - task: The prompt string describing the task.
     ///   - modelTier: Which model tier to use for generation. Currently only
     ///     `.e2b` exists; the parameter is preserved for forward compatibility.
+    ///   - images: Optional image payloads passed through to a multimodal
+    ///     backend (Gemma 4 E2B vision tower). Empty for pure-text tasks.
     ///   - grammar: An optional grammar constraint for structured output.
     ///   - tokenHandler: A closure called with each incremental token as it is generated.
     /// - Returns: The fully concatenated generated text.
     public func generate(
         task: String,
         modelTier: ModelTier,
+        images: [Data] = [],
         grammar: GrammarConstraint? = nil,
         tokenHandler: (@Sendable (String) -> Void)? = nil
     ) async throws -> String {
@@ -91,6 +94,7 @@ public actor InferenceEngine {
 
         let stream = try await e2bBackend.generate(
             prompt: task,
+            images: images,
             grammar: grammar,
             maxTokens: 2048
         )

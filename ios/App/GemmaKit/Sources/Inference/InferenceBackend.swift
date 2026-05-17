@@ -13,10 +13,13 @@ public protocol InferenceBackend: Sendable {
     ///
     /// - Parameters:
     ///   - prompt: The input text prompt for the model.
+    ///   - images: Encoded image payloads (JPEG/PNG/HEIC). Multimodal backends
+    ///     (Gemma 4 E2B via MLX) feed these through the vision tower; pure-text
+    ///     backends ignore them.
     ///   - grammar: An optional ``GrammarConstraint`` that restricts the output format.
     ///   - maxTokens: The maximum number of tokens to generate.
     /// - Returns: An `AsyncStream` that yields generated text tokens incrementally.
-    func generate(prompt: String, grammar: GrammarConstraint?, maxTokens: Int) async throws -> AsyncStream<String>
+    func generate(prompt: String, images: [Data], grammar: GrammarConstraint?, maxTokens: Int) async throws -> AsyncStream<String>
 
     /// Loads a model of the specified tier into memory.
     ///

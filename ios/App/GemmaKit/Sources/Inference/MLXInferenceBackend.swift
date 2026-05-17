@@ -1,6 +1,7 @@
 import Foundation
 import os
 import UIKit
+import CoreImage
 import MLXLLM
 import MLXLMCommon
 import MLXHuggingFace
@@ -69,6 +70,7 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 
     public func generate(
         prompt: String,
+        images: [Data],
         grammar: GrammarConstraint?,
         maxTokens: Int
     ) async throws -> AsyncStream<String> {
@@ -76,6 +78,15 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
         guard let container = current else {
             throw GemScanError.modelNotLoaded(tier: .e2b)
         }
+
+        // Decode image payloads up-front so we can fail fast outside the Task
+        // and report a useful error to the caller. CIImage handles JPEG, PNG,
+        // and HEIC natively — no per-format branching needed.
+        let ciImages: [CIImage] = images.compactMap { CIImage(data: $0) }
+        if !images.isEmpty && ciImages.count != images.count {
+            logger.warning("MLX: \(images.count - ciImages.count) image payload(s) failed to decode and will be skipped")
+        }
+        let userInputImages: [UserInput.Image] = ciImages.map { .ciImage($0) }
 
         let (stream, continuation) = AsyncStream<String>.makeStream()
 
@@ -88,7 +99,7 @@ public final class MLXInferenceBackend: InferenceBackend, @unchecked Sendable {
 
             do {
                 let output: String = try await container.perform { context in
-                    let userInput = UserInput(prompt: prompt)
+                    let userInput = UserInput(prompt: prompt, images: userInputImages)
                     let input = try await context.processor.prepare(input: userInput)
                     var parameters = GenerateParameters()
                     parameters.maxTokens = maxTokens
