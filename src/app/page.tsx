@@ -11,7 +11,6 @@ const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
 interface PendingImage {
   base64: string
   mimeType: 'image/jpeg' | 'image/png'
-  previewDataURL: string
 }
 
 export default function HomePage() {
@@ -70,22 +69,59 @@ export default function HomePage() {
 
       const mimeType: 'image/jpeg' | 'image/png' =
         photo.format === 'png' ? 'image/png' : 'image/jpeg'
-      const previewDataURL = `data:${mimeType};base64,${photo.base64String}`
       const pending: PendingImage = {
         base64: photo.base64String,
         mimeType,
-        previewDataURL,
       }
-      sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
-      router.push('/analyse?type=image')
-    } catch (err) {
-      // The Camera plugin throws when the user cancels — treat that as
-      // a no-op rather than an error toast.
-      const message = err instanceof Error ? err.message.toLowerCase() : ''
-      if (message.includes('cancel') || message.includes('user denied')) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[GemScan] camera photo received: ${photo.base64String.length} base64 chars, mime=${mimeType}`
+      )
+
+      // sessionStorage in WKWebView is capped around 5MB. A high-res
+      // iPhone photo encoded to base64 can flirt with that ceiling, so
+      // catch quota failures explicitly rather than letting them fall
+      // through the generic camera catch (which would mislabel them).
+      try {
+        sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : String(storageErr)
+        // eslint-disable-next-line no-console
+        console.warn('sessionStorage.setItem failed:', msg)
+        setUploadError("Picture is too large to hand off. Try a smaller image.")
         return
       }
-      setUploadError("Couldn't open the picture picker. Check Camera and Photos permissions in Settings.")
+      router.push('/analyse?type=image')
+    } catch (err) {
+      // Pull the raw message out — Capacitor Camera throws plain
+      // Errors with strings like "User cancelled photos app",
+      // "User denied access to camera", "Camera not available while
+      // running in Simulator", or "You are missing NSCameraUsage…".
+      const raw = err instanceof Error ? err.message : String(err)
+      const lower = raw.toLowerCase()
+
+      // Console-log the full error so we always have it in Xcode logs.
+      // eslint-disable-next-line no-console
+      console.warn('Camera.getPhoto failed:', raw)
+
+      // User cancelled — silent no-op.
+      if (lower.includes('cancel')) return
+
+      // Translate the known plugin error strings into user-readable
+      // toasts. Everything else falls through to a generic toast that
+      // includes the raw message so we can debug if a new error
+      // surfaces.
+      if (lower.includes('simulator')) {
+        setUploadError("Camera isn't available in the iOS Simulator. Run on a real device to take photos.")
+      } else if (lower.includes('user denied access to camera')) {
+        setUploadError('Camera access is off. Enable it in iOS Settings → GemScan → Camera.')
+      } else if (lower.includes('user denied access to photos')) {
+        setUploadError('Photo Library access is off. Enable it in iOS Settings → GemScan → Photos.')
+      } else if (lower.includes('infoplist') || lower.includes('info.plist') || lower.includes('missing ns')) {
+        setUploadError(`Missing iOS permission key: ${raw}`)
+      } else {
+        setUploadError(`Couldn't open the picture picker: ${raw}`)
+      }
     }
   }
 
@@ -109,9 +145,13 @@ export default function HomePage() {
       const pending: PendingImage = {
         base64,
         mimeType,
-        previewDataURL: dataURL,
       }
-      sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
+      try {
+        sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
+      } catch {
+        setUploadError("Picture is too large to hand off. Try a smaller image.")
+        return
+      }
       router.push('/analyse?type=image')
     } catch {
       setUploadError("Couldn't read that file. Try another one.")

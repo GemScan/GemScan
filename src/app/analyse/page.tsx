@@ -21,7 +21,6 @@ const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
 interface PendingImage {
   base64: string
   mimeType: 'image/jpeg' | 'image/png'
-  previewDataURL: string
 }
 
 function detectTaskType(input: string): AgentTaskType {
@@ -141,16 +140,26 @@ export default function AnalysePage() {
 
     if (params.get('type') === 'image') {
       const raw = sessionStorage.getItem(PENDING_IMAGE_KEY)
-      if (!raw) return
+      if (!raw) {
+        // eslint-disable-next-line no-console
+        console.warn('[GemScan] analyse bootstrap: type=image but no pending image in sessionStorage')
+        return
+      }
       sessionStorage.removeItem(PENDING_IMAGE_KEY)
       try {
         const image = JSON.parse(raw) as PendingImage
-        if (image.base64 && image.previewDataURL) {
+        if (image.base64) {
+          // eslint-disable-next-line no-console
+          console.log(`[GemScan] analyse bootstrap: running image analysis, ${image.base64.length} base64 chars`)
           setPendingImage(image)
           runImageAnalysis(image)
+        } else {
+          // eslint-disable-next-line no-console
+          console.warn('[GemScan] analyse bootstrap: parsed pending image is missing base64')
         }
-      } catch {
-        // Corrupted payload — fall through to the empty text-input state.
+      } catch (parseErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[GemScan] analyse bootstrap: failed to parse pending image', parseErr)
       }
       return
     }
