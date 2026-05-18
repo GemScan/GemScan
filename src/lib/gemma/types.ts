@@ -49,6 +49,14 @@ export interface AgentResult {
    * this field was added.
    */
   suggestion?: string
+  /**
+   * The text the model actually classified — for SMS/email tasks this is
+   * the user's input; for screenshot tasks it is the OCR transcription
+   * produced by Apple Vision before classification. Surfaced in the
+   * verdict card so the user can see what was checked. Optional for
+   * back-compat with results persisted before this field was added.
+   */
+  analyzedText?: string
   language: string
   toolCallsLog: ToolCallRecord[]
   latencyMs: number

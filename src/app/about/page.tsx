@@ -58,9 +58,9 @@ export default function AboutPage() {
           We built GemScan as a submission for Kaggle&apos;s Gemma-4-Good Hackathon in 2026!
         </Section>
 
-        <Section title="Contact">
+        <Section title="Source Code">
           {/* TODO: contact info or repo link */}
-          Contact email or repository URL goes here.
+          https://github.com/GemScan/GemScan
         </Section>
       </div>
     </main>

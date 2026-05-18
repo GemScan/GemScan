@@ -59,6 +59,13 @@ public struct AgentResult: Codable, Sendable {
     /// Optional for backward-compat with results persisted before this field
     /// was added — current agent runs always populate it.
     public let suggestion: String?
+    /// The text the model actually classified — for SMS / email tasks this
+    /// is the user's input; for screenshot tasks it is the OCR
+    /// transcription produced by Apple Vision before classification. The
+    /// UI shows it back to the user so they can confirm what was checked.
+    /// Optional for back-compat with results persisted before this field
+    /// existed.
+    public let analyzedText: String?
     /// BCP-47 language tag of the reasoning output.
     public let language: String
     /// Records of all MCP tool calls made during execution.
@@ -79,6 +86,7 @@ public struct AgentResult: Codable, Sendable {
         confidence: Double,
         reasoning: [String],
         suggestion: String? = nil,
+        analyzedText: String? = nil,
         language: String,
         toolCallsLog: [ToolCallRecord] = [],
         latencyMs: Int,
@@ -91,6 +99,7 @@ public struct AgentResult: Codable, Sendable {
         self.confidence = confidence
         self.reasoning = reasoning
         self.suggestion = suggestion
+        self.analyzedText = analyzedText
         self.language = language
         self.toolCallsLog = toolCallsLog
         self.latencyMs = latencyMs
@@ -109,6 +118,7 @@ public struct AgentResult: Codable, Sendable {
             confidence: confidence,
             reasoning: reasoning,
             suggestion: suggestion,
+            analyzedText: analyzedText,
             language: language,
             toolCallsLog: toolCallsLog,
             latencyMs: override,

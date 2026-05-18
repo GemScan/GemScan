@@ -34,7 +34,11 @@ export function toUserFriendlyError(error: unknown): UserFriendlyError {
   }
 }
 
-export function makeConservativeResult(taskId: string, error: unknown): AgentResult {
+export function makeConservativeResult(
+  taskId: string,
+  error: unknown,
+  analyzedText?: string
+): AgentResult {
   const friendly = toUserFriendlyError(error)
 
   return {
@@ -47,6 +51,10 @@ export function makeConservativeResult(taskId: string, error: unknown): AgentRes
       'Treat this message as suspicious until you can verify it through a channel you trust. ' +
       'Do not tap any links, reply with personal details, or call numbers from the message. ' +
       'If it claims to be from a known service, open that app or website directly.',
+    // Echo back what the user submitted so the verdict card still shows
+    // it on a failed run — useful for both the live /analyse view and
+    // the persisted History entry.
+    analyzedText,
     language: 'en',
     toolCallsLog: [],
     latencyMs: 0,

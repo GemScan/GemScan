@@ -86,6 +86,46 @@ export default function VerdictCard({ result, onShare, onDismiss }: VerdictCardP
         />
       </div>
 
+      {result.analyzedText && result.analyzedText.trim().length > 0 && (
+        <>
+          <p
+            className="text-caption"
+            style={{
+              color: 'var(--text-muted)',
+              marginTop: 'var(--gap-section)',
+              textTransform: 'uppercase',
+              letterSpacing: 0.4,
+            }}
+          >
+            Checked content
+          </p>
+          <pre
+            // `pre` so multi-line OCR / pasted-email content keeps its
+            // line breaks. `white-space: pre-wrap` lets long lines wrap
+            // instead of triggering horizontal scroll. Capped height +
+            // overflow-auto keeps a 5-page screenshot's transcript from
+            // dominating the card.
+            style={{
+              marginTop: 4,
+              padding: 12,
+              borderRadius: 'var(--radius-input)',
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+              color: 'var(--text)',
+              fontFamily: 'inherit',
+              fontSize: '0.94rem',
+              lineHeight: 1.4,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: 180,
+              overflowY: 'auto',
+            }}
+          >
+            {result.analyzedText.trim()}
+          </pre>
+        </>
+      )}
+
       {result.reasoning.length > 0 && (
         <>
           <p

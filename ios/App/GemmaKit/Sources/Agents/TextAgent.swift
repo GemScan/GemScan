@@ -99,6 +99,7 @@ public actor TextAgent {
             confidence: parsed.confidence,
             reasoning: parsed.reasoning,
             suggestion: parsed.suggestion,
+            analyzedText: content,
             language: language ?? "en",
             toolCallsLog: toolCallRecords,
             latencyMs: latencyMs,

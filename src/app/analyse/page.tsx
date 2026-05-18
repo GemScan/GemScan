@@ -67,7 +67,17 @@ export default function AnalysePage() {
         setResult(analysisResult)
         addResult(analysisResult)
       } catch (err) {
-        const fallback = makeConservativeResult(task.id, err)
+        // Pull the original input back out of the task payload so the
+        // fallback card can still echo it. Image tasks have no OCR'd
+        // text on this path (the model didn't run), so we leave
+        // analyzedText undefined for those.
+        const fallbackInput =
+          task.payload.type === 'text'
+            ? task.payload.content
+            : task.payload.type === 'url'
+              ? task.payload.url
+              : undefined
+        const fallback = makeConservativeResult(task.id, err, fallbackInput)
         setResult(fallback)
         addResult(fallback)
       } finally {
