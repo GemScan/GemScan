@@ -1,10 +1,11 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import InputArea from '@/components/InputArea'
+import { getGemmaPlugin } from '@/lib/gemma'
 
 const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
 
@@ -18,9 +19,39 @@ export default function HomePage() {
   const [input, setInput] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // null while we're still asking the native plugin; true/false once
+  // we know. We only block an action when this is explicitly false —
+  // if the readiness probe fails or hasn't returned yet, we let the
+  // user proceed and rely on the downstream analyser to fail loudly.
+  const [modelReady, setModelReady] = useState<boolean | null>(null)
+  const [showModelReminder, setShowModelReminder] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getGemmaPlugin()
+      .then((plugin) => plugin.isReady())
+      .then((status) => {
+        if (cancelled) return
+        setModelReady(status.ready)
+      })
+      .catch(() => {
+        if (cancelled) return
+        // Treat probe failures as "unknown" — don't block analysis,
+        // and don't pop the reminder; the analyse page will surface
+        // whatever the real error is.
+        setModelReady(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const handleSubmit = () => {
     if (!input.trim()) return
+    if (modelReady === false) {
+      setShowModelReminder(true)
+      return
+    }
     router.push(`/analyse?q=${encodeURIComponent(input)}`)
   }
 
@@ -30,6 +61,11 @@ export default function HomePage() {
   /// where the Camera plugin has no native implementation.
   const handleUploadClick = async () => {
     setUploadError(null)
+
+    if (modelReady === false) {
+      setShowModelReminder(true)
+      return
+    }
 
     if (!Capacitor.isNativePlatform()) {
       // Browser fallback — open the file input.
@@ -243,6 +279,16 @@ export default function HomePage() {
         aria-hidden="true"
       />
 
+      {showModelReminder && (
+        <ModelReminderBalloon
+          onOpenSettings={() => {
+            setShowModelReminder(false)
+            router.push('/settings')
+          }}
+          onDismiss={() => setShowModelReminder(false)}
+        />
+      )}
+
       {uploadError && (
         <p
           role="alert"
@@ -253,6 +299,132 @@ export default function HomePage() {
         </p>
       )}
     </main>
+  )
+}
+
+/// Soft callout shown when the user tries to analyse something before
+/// the Gemma 4 weights have been downloaded. Brand-blue accent (matches
+/// the tab bar) so it doesn't look like the red error toast. Carries a
+/// CTA straight to Settings, where the download UI lives.
+function ModelReminderBalloon({
+  onOpenSettings,
+  onDismiss,
+}: {
+  onOpenSettings: () => void
+  onDismiss: () => void
+}) {
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      style={{
+        position: 'relative',
+        width: '100%',
+        maxWidth: 480,
+        padding: '14px 16px',
+        borderRadius: 'var(--radius-card)',
+        backgroundColor: '#eaf1fb',
+        border: '1px solid #c2d4ef',
+        boxShadow: '0 4px 16px rgba(0, 74, 173, 0.10)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      {/* Speech-bubble pointer pointing up at the input/button area. */}
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: -8,
+          left: 32,
+          width: 14,
+          height: 14,
+          backgroundColor: '#eaf1fb',
+          borderTop: '1px solid #c2d4ef',
+          borderLeft: '1px solid #c2d4ef',
+          transform: 'rotate(45deg)',
+          borderTopLeftRadius: 3,
+        }}
+      />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#004aad"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          style={{ flexShrink: 0, marginTop: 2 }}
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          <line x1="12" y1="8" x2="12" y2="13" />
+          <circle cx="12" cy="16" r="0.5" fill="#004aad" />
+        </svg>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span
+            className="text-body"
+            style={{ color: '#0e1626', fontWeight: 600, display: 'block', marginBottom: 2 }}
+          >
+            Download the model first
+          </span>
+          <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+            GemScan needs the Gemma 4 weights on this device before it can analyse anything.
+            Under 5 minutes on Wi-Fi.
+          </span>
+        </div>
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss reminder"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            padding: 4,
+            minHeight: 32,
+            minWidth: 32,
+            flexShrink: 0,
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <button
+        onClick={onOpenSettings}
+        style={{
+          alignSelf: 'flex-start',
+          backgroundColor: '#004aad',
+          color: '#ffffff',
+          border: 'none',
+          borderRadius: 'var(--radius-button)',
+          padding: '8px 16px',
+          fontFamily: 'inherit',
+          fontSize: '0.94rem',
+          fontWeight: 600,
+          cursor: 'pointer',
+          minHeight: 36,
+        }}
+      >
+        Open Settings
+      </button>
+    </div>
   )
 }
 

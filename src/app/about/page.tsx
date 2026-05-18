@@ -31,7 +31,7 @@ export default function AboutPage() {
       <div className="page-scroll" style={{ gap: 'var(--gap-element)' }}>
         <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
           {/* TODO: tagline / version subtitle */}
-          GemScan · Version 1.0.0
+          GemScan · v1.0
         </span>
 
         <Section title="What is GemScan?">
@@ -61,6 +61,11 @@ export default function AboutPage() {
         <Section title="Source Code">
           {/* TODO: contact info or repo link */}
           https://github.com/GemScan/GemScan
+        </Section>
+
+        <Section title="Website">
+          {/* TODO: contact info or repo link */}
+          https://gemscan.github.io/GemScan/
         </Section>
       </div>
     </main>

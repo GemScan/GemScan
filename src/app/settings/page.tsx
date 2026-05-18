@@ -177,7 +177,7 @@ export default function SettingsPage() {
       </button>
 
       <p className="text-caption" style={{ color: 'var(--text)' }}>
-        Version 1.0.0
+        v1.0
       </p>
       </div>
     </main>
