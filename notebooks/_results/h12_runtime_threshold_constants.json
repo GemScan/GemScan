@@ -1,0 +1,23 @@
+{
+  "gemscan_thresholds_version": "h12-v0",
+  "status": "provisional",
+  "selection_source": "feasible",
+  "selected_from_feasible_rows": true,
+  "feasible_row_count": 12,
+  "active_constraints": {
+    "max_hard_false_positive_rate": 0.105,
+    "min_scam_capture_rate": 0.85,
+    "max_suspicious_rate": 0.25
+  },
+  "selected_model_tier": "E4B",
+  "tau_low": 0.75,
+  "tau_high": 0.95,
+  "temperature": null,
+  "verdict_rule": {
+    "safe": "scam_prob < tau_low",
+    "suspicious": "tau_low <= scam_prob < tau_high",
+    "scam": "scam_prob >= tau_high"
+  },
+  "source_artifact": "/home/zenith/workspace/GemScan/notebooks/_results/h12_threshold_sweep.csv",
+  "generated_at": "2026-05-02T19:33:17.320742+00:00"
+}

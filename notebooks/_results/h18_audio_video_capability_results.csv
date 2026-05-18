@@ -1,0 +1,83 @@
+benchmark_schema_version,model_tier,model_id,id,modality,input_mode,scenario,expected_verdict,predicted_verdict,safe_prob,suspicious_prob,scam_prob,parse_ok,parse_method,parse_error,output_tokens,risk_signals,recommended_action,raw_output,direct_probe_status,direct_probe_error,processor_summary
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,audio_voice_clone_bank_001,audio,direct_audio,voice_clone_family_emergency,scam,,,,,,,,0,[],,,skipped_no_media_path,fixture path is empty,
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,audio_voice_clone_bank_001,audio,derived_evidence,voice_clone_family_emergency,scam,scam,0.05,0.15,0.8,False,lexical_from_raw,JSONDecodeError('Expecting value: line 5 column 14 (char 81)'),123,[],Review manually.,"```json
+{
+  ""safe_prob"": 0.1,
+  ""suspicious_prob"": 0.8,
+  ""scam_prob"": 0.1,
+  ""verdict"": suspicious,
+  ""risk_signals"": [
+    ""request for immediate bank transfer"",
+    ""impersonation/lost phone pretext"",
+    ""demand for secrecy ('do not call me back')"",
+    ""request for payment via new account number""
+  ],
+  ""recommended_action"": ""Do not send money""
+}
+```<turn|>",,,
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,audio_voicemail_safe_001,audio,direct_audio,benign_appointment_reminder,safe,,,,,,,,0,[],,,skipped_no_media_path,fixture path is empty,
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,audio_voicemail_safe_001,audio,derived_evidence,benign_appointment_reminder,safe,safe,0.95,0.05,0.0,True,json,,96,"[""standard appointment reminder"", ""no immediate red flags""]",Ignore the message,"```json
+{
+  ""safe_prob"": 0.95,
+  ""suspicious_prob"": 0.05,
+  ""scam_prob"": 0.0,
+  ""verdict"": ""safe"",
+  ""risk_signals"": [
+    ""standard appointment reminder"",
+    ""no immediate red flags""
+  ],
+  ""recommended_action"": ""Ignore the message""
+}
+```<turn|>",,,
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,video_qr_delivery_001,video,direct_video,package_redelivery_qr,scam,,,,,,,,0,[],,,probe_error,"Traceback (most recent call last):
+  File ""/tmp/ipykernel_9237/403004388.py"", line 91, in direct_modality_probe
+    processed = processor(text=prompt, videos=[frames], return_tensors=""pt"")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/usr/local/lib/python3.12/dist-packages/transformers/models/gemma4/processing_gemma4.py"", line 161, in __call__
+    video_inputs = self.video_processor(videos=videos, **output_kwargs[""videos_kwargs""])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/usr/local/lib/python3.12/dist-packages/transformers/video_processing_utils.py"", line 178, in __call__
+    return self.preprocess(videos, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Video can't be sampled. The `num_frames=32` exceeds `total_num_frames=1`. 
+",
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,video_qr_delivery_001,video,derived_evidence,package_redelivery_qr,scam,scam,0.10526315789473684,0.42105263157894735,0.47368421052631576,True,json,,116,"[""time pressure"", ""threat of package return"", ""payment demand"", ""imitation of delivery service""]",Do not scan the QR code or pay the fee.,"```json
+{
+  ""safe_prob"": 0.2,
+  ""suspicious_prob"": 0.8,
+  ""scam_prob"": 0.9,
+  ""verdict"": ""scam"",
+  ""risk_signals"": [
+    ""time pressure"",
+    ""threat of package return"",
+    ""payment demand"",
+    ""imitation of delivery service""
+  ],
+  ""recommended_action"": ""Do not scan the QR code or pay the fee.""
+}
+```<turn|>",,,
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,video_store_receipt_safe_001,video,direct_video,benign_retail_refund,safe,,,,,,,,0,[],,,probe_error,"Traceback (most recent call last):
+  File ""/tmp/ipykernel_9237/403004388.py"", line 91, in direct_modality_probe
+    processed = processor(text=prompt, videos=[frames], return_tensors=""pt"")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/usr/local/lib/python3.12/dist-packages/transformers/models/gemma4/processing_gemma4.py"", line 161, in __call__
+    video_inputs = self.video_processor(videos=videos, **output_kwargs[""videos_kwargs""])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/usr/local/lib/python3.12/dist-packages/transformers/video_processing_utils.py"", line 178, in __call__
+    return self.preprocess(videos, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Video can't be sampled. The `num_frames=32` exceeds `total_num_frames=1`. 
+",
+h18_audio_video_v1,E2B,google/gemma-4-E2B-it,video_store_receipt_safe_001,video,derived_evidence,benign_retail_refund,safe,safe,0.95,0.05,0.0,True,json,,100,"[""No request for credentials"", ""No off-platform payment requested""]",Proceed with the transaction,"```json
+{
+  ""safe_prob"": 0.95,
+  ""suspicious_prob"": 0.05,
+  ""scam_prob"": 0.0,
+  ""verdict"": ""safe"",
+  ""risk_signals"": [
+    ""No request for credentials"",
+    ""No off-platform payment requested""
+  ],
+  ""recommended_action"": ""Proceed with the transaction""
+}
+```<turn|>",,,
