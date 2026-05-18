@@ -159,6 +159,19 @@
     .feature p { font-size: 15px; margin-bottom: 0; }
 
     /* Demo walkthrough */
+    .demo-video {
+      max-width: 360px;
+      margin: 0 auto 64px;
+      aspect-ratio: 9 / 16;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      background: #000;
+    }
+    .demo-video iframe {
+      width: 100%; height: 100%;
+      border: 0; display: block;
+    }
     .steps {
       display: flex; flex-direction: column; gap: 64px;
     }
@@ -406,7 +419,16 @@
     <div class="container">
       <div class="section-head">
         <h2>Demo walkthrough</h2>
-        <p>A 90-second tour of the app. Follow along on your own simulator with the strings below.</p>
+        <p>Watch the 90-second tour below, then follow along on your own simulator using the strings in each step.</p>
+      </div>
+
+      <div class="demo-video">
+        <iframe
+          src="https://www.youtube.com/embed/xrYfGuFbKw4"
+          title="GemScan demo video"
+          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen
+          loading="lazy"></iframe>
       </div>
 
       <div class="steps">
