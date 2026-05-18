@@ -1,76 +1,104 @@
 # GemScan
 
-On-device AI scam detection that protects elders and youth from scams, sextortion, and fraud — without sending data to the cloud.
+An iOS app that checks suspicious messages, links, and screenshots for scams — fully on-device, in seconds.
 
 ## Why this exists
 
-In 2023, a mother in Arizona answered her phone and heard her teenage daughter screaming in terror. A voice — indistinguishable from her daughter's own — begged for help, claiming she'd been kidnapped. A man then demanded a ransom. The daughter was safe at home the entire time. A three-second audio clip scraped from social media was all it took to clone her voice.
+In 2023, a mother in Arizona answered her phone and heard her daughter screaming. The voice was indistinguishable — a three-second clip scraped from social media was all it took to clone it. The daughter was safe at home. That same year, **$16.6 B** was lost to fraud in the US alone, and the people most targeted — elders, teenagers, non-native speakers — are the ones today's defences fail.
 
-That same year, over 12,600 minors were financially sextorted after being manipulated into sharing intimate images online. At least 20 died by suicide. Meanwhile, the FBI documented **$16.6 billion in US fraud losses in 2024 (+33% YoY)**, with elder victims accounting for $4.885 billion. Globally, scams now steal an estimated **$1 trillion per year**.
-
-The populations most at risk — elderly adults, teenagers, non-native speakers — are precisely the ones current defences fail. Carrier spam filters use blocklists. OS-level silencers don't understand context. Every third-party "safety" app ships your conversations to a cloud server.
-
-GemScan was built on a simple premise: **the people most targeted by these attacks deserve protection that works in their language, respects their privacy, and runs on the phone they already own.**
+Cloud-based scam filters work by shipping your private conversations to a server. GemScan was built on a simpler bet: **the people most at risk deserve protection that runs on the phone they already own, in their language, without their messages ever leaving the device.**
 
 ## What it does
 
-GemScan analyses SMS, emails, URLs, screenshots, and voice messages to detect scam patterns. All inference runs locally on-device using Gemma 4 models — sensitive content never leaves the phone.
+Paste in a message, link, or screenshot. GemScan tells you in plain language whether it looks **safe**, **suspicious**, or a **scam**, and gives you the reasons it thinks so. Every model runs locally on your iPhone — nothing is uploaded, nothing is logged.
 
-## Architecture at a glance
+The current build ships with five things you can try:
 
-```mermaid
-flowchart TD
-    User([User Input])
-    User --> UI[Next.js UI + Capacitor Bridge]
-    UI --> Orch[OrchestratorAgent]
+| Feature | What it does |
+| --- | --- |
+| **Analyse** | Type or paste a message / URL and tap *Check this*. Returns a verdict, confidence, and reasoning. |
+| **Add a picture** | Pick a screenshot from your Photos library. Apple Vision OCR pulls the text out, then the same scam classifier runs on it. |
+| **Share Extension** | From any iOS app (Messages, Mail, Safari), tap *Share → GemScan* to send text, a link, or an image straight into the analyser. |
+| **History** | Every check is saved locally. See month-to-date and year-to-date counts of Analyses, Scams, and Suspicious items. Tap any row to revisit it. |
+| **Learn** | A browsable guide to the eight most common scam patterns — phishing, sextortion, romance, investment, imposter, employment, shopping, malware — with red flags and what to do. |
 
-    Orch --> Text[TextAgent · E2B]
-    Orch --> URL[URLAgent · E2B]
-    Orch --> Img[ImageAgent · E4B]
-    Orch --> Voice[VoiceAgent · E4B]
-    Orch -.->|disputed| Judge[JudgeAgent · E4B]
+## Demo walkthrough (for judges)
 
-    Text & URL & Img & Voice & Judge --> MCP[10 MCP Servers]
-    Text & URL & Img & Voice & Judge --> Inf[Inference Engine\nMLX Swift · llama.cpp · DistilBERT]
+A 90-second tour of the app:
 
-    MCP --> Result([AgentResult → Verdict])
-    Inf --> Result
-    Result --> UI
+1. **Launch** — open GemScan. The model is bundled, no download needed.
+2. **Text path** — paste:
+   `Your package could not be delivered. Confirm address: usps-redelivery.shop/track`
+   Tap *Check this*. GemScan flags it as a phishing scam and explains why (mismatched sender domain, urgency, suspicious TLD).
+3. **Image path** — tap *Add a picture* and pick a screenshot of a suspicious text from the Simulator's Photos library. Vision OCR extracts the text, the verdict appears.
+4. **Share path** — open Safari, hit *Share* on any page, choose *GemScan*. The URL gets analysed automatically.
+5. **History** — switch to the History tab. See the running totals and tap any past check to view it again.
+6. **Learn** — switch to the Learn tab and expand any scam type to read the red-flags playbook.
 
-    Ext[iOS Extensions\nSMS Filter · Call Dir · Share · Siri · Safari] -.-> Inf
+Airplane mode works for every flow except the Share Extension's network metadata lookup. Toggle it on if you want to verify nothing is leaving the device.
+
+## Run it yourself
+
+You can fully test the app from the web mock without an iPhone, or build the real iOS app:
+
+### Web mock (no Xcode needed)
+
+```bash
+git clone https://github.com/GemScan/GemScan && cd GemScan
+npm install
+npm run dev
 ```
 
-A six-agent pipeline coordinated by Swift actors. The OrchestratorAgent picks a tier (E2B for cheap text triage, E4B for image / audio / disputed cases) and routes through ten in-process MCP servers for grounding (URL reputation, contacts, scam-pattern recall, and friends).
+Open <http://localhost:3000>. The web build swaps in a mock `GemmaPlugin` that returns deterministic verdicts — every screen and every flow is reachable.
 
-| Agent | Model | Handles |
-|-------|-------|---------|
-| TextAgent | E2B (2.3B) | SMS, email classification |
-| URLAgent | E2B | URL reputation, WHOIS lookup |
-| ImageAgent | E4B (4.5B) | Screenshot analysis, QR detection |
-| VoiceAgent | E4B + Whisper | Audio transcription, deepfake detection |
-| JudgeAgent | E4B | Adjudication for disputed verdicts |
-| OrchestratorAgent | E4B | Routing, escalation (E2B → E4B at confidence < 0.75) |
+### iOS build (real on-device inference)
 
-## Tech stack
+Requires Xcode 15.3+, an Apple Developer account (free is fine), and ~3 GB free for the Gemma 4 E2B model.
 
-| Layer | Technology |
-|-------|-----------|
-| UI | Next.js 14 (App Router) + Tailwind |
-| Bridge | Capacitor 6 (TypeScript ↔ Swift) |
-| Inference | MLX Swift (primary) / llama.cpp (fallback) |
-| Models | Gemma 4 E2B, E4B, DistilBERT |
-| Audio | Whisper-small + AudioSeal |
-| State | Zustand + React Query |
+```bash
+npm install
+npm run build          # static-export the Next.js app
+npx cap sync ios       # copy the bundle into the iOS shell
+npx cap open ios       # opens Xcode
+```
+
+In Xcode: pick an iPhone Simulator (iPhone 15 Pro and up work well) or a paired physical device, then `⌘R`. The first launch downloads the Gemma 4 E2B IT 4-bit weights (~2 GB) from Hugging Face into the app's sandbox.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer setup, signing notes, and the test commands.
+
+## How it works
+
+```mermaid
+flowchart LR
+    Input([Text / URL / Image]) --> Bridge[Capacitor Bridge]
+    Bridge --> Orch[OrchestratorAgent]
+    Orch --> OCR[Apple Vision OCR<br/>images only]
+    OCR --> Classify
+    Orch --> Classify[Text / URL / Image Agent]
+    Classify --> MLX[Gemma 4 E2B<br/>MLX-Swift · 4-bit]
+    MLX --> Verdict([Verdict + Reasoning])
+    Verdict --> Bridge
+```
+
+When you submit something, a Swift `OrchestratorAgent` picks the right specialist (text, URL, or image), runs Gemma 4 E2B locally through Apple's MLX framework, and parses the model's grammar-constrained output into a `{ verdict, confidence, reasoning }` shape the UI can render. Images take an extra step: Apple Vision pulls the text out first, then the same text path runs on the OCR result.
+
+| Layer | What it's built with |
+| --- | --- |
+| UI | Next.js 14 (App Router), static-exported and bundled into the iOS WebView |
+| Native shell | Capacitor 6 + Swift |
+| Inference | MLX-Swift (Apple Silicon GPU), llama.cpp fallback |
+| Model | Gemma 4 E2B Instruct, 4-bit quantised (~2 GB) |
+| OCR | Apple Vision `VNRecognizeTextRequest` |
+| Storage | Zustand + localStorage (history is on-device only) |
 
 ## Where to go next
 
 | You are… | Start here |
 | --- | --- |
-| A developer wanting to run, build, or contribute code | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| Curious about system design | [docs/architecture.md](docs/architecture.md) |
-| Validating model capabilities (Colab) | [notebooks/README.md](notebooks/README.md) |
-| Tracking the non-code work to ship | [tasks/99_humantasks.md](tasks/99_humantasks.md) |
-| Looking for any other guide | [docs/](docs/) |
+| A developer wanting to build or extend it | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Curious about the agent / inference architecture | [docs/architecture.md](docs/architecture.md) |
+| Validating model behaviour in Colab | [notebooks/README.md](notebooks/README.md) |
+| Looking for the rest of the docs | [docs/](docs/) |
 
 ## License
 
