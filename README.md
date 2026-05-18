@@ -26,7 +26,7 @@ The current build ships with five things you can try:
 
 A 90-second tour of the app:
 
-1. **Launch** — open GemScan. The model is bundled, no download needed.
+1. **First-run setup** — open GemScan and head to the *Settings* tab. Tap *Download model* and wait while the Gemma 4 E2B weights pull down (~5 minutes on Wi-Fi). The weights are cached on-device from then on; subsequent launches are instant.
 2. **Text path** — paste:
    `Your package could not be delivered. Confirm address: usps-redelivery.shop/track`
    Tap *Check this*. GemScan flags it as a phishing scam and explains why (mismatched sender domain, urgency, suspicious TLD).
@@ -62,7 +62,7 @@ npx cap sync ios       # copy the bundle into the iOS shell
 npx cap open ios       # opens Xcode
 ```
 
-In Xcode: pick an iPhone Simulator (iPhone 15 Pro and up work well) or a paired physical device, then `⌘R`. The first launch downloads the Gemma 4 E2B IT 4-bit weights (~2 GB) from Hugging Face into the app's sandbox.
+In Xcode: pick an iPhone Simulator (iPhone 15 Pro and up work well) or a paired physical device, then `⌘R`. On first launch, open the in-app *Settings* tab and tap *Download model* to pull the Gemma 4 E2B IT 4-bit weights (~2 GB) from Hugging Face into the app's sandbox — under 5 minutes on Wi-Fi. The weights are reused on every subsequent launch.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer setup, signing notes, and the test commands.
 

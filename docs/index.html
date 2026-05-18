@@ -399,7 +399,7 @@
           <div class="step-copy">
             <span class="step-num">1</span>
             <h3>Launch</h3>
-            <p>Open GemScan. The model is bundled into the app — no download, no sign-up. The home screen offers two ways to send something for analysis: paste text, or pick a picture.</p>
+            <p>The first time you open GemScan, head to the <em>Settings</em> tab and tap <em>Download model</em> — about 5 minutes on Wi-Fi. The weights live on the phone from then on; every subsequent launch is instant. From the home screen you can paste text or pick a picture for analysis.</p>
           </div>
           <div class="step-img">
             <div class="device"><div class="device-inner">
@@ -551,7 +551,7 @@
 
           <text class="group-label" x="20" y="298">Privacy boundary</text>
           <rect x="20" y="310" width="880" height="36" rx="10" fill="#f3f1ea" stroke="#e3e0d6"/>
-          <text class="sub" x="460" y="333" text-anchor="middle">No network calls during analysis · model bundled with app · history stored only in localStorage</text>
+          <text class="sub" x="460" y="333" text-anchor="middle">No network calls during analysis · weights cached on-device after one-time download · history stored only in localStorage</text>
 
           <path class="flow" d="M 180 76 L 220 76" marker-end="url(#arrow)"/>
           <path class="flow" d="M 380 76 L 420 76" marker-end="url(#arrow)"/>
@@ -604,7 +604,7 @@
           </div>
         </div>
       </div>
-      <p style="text-align:center; font-size:13px; margin-top:24px;">Numbers are typical for an iPhone 15 Pro running the bundled E2B configuration; replace with your own measurements before judging.</p>
+      <p style="text-align:center; font-size:13px; margin-top:24px;">Numbers are typical for an iPhone 15 Pro running the default E2B configuration; replace with your own measurements before judging.</p>
     </div>
   </section>
 
@@ -625,7 +625,7 @@ npm run dev
         </div>
         <div class="run-card">
           <h3>📱 iOS build</h3>
-          <p>Requires Xcode 15.3+ and an Apple Developer account (free is fine). First launch downloads the Gemma 4 E2B weights (~2 GB) into the app sandbox.</p>
+          <p>Requires Xcode 15.3+ and an Apple Developer account (free is fine). On first launch, open <em>Settings → Download model</em> to pull the Gemma 4 E2B weights (~2 GB from Hugging Face, &lt;5 min on Wi-Fi). They're cached on-device after that.</p>
 <pre><code>npm install
 npm run build
 npx cap sync ios
