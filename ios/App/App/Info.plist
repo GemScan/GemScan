@@ -49,6 +49,12 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>GemScan uses the camera so you can snap a picture of a suspicious message or screen and check it for scams on-device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>GemScan reads pictures you pick from your photo library so it can check them for scams on-device.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>GemScan can save a photo you take in-app to your library if you choose to keep it.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

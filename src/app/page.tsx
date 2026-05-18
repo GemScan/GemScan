@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera'
 import InputArea from '@/components/InputArea'
 
 const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
@@ -23,9 +25,68 @@ export default function HomePage() {
     router.push(`/analyse?q=${encodeURIComponent(input)}`)
   }
 
-  const handleUploadClick = () => {
+  /// On iOS we use the native Capacitor Camera plugin so the user gets a
+  /// proper action sheet (Camera / Photos / Cancel). The hidden file
+  /// input is kept around as a fallback for the web mock (`npm run dev`)
+  /// where the Camera plugin has no native implementation.
+  const handleUploadClick = async () => {
     setUploadError(null)
-    fileInputRef.current?.click()
+
+    if (!Capacitor.isNativePlatform()) {
+      // Browser fallback — open the file input.
+      fileInputRef.current?.click()
+      return
+    }
+
+    try {
+      const photo = await Camera.getPhoto({
+        // Returns the image as a base64 string (and a data URL prefix we
+        // can rebuild) without needing a temporary file handle — fits
+        // neatly into the sessionStorage handoff the analyse page reads.
+        resultType: CameraResultType.Base64,
+        // `Prompt` shows an iOS action sheet with Camera + Photos
+        // options. `Camera` would force-open the camera; `Photos` would
+        // force-open the library. Prompt is what most apps use for a
+        // "Add picture" affordance.
+        source: CameraSource.Prompt,
+        quality: 90,
+        // Disabling edit (no crop step) keeps the flow snappy and
+        // ensures we send the screenshot as-shared.
+        allowEditing: false,
+        // Force JPEG so the downstream OCR + classify pipeline doesn't
+        // need to branch on HEIC/PNG/JPEG. iOS does the conversion
+        // before handing us the bytes.
+        correctOrientation: true,
+        promptLabelHeader: 'Add a picture',
+        promptLabelCancel: 'Cancel',
+        promptLabelPhoto: 'Choose from library',
+        promptLabelPicture: 'Take photo',
+      })
+
+      if (!photo.base64String) {
+        setUploadError("Couldn't read that picture. Try another one.")
+        return
+      }
+
+      const mimeType: 'image/jpeg' | 'image/png' =
+        photo.format === 'png' ? 'image/png' : 'image/jpeg'
+      const previewDataURL = `data:${mimeType};base64,${photo.base64String}`
+      const pending: PendingImage = {
+        base64: photo.base64String,
+        mimeType,
+        previewDataURL,
+      }
+      sessionStorage.setItem(PENDING_IMAGE_KEY, JSON.stringify(pending))
+      router.push('/analyse?type=image')
+    } catch (err) {
+      // The Camera plugin throws when the user cancels — treat that as
+      // a no-op rather than an error toast.
+      const message = err instanceof Error ? err.message.toLowerCase() : ''
+      if (message.includes('cancel') || message.includes('user denied')) {
+        return
+      }
+      setUploadError("Couldn't open the picture picker. Check Camera and Photos permissions in Settings.")
+    }
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,7 +166,7 @@ export default function HomePage() {
           className="btn-secondary"
           style={{ flex: 1 }}
           onClick={handleUploadClick}
-          aria-label="Upload a picture from your photo library"
+          aria-label="Add a picture to check"
         >
           <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <svg
@@ -123,7 +184,7 @@ export default function HomePage() {
               <circle cx="8.5" cy="8.5" r="1.5" />
               <polyline points="21 15 16 10 5 21" />
             </svg>
-            Upload picture
+            Add a picture
           </span>
         </button>
       </div>
@@ -131,7 +192,7 @@ export default function HomePage() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png"
+        accept="image/*"
         onChange={handleFileChange}
         style={{ display: 'none' }}
         aria-hidden="true"
