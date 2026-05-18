@@ -59,16 +59,46 @@ export default function AboutPage() {
         </Section>
 
         <Section title="Source Code">
-          {/* TODO: contact info or repo link */}
-          https://github.com/GemScan/GemScan
+          <ExternalLink href="https://github.com/GemScan/GemScan">
+            github.com/GemScan/GemScan
+          </ExternalLink>
         </Section>
 
         <Section title="Website">
-          {/* TODO: contact info or repo link */}
-          https://gemscan.github.io/GemScan/
+          <ExternalLink href="https://gemscan.github.io/GemScan/">
+            gemscan.github.io/GemScan
+          </ExternalLink>
         </Section>
       </div>
     </main>
+  )
+}
+
+/// Anchor that always escapes the in-app WebView and opens in the
+/// system browser (Safari on iOS, the default browser on web). We
+/// intercept the click rather than relying on `target="_blank"` alone
+/// because Capacitor's WKWebView has historically opened new-window
+/// links in a blank in-app frame on some iOS versions. `window.open`
+/// with `_blank` is the form Capacitor reliably routes to Safari.
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    window.open(href, '_blank', 'noopener,noreferrer')
+  }
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        color: '#004aad',
+        textDecoration: 'underline',
+        wordBreak: 'break-all',
+      }}
+    >
+      {children}
+    </a>
   )
 }
 
