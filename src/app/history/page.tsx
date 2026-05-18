@@ -1,40 +1,150 @@
 'use client'
 
-import { useGemScanStore } from '@/lib/store'
-import ResultRow from '@/components/ResultRow'
+import { useState } from 'react'
+import { useGemScanStore, type StoredResult } from '@/lib/store'
+import ResultRow, { formatTimeAgo } from '@/components/ResultRow'
+import VerdictCard from '@/components/VerdictCard'
 
 export default function HistoryPage() {
   const recentResults = useGemScanStore((s) => s.recentResults)
   const clearResults = useGemScanStore((s) => s.clearResults)
+  const trustedContactId = useGemScanStore((s) => s.trustedContactId)
+
+  const [confirmingClear, setConfirmingClear] = useState(false)
+  // Detail mode is fully client-side state; we deliberately don't push a
+  // URL param for the open result so the tab's deep-link target stays
+  // the list view and a Capacitor cold launch / Cmd+R always opens to
+  // the same place. Tapping a row swaps the page contents in-place.
+  const [detailEntry, setDetailEntry] = useState<StoredResult | null>(null)
+
+  const hasHistory = recentResults.length > 0
+
+  const handleConfirmClear = () => {
+    clearResults()
+    setConfirmingClear(false)
+  }
+
+  if (detailEntry) {
+    return (
+      <DetailView
+        entry={detailEntry}
+        trustedContactId={trustedContactId}
+        onBack={() => setDetailEntry(null)}
+      />
+    )
+  }
 
   return (
     <main className="page">
-      <h1 className="text-title" style={{ color: 'var(--text)' }}>
-        History
-      </h1>
-
-      {recentResults.length > 0 ? (
-        <>
-          <div
-            className="page-scroll"
-            style={{ gap: 0 }}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--gap-element)',
+        }}
+      >
+        <h1 className="text-title" style={{ color: 'var(--text)' }}>
+          History
+        </h1>
+        {hasHistory && !confirmingClear && (
+          <button
+            onClick={() => setConfirmingClear(true)}
+            aria-label="Clear all history"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--scam)',
+              fontFamily: 'inherit',
+              fontSize: '0.882rem',
+              fontWeight: 500,
+              padding: '6px 4px',
+              minHeight: 32,
+            }}
           >
-            {recentResults.map((result) => (
-              <ResultRow
-                key={result.taskId}
-                input={result.reasoning[0] ?? result.taskId}
-                verdict={result.verdict}
-                onClick={() => {
-                  /* TODO: show detail */
-                }}
-              />
-            ))}
-          </div>
-
-          <button className="btn-secondary" onClick={clearResults} aria-label="Clear all history">
-            Clear history
+            Clear
           </button>
-        </>
+        )}
+      </div>
+
+      {confirmingClear && (
+        <div
+          role="alertdialog"
+          aria-labelledby="confirm-clear-title"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--gap-element)',
+            padding: 16,
+            borderRadius: 'var(--radius-card)',
+            border: '1px solid var(--border)',
+            backgroundColor: 'var(--surface-alt)',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span
+              id="confirm-clear-title"
+              className="text-heading"
+              style={{ color: 'var(--text)' }}
+            >
+              Clear all history?
+            </span>
+            <span className="text-body" style={{ color: 'var(--text-muted)' }}>
+              This removes every check on this device. You can&apos;t undo this.
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--gap-element)' }}>
+            <button
+              onClick={() => setConfirmingClear(false)}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                borderRadius: 'var(--radius-button)',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface)',
+                color: 'var(--text)',
+                fontFamily: 'inherit',
+                fontSize: '1rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmClear}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                borderRadius: 'var(--radius-button)',
+                border: 'none',
+                backgroundColor: 'var(--scam)',
+                color: '#ffffff',
+                fontFamily: 'inherit',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasHistory ? (
+        <div className="page-scroll" style={{ gap: 'var(--gap-element)' }}>
+          {recentResults.map((entry) => (
+            <ResultRow
+              key={entry.result.taskId}
+              input={firstLine(entry.result.reasoning[0]) ?? entry.result.taskId}
+              verdict={entry.result.verdict}
+              timestamp={entry.savedAt}
+              onClick={() => setDetailEntry(entry)}
+            />
+          ))}
+        </div>
       ) : (
         <p className="text-body" style={{ color: 'var(--text-muted)' }}>
           No checks yet. Scan a message to get started.
@@ -42,4 +152,74 @@ export default function HistoryPage() {
       )}
     </main>
   )
+}
+
+/// Detail view rendered when a history row is tapped. Re-uses the
+/// `VerdictCard` the live `/analyse` flow renders so the user sees the
+/// exact same layout for a revisited result as they did the first time.
+/// Back button + dismiss button both fall back to the list view via
+/// the parent's `onBack` callback.
+function DetailView({
+  entry,
+  trustedContactId,
+  onBack,
+}: {
+  entry: StoredResult
+  trustedContactId: string | null
+  onBack: () => void
+}) {
+  const handleShare = () => {
+    if (trustedContactId) {
+      // Same console-log behaviour as the live analyse page until the
+      // native share plugin is wired in. Revisited results share the
+      // same trusted-contact destination as fresh ones.
+      console.log(`Sharing result ${entry.result.taskId} with contact ${trustedContactId}`)
+    }
+  }
+
+  const timeLabel = formatTimeAgo(entry.savedAt)
+
+  return (
+    <main className="page">
+      <button
+        onClick={onBack}
+        aria-label="Back to history"
+        style={{
+          color: 'var(--text)',
+          background: 'none',
+          border: 'none',
+          padding: '8px 0',
+          cursor: 'pointer',
+          alignSelf: 'flex-start',
+          minHeight: 44,
+          minWidth: 44,
+          fontFamily: 'inherit',
+          fontSize: '1rem',
+        }}
+      >
+        ← Back
+      </button>
+
+      <div className="page-scroll">
+        {timeLabel && (
+          <span
+            className="text-caption"
+            style={{ color: 'var(--text-muted)', marginBottom: -8 }}
+          >
+            Analyzed {timeLabel}
+          </span>
+        )}
+        <VerdictCard result={entry.result} onShare={handleShare} onDismiss={onBack} />
+      </div>
+    </main>
+  )
+}
+
+/// First line of the reasoning bullet, trimmed. Falls back to `undefined`
+/// if the bullet is missing (we let the caller substitute the taskId).
+/// Used to keep multi-line reasoning compact in the row preview.
+function firstLine(text: string | undefined): string | undefined {
+  if (!text) return undefined
+  const newlineIndex = text.indexOf('\n')
+  return newlineIndex >= 0 ? text.slice(0, newlineIndex).trim() : text.trim()
 }

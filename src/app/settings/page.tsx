@@ -3,33 +3,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGemScanStore } from '@/lib/store'
-import { useLocale as useLocaleHook } from '@/hooks/useLocale'
 import { useDeviceStatus } from '@/hooks/useDeviceStatus'
 import { getGemmaPlugin } from '@/lib/gemma'
 import ModelDownloadSection from '@/components/ModelDownloadSection'
-
-const languages = [
-  { code: 'en', label: 'English' },
-  { code: 'es', label: 'Espanol' },
-  { code: 'hi', label: 'Hindi' },
-  { code: 'zh-Hans', label: 'Chinese (Simplified)' },
-  { code: 'ja', label: 'Japanese' },
-]
 
 export default function SettingsPage() {
   const router = useRouter()
   const guardianModeEnabled = useGemScanStore((s) => s.guardianModeEnabled)
   const setGuardianModeEnabled = useGemScanStore((s) => s.setGuardianModeEnabled)
   const trustedContactId = useGemScanStore((s) => s.trustedContactId)
-  const { locale, setLocale } = useLocaleHook()
-
-  const currentLanguageName = languages.find((l) => l.code === locale)?.label ?? locale
-
-  const cycleLanguage = () => {
-    const idx = languages.findIndex((l) => l.code === locale)
-    const next = languages[(idx + 1) % languages.length]
-    setLocale(next.code)
-  }
 
   const toggleGuardian = () => {
     if (guardianModeEnabled) {
@@ -45,43 +27,9 @@ export default function SettingsPage() {
 
   return (
     <main className="page">
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 'var(--gap-element)',
-        }}
-      >
-        <h1 className="text-title" style={{ color: 'var(--text)' }}>
-          Settings
-        </h1>
-        <button
-          onClick={cycleLanguage}
-          aria-label={`Language: ${currentLanguageName}. Tap to change.`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            height: 32,
-            minHeight: 32,
-            minWidth: 0,
-            padding: '0 12px',
-            borderRadius: 16,
-            border: '1px solid var(--border)',
-            backgroundColor: 'var(--surface-alt)',
-            color: 'var(--text)',
-            fontFamily: 'inherit',
-            fontSize: '0.882rem',
-            fontWeight: 500,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {currentLanguageName}
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>▾</span>
-        </button>
-      </div>
+      <h1 className="text-title" style={{ color: 'var(--text)' }}>
+        Settings
+      </h1>
 
       <div className="page-scroll">
       <ModelDownloadSection />

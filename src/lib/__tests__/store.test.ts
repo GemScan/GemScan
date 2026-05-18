@@ -85,13 +85,19 @@ describe('useGemScanStore', () => {
   })
 
   describe('addResult', () => {
-    it('pushes to recentResults array', () => {
+    it('pushes a StoredResult wrapper into recentResults', () => {
       const result = makeResult('task-001')
+      const before = Date.now()
       useGemScanStore.getState().addResult(result)
+      const after = Date.now()
 
       const state = useGemScanStore.getState()
       expect(state.recentResults).toHaveLength(1)
-      expect(state.recentResults[0].taskId).toBe('task-001')
+      const [entry] = state.recentResults
+      expect(entry.result.taskId).toBe('task-001')
+      // savedAt is stamped at insert time with Date.now()
+      expect(entry.savedAt).toBeGreaterThanOrEqual(before)
+      expect(entry.savedAt).toBeLessThanOrEqual(after)
     })
 
     it('prepends new results', () => {
@@ -99,8 +105,8 @@ describe('useGemScanStore', () => {
       useGemScanStore.getState().addResult(makeResult('task-002'))
 
       const state = useGemScanStore.getState()
-      expect(state.recentResults[0].taskId).toBe('task-002')
-      expect(state.recentResults[1].taskId).toBe('task-001')
+      expect(state.recentResults[0].result.taskId).toBe('task-002')
+      expect(state.recentResults[1].result.taskId).toBe('task-001')
     })
   })
 

@@ -36,7 +36,7 @@ export default function AboutPage() {
 
         <Section title="What is GemScan?">
           {/* TODO: short product description */}
-          GemScan is your private AI advisor who shields you against text scams. GemScan runs the Gemma-4-E2B (4bit) model efficiently on your iOS device to analyze texts, images and audio that you received!
+          GemScan is your private AI advisor who shields you against text scams. GemScan runs the Gemma-4-E2B (4bit) model efficiently on your iOS device to analyze texts and images that you received!
           Since the app runs on your iPhone, you don&apos;t share your private data with us. Our app works even in airplane mode!
 
           GemScan is open-sourced with MIT license.

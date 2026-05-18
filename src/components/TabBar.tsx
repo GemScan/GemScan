@@ -36,6 +36,27 @@ function ScanIcon() {
   )
 }
 
+function LearnIcon() {
+  // Open-book glyph — signals "read / learn about scams" without
+  // crowding the bar with text. Same stroke / weight as the other tabs.
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#ffffff"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 6.5C2 5.67 2.67 5 3.5 5H9a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3.5A1.5 1.5 0 0 1 2 16.5z" />
+      <path d="M22 6.5C22 5.67 21.33 5 20.5 5H15a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h6.5a1.5 1.5 0 0 0 1.5-1.5z" />
+    </svg>
+  )
+}
+
 function HistoryIcon() {
   return (
     <svg
@@ -77,7 +98,7 @@ function SettingsIcon() {
 const tabs: Tab[] = [
   {
     key: 'scan',
-    label: 'Scan',
+    label: 'Analyze',
     href: '/',
     icon: () => <ScanIcon />,
   },
@@ -86,6 +107,12 @@ const tabs: Tab[] = [
     label: 'History',
     href: '/history',
     icon: () => <HistoryIcon />,
+  },
+  {
+    key: 'learn',
+    label: 'Learn',
+    href: '/learn',
+    icon: () => <LearnIcon />,
   },
   {
     key: 'settings',
@@ -138,32 +165,52 @@ export default function TabBar() {
             aria-label={tab.label}
             onClick={() => router.push(tab.href)}
             style={{
+              // The button itself stays the full tap target (Apple HIG
+              // minimum 44 pt). The pill lives on an inner wrapper so it
+              // can be visibly inset from the button bounds.
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              justifyContent: 'flex-start',
-              gap: 2,
+              justifyContent: 'center',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '4px 12px',
+              padding: '4px 6px',
               minWidth: 64,
               minHeight: 44,
             }}
           >
-            {tab.icon()}
-            <span
+            <div
               style={{
-                fontSize: 11,
-                // Active vs inactive is signalled by weight rather than
-                // colour — both are white against the brand-blue bar.
-                fontWeight: active ? 600 : 500,
-                color: '#ffffff',
-                letterSpacing: -0.08,
+                // Active state: translucent white pill behind the icon +
+                // label. The inset (margin around vs. the button edge)
+                // gives a clear gap between the pill and the bar's top /
+                // bottom, plus a small gap between adjacent pills.
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                padding: '4px 12px',
+                borderRadius: 16,
+                backgroundColor: active ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
+                transition: 'background-color 180ms ease',
               }}
             >
-              {tab.label}
-            </span>
+              {tab.icon()}
+              <span
+                style={{
+                  fontSize: 11,
+                  // Active vs inactive is signalled by weight rather
+                  // than colour — both are white against the brand-blue
+                  // bar.
+                  fontWeight: active ? 600 : 500,
+                  color: '#ffffff',
+                  letterSpacing: -0.08,
+                }}
+              >
+                {tab.label}
+              </span>
+            </div>
           </button>
         )
       })}

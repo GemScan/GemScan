@@ -43,8 +43,10 @@
   --height-row: 56px;
   --height-input: 120px;
   --bar-height: 4px;
-  /* TabBar: 6px top + ~37px content (24 icon + 2 gap + 11 label) + 4px + safe-area */
-  --tabbar-height: calc(env(safe-area-inset-bottom, 0px) + 47px);
+  /* TabBar: nav padding-top 6 + button minHeight 44 (Apple HIG tap
+   * target, applied to the outer button — the pill lives on an inner
+   * wrapper inside) + nav padding-bottom 4 + safe-area-inset-bottom. */
+  --tabbar-height: calc(env(safe-area-inset-bottom, 0px) + 54px);
 }
 
 /* ─── Spec 10 §3: Typography Scale ─── */
@@ -87,7 +89,12 @@ body {
   padding-bottom: var(--padding-page);
 }
 
-/* Inner region that absorbs overflow so the page chrome stays put. */
+/* Inner region that absorbs overflow so the page chrome stays put.
+ *
+ * Scrollbar is hidden visually but scrolling still works — matches the
+ * way native iOS apps behave (no persistent track, content edge implies
+ * the boundary). Three rules cover WebKit (mobile Safari / WKWebView),
+ * Firefox, and legacy Edge / IE; pick whichever your browser respects. */
 .page-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -96,6 +103,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--gap-section);
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge / IE */
+}
+
+.page-scroll::-webkit-scrollbar {
+  display: none; /* WebKit (iOS WKWebView / Safari / Chrome) */
 }
 
 .text-title {

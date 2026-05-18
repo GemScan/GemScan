@@ -168,28 +168,22 @@ export default function AnalysePage() {
   return (
     <main className="page">
       {pendingImage ? (
+        // We deliberately don't render the user's screenshot here —
+        // pictures shared into GemScan often contain sensitive content
+        // (bank balances, addresses, IDs) and there's no need to show
+        // it back to them on a screen anyone behind them can see. A
+        // status caption is enough to confirm the upload landed.
         <div
           style={{
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--gap-element)',
             alignItems: 'center',
+            padding: 'var(--gap-element) 0',
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={pendingImage.previewDataURL}
-            alt="Uploaded screenshot being analysed"
-            style={{
-              maxWidth: '100%',
-              maxHeight: 280,
-              borderRadius: 12,
-              border: '1px solid var(--border)',
-              objectFit: 'contain',
-            }}
-          />
-          <p className="text-caption" style={{ color: 'var(--text-muted)' }}>
-            {isAnalysing ? 'Analysing your image…' : 'Image analysed.'}
+          <p className="text-body" style={{ color: 'var(--text)' }}>
+            {isAnalysing ? 'Analyzing your image…' : 'Image analyzed.'}
           </p>
         </div>
       ) : (
