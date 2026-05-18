@@ -43,11 +43,12 @@ export default function HomePage() {
         // can rebuild) without needing a temporary file handle — fits
         // neatly into the sessionStorage handoff the analyse page reads.
         resultType: CameraResultType.Base64,
-        // `Prompt` shows an iOS action sheet with Camera + Photos
-        // options. `Camera` would force-open the camera; `Photos` would
-        // force-open the library. Prompt is what most apps use for a
-        // "Add picture" affordance.
-        source: CameraSource.Prompt,
+        // Force the library picker. We previously offered the camera as
+        // well, but the live-capture path was unreliable on Simulator
+        // (Fig/RunningBoard teardown errors) and not a common flow for
+        // checking suspicious screenshots, so this skips the action
+        // sheet and goes straight to Photos.
+        source: CameraSource.Photos,
         quality: 90,
         // Disabling edit (no crop step) keeps the flow snappy and
         // ensures we send the screenshot as-shared.
@@ -56,10 +57,6 @@ export default function HomePage() {
         // need to branch on HEIC/PNG/JPEG. iOS does the conversion
         // before handing us the bytes.
         correctOrientation: true,
-        promptLabelHeader: 'Add a picture',
-        promptLabelCancel: 'Cancel',
-        promptLabelPhoto: 'Choose from library',
-        promptLabelPicture: 'Take photo',
       })
 
       if (!photo.base64String) {
@@ -193,6 +190,14 @@ export default function HomePage() {
           placeholder="Paste a message, URL, or describe what happened..."
         />
       </div>
+
+      <span
+        className="text-caption"
+        style={{ color: 'var(--text-muted)' }}
+        aria-hidden="true"
+      >
+        or
+      </span>
 
       <div
         style={{
