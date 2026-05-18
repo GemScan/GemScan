@@ -44,11 +44,6 @@
 	<string>GemScan needs access to your contacts to identify known senders and enable Guardian Mode trusted contact selection.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>GemScan uses the microphone to analyse voice calls for deepfake detection and scam patterns.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>processing</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>GemScan uses the camera so you can snap a picture of a suspicious message or screen and check it for scams on-device.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -61,7 +56,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
@@ -70,6 +65,13 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
