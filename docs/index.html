@@ -272,6 +272,21 @@
     .run-card h3 { display: flex; align-items: center; gap: 8px; }
     .run-card pre { margin: 14px 0 0; }
 
+    /* Team */
+    .team-photo-wrap {
+      max-width: 760px; margin: 0 auto;
+      background: white; border-radius: var(--radius);
+      padding: 16px; box-shadow: var(--shadow-md);
+    }
+    .team-photo-wrap img {
+      display: block; width: 100%; height: auto;
+      border-radius: 12px;
+    }
+    .team-photo-wrap .caption {
+      text-align: center; font-size: 14px; color: var(--ink-soft);
+      margin: 14px 0 4px;
+    }
+
     /* Footer */
     footer {
       padding: 48px 24px; text-align: center;
@@ -297,6 +312,7 @@
         <a href="#demo">Demo</a>
         <a href="#how">How it works</a>
         <a href="#run">Try it</a>
+        <a href="#team">Team</a>
         <a href="https://github.com/GemScan/GemScan">GitHub</a>
       </div>
     </div>
@@ -645,6 +661,19 @@ npx cap sync ios
 npx cap open ios
 # in Xcode: pick a device, ⌘R</code></pre>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="team">
+    <div class="container">
+      <div class="section-head">
+        <h2>The team</h2>
+        <p>Built by a small group set on putting on-device scam protection in everyone's pocket.</p>
+      </div>
+      <div class="team-photo-wrap">
+        <img src="img/Team_GemScan.jpg" alt="Team GemScan" />
+        <p class="caption">Team GemScan</p>
       </div>
     </div>
   </section>
