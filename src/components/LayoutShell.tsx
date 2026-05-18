@@ -1,13 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import TabBar from '@/components/TabBar'
-import HeroSplash from '@/components/HeroSplash'
 import { getGemmaPlugin } from '@/lib/gemma'
-
-const MIN_SPLASH_MS = 1200
-const FADE_OUT_MS = 320
 
 // sessionStorage key used to hand off a pending image to /analyse — the
 // same key the home-screen Upload Picture button writes to, so the
@@ -16,42 +12,24 @@ const PENDING_IMAGE_KEY = 'gemscan.pendingImage'
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const [splashVisible, setSplashVisible] = useState(true)
-  const [splashMounted, setSplashMounted] = useState(true)
 
   useEffect(() => {
-    const startedAt = Date.now()
+    // Kick off model warm-load in the background. The iOS LaunchScreen
+    // covers the boot transition, so there's no in-app splash to gate
+    // on this — we just fire-and-forget. Failures (model not yet
+    // downloaded, etc.) surface via the Settings status pill once
+    // polling catches up.
     let cancelled = false
-
-    async function waitForReady() {
+    void (async () => {
       try {
         const plugin = await getGemmaPlugin()
-        // Kick off model warm-load in the background. We don't await it — the
-        // splash should clear as soon as the plugin handle exists, and the
-        // weights can finish loading into RAM while the user looks at the
-        // home screen. Failures here are non-fatal (no download yet, etc.)
-        // and surface via the Settings status pill once polling catches up.
-        void plugin.warmUp().catch(() => {})
+        if (!cancelled) {
+          void plugin.warmUp().catch(() => {})
+        }
       } catch {
-        // Even if init fails, fall through so the user sees the UI
+        // Plugin handle failed — let the user see the UI anyway.
       }
-
-      if (cancelled) return
-
-      const elapsed = Date.now() - startedAt
-      const remaining = Math.max(0, MIN_SPLASH_MS - elapsed)
-
-      setTimeout(() => {
-        if (cancelled) return
-        setSplashVisible(false)
-        setTimeout(() => {
-          if (!cancelled) setSplashMounted(false)
-        }, FADE_OUT_MS)
-      }, remaining)
-    }
-
-    waitForReady()
-
+    })()
     return () => {
       cancelled = true
     }
@@ -116,7 +94,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     <>
       {children}
       <TabBar />
-      {splashMounted && <HeroSplash visible={splashVisible} />}
     </>
   )
 }

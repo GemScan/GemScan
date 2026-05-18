@@ -34,9 +34,12 @@ export default function AboutPage() {
           GemScan · Version 1.0.0
         </span>
 
-        <Section title="What GemScan is">
+        <Section title="What is GemScan?">
           {/* TODO: short product description */}
-          One- or two-sentence product description goes here.
+          GemScan is your private AI advisor who shields you against text scams. GemScan runs the Gemma-4-E2B (4bit) model efficiently on your iOS device to analyze texts, images and audio that you received!
+          Since the app runs on your iPhone, you don&apos;t share your private data with us. Our app works even in airplane mode!
+
+          GemScan is open-sourced with MIT license.
         </Section>
 
         <Section title="How it works">
@@ -46,12 +49,13 @@ export default function AboutPage() {
 
         <Section title="Who built it">
           {/* TODO: team / author */}
-          Author or team credit goes here.
+          Shashank Bangalore Lakshman and Scott Eiers
         </Section>
 
-        <Section title="Acknowledgements">
+        <Section title="Why we built it">
           {/* TODO: model + library credits */}
-          Acknowledgements for Gemma, MLX, Capacitor, Next.js, etc. go here.
+          We love to build AI products for social good!
+          We built GemScan as a submission for Kaggle&apos;s Gemma-4-Good Hackathon in 2026!
         </Section>
 
         <Section title="Contact">

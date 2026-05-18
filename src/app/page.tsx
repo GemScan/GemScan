@@ -81,7 +81,7 @@ export default function HomePage() {
       />
 
       <p className="text-heading" style={{ color: 'var(--text)', textAlign: 'center' }}>
-        What would you like me to check?
+        What would you like me to analyze?
       </p>
 
       <div style={{ width: '100%', maxWidth: 480 }}>
@@ -101,33 +101,6 @@ export default function HomePage() {
           maxWidth: 480,
         }}
       >
-        <button
-          className="btn-secondary"
-          style={{ flex: 1 }}
-          onClick={() => {
-            /* TODO: open camera via Capacitor Camera plugin */
-          }}
-          aria-label="Use camera to take a photo"
-        >
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            Use camera
-          </span>
-        </button>
-
         <button
           className="btn-secondary"
           style={{ flex: 1 }}

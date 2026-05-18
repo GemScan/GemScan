@@ -6,17 +6,21 @@ interface Tab {
   key: string
   label: string
   href: string
-  icon: (active: boolean) => React.ReactNode
+  icon: () => React.ReactNode
 }
 
-function ScanIcon({ active }: { active: boolean }) {
+// The icon components were previously parameterised by `active` to swap
+// stroke colour between `var(--text)` and `var(--text-muted)`. Now that
+// every icon is pure white against the brand-blue bar, the parameter is
+// gone — active-state differentiation lives on the label's font weight.
+function ScanIcon() {
   return (
     <svg
       width="24"
       height="24"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? 'var(--text)' : 'var(--text-muted)'}
+      stroke="#ffffff"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -32,14 +36,14 @@ function ScanIcon({ active }: { active: boolean }) {
   )
 }
 
-function HistoryIcon({ active }: { active: boolean }) {
+function HistoryIcon() {
   return (
     <svg
       width="24"
       height="24"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? 'var(--text)' : 'var(--text-muted)'}
+      stroke="#ffffff"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -51,14 +55,14 @@ function HistoryIcon({ active }: { active: boolean }) {
   )
 }
 
-function SettingsIcon({ active }: { active: boolean }) {
+function SettingsIcon() {
   return (
     <svg
       width="24"
       height="24"
       viewBox="0 0 24 24"
       fill="none"
-      stroke={active ? 'var(--text)' : 'var(--text-muted)'}
+      stroke="#ffffff"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -75,19 +79,19 @@ const tabs: Tab[] = [
     key: 'scan',
     label: 'Scan',
     href: '/',
-    icon: (active) => <ScanIcon active={active} />,
+    icon: () => <ScanIcon />,
   },
   {
     key: 'history',
     label: 'History',
     href: '/history',
-    icon: (active) => <HistoryIcon active={active} />,
+    icon: () => <HistoryIcon />,
   },
   {
     key: 'settings',
     label: 'Settings',
     href: '/settings',
-    icon: (active) => <SettingsIcon active={active} />,
+    icon: () => <SettingsIcon />,
   },
 ]
 
@@ -113,8 +117,10 @@ export default function TabBar() {
         alignItems: 'flex-start',
         paddingTop: 6,
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4px)',
-        backgroundColor: 'var(--surface)',
-        borderTop: '0.5px solid var(--border)',
+        // Brand-blue tab bar with white iconography. The previous neutral
+        // surface + border-top has been replaced; on a solid colour bar
+        // the divider line reads as visual noise and is dropped.
+        backgroundColor: '#004aad',
         zIndex: 100,
       }}
     >
@@ -145,12 +151,14 @@ export default function TabBar() {
               minHeight: 44,
             }}
           >
-            {tab.icon(active)}
+            {tab.icon()}
             <span
               style={{
                 fontSize: 11,
+                // Active vs inactive is signalled by weight rather than
+                // colour — both are white against the brand-blue bar.
                 fontWeight: active ? 600 : 500,
-                color: active ? 'var(--text)' : 'var(--text-muted)',
+                color: '#ffffff',
                 letterSpacing: -0.08,
               }}
             >

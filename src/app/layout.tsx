@@ -11,6 +11,10 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // Locks the WebView to light styling regardless of the user's system
+  // appearance. Pairs with `color-scheme: light` in globals.css and the
+  // native-side `UIUserInterfaceStyle = Light` in the iOS Info.plist.
+  colorScheme: 'light',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

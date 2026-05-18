@@ -3,7 +3,15 @@
 @tailwind utilities;
 
 /* ─── Spec 10 §2: Colour System ─── */
+/* App is locked to light mode regardless of system appearance — see also
+ * `<meta name="color-scheme" content="light">` in the root layout and
+ * `UIUserInterfaceStyle = Light` in the iOS Info.plist. The matching
+ * `prefers-color-scheme: dark` block that previously overrode these
+ * variables was removed; keep it that way unless we ship a real
+ * dark-mode variant. */
 :root {
+  color-scheme: light;
+
   --safe: #1a7f37;
   --suspicious: #9a6700;
   --scam: #cf222e;
@@ -21,28 +29,6 @@
   /* Disabled state (iOS system grey 4) */
   --disabled-bg: #e5e5ea;
   --disabled-text: rgba(60, 60, 67, 0.3);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --safe: #3fb950;
-    --suspicious: #d29922;
-    --scam: #f85149;
-
-    --safe-bg: #0d1117;
-    --suspicious-bg: #0d1117;
-    --scam-bg: #0d1117;
-
-    --surface: #0d1117;
-    --surface-alt: #161b22;
-    --text: #e6edf3;
-    --text-muted: #8b949e;
-    --border: #30363d;
-
-    /* Disabled state (iOS dark mode) */
-    --disabled-bg: #2c2c2e;
-    --disabled-text: rgba(235, 235, 245, 0.3);
-  }
 }
 
 /* ─── Spec 10 §7: Spacing and Layout Constants ─── */
