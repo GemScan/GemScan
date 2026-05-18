@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useGemScanStore, type StoredResult } from '@/lib/store'
 import ResultRow, { formatTimeAgo } from '@/components/ResultRow'
 import VerdictCard from '@/components/VerdictCard'
@@ -18,6 +18,8 @@ export default function HistoryPage() {
   const [detailEntry, setDetailEntry] = useState<StoredResult | null>(null)
 
   const hasHistory = recentResults.length > 0
+
+  const metrics = useMemo(() => computeMetrics(recentResults), [recentResults])
 
   const handleConfirmClear = () => {
     clearResults()
@@ -133,6 +135,13 @@ export default function HistoryPage() {
         </div>
       )}
 
+      {hasHistory && (
+        <div style={{ display: 'flex', gap: 'var(--gap-element)' }}>
+          <MetricCard period="This month" analyses={metrics.month.analyses} scams={metrics.month.scams} />
+          <MetricCard period="This year" analyses={metrics.year.analyses} scams={metrics.year.scams} />
+        </div>
+      )}
+
       {hasHistory ? (
         <div className="page-scroll" style={{ gap: 'var(--gap-element)' }}>
           {recentResults.map((entry) => (
@@ -222,4 +231,119 @@ function firstLine(text: string | undefined): string | undefined {
   if (!text) return undefined
   const newlineIndex = text.indexOf('\n')
   return newlineIndex >= 0 ? text.slice(0, newlineIndex).trim() : text.trim()
+}
+
+interface PeriodMetrics {
+  analyses: number
+  scams: number
+}
+
+interface HistoryMetrics {
+  month: PeriodMetrics
+  year: PeriodMetrics
+}
+
+/// Computes "this month" and "this year" totals against the local
+/// timezone. Entries with `savedAt: 0` (legacy pre-timestamp rows) are
+/// excluded from both buckets — we can't place them on a calendar and
+/// padding them into the month / year window would inflate the totals.
+/// Counts every result as an analysis; "scams" is the strict-`'scam'`
+/// verdict subset (suspicious verdicts aren't included because they're
+/// flagged-as-uncertain, not detected scams).
+function computeMetrics(entries: StoredResult[]): HistoryMetrics {
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
+  const month: PeriodMetrics = { analyses: 0, scams: 0 }
+  const year: PeriodMetrics = { analyses: 0, scams: 0 }
+
+  for (const entry of entries) {
+    if (!entry.savedAt) continue
+    const d = new Date(entry.savedAt)
+    if (d.getFullYear() !== currentYear) continue
+
+    const isScam = entry.result.verdict === 'scam'
+    year.analyses += 1
+    if (isScam) year.scams += 1
+
+    if (d.getMonth() === currentMonth) {
+      month.analyses += 1
+      if (isScam) month.scams += 1
+    }
+  }
+
+  return { month, year }
+}
+
+/// Compact summary tile rendered at the top of the History page. Two
+/// instances sit side-by-side ("This month" and "This year"). Each tile
+/// shows a period label, then two columns: analyses count and scams
+/// count. The scams number turns red whenever it's non-zero so a
+/// quick glance signals "there were scams this month/year" without
+/// having to read the label.
+function MetricCard({
+  period,
+  analyses,
+  scams,
+}: {
+  period: string
+  analyses: number
+  scams: number
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        padding: 12,
+        borderRadius: 'var(--radius-card)',
+        border: '1px solid var(--border)',
+        backgroundColor: 'var(--surface-alt)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <span
+        className="text-caption"
+        style={{
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: 0.4,
+          fontWeight: 600,
+        }}
+      >
+        {period}
+      </span>
+      <div style={{ display: 'flex', gap: 'var(--gap-element)' }}>
+        <Stat label="Analyses" value={analyses} />
+        <Stat label="Scams" value={scams} accent={scams > 0 ? 'var(--scam)' : 'var(--text)'} />
+      </div>
+    </div>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  accent = 'var(--text)',
+}: {
+  label: string
+  value: number
+  accent?: string
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+      <span
+        className="text-title"
+        style={{ color: accent, lineHeight: 1, fontSize: '1.5rem' }}
+      >
+        {value}
+      </span>
+      <span className="text-caption" style={{ color: 'var(--text-muted)' }}>
+        {label}
+      </span>
+    </div>
+  )
 }
