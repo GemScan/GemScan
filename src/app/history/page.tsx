@@ -136,9 +136,25 @@ export default function HistoryPage() {
       )}
 
       {hasHistory && (
-        <div style={{ display: 'flex', gap: 'var(--gap-element)' }}>
-          <MetricCard period="This month" analyses={metrics.month.analyses} scams={metrics.month.scams} />
-          <MetricCard period="This year" analyses={metrics.year.analyses} scams={metrics.year.scams} />
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--gap-element)',
+          }}
+        >
+          <MetricCard
+            period="This month"
+            analyses={metrics.month.analyses}
+            scams={metrics.month.scams}
+            suspicious={metrics.month.suspicious}
+          />
+          <MetricCard
+            period="This year"
+            analyses={metrics.year.analyses}
+            scams={metrics.year.scams}
+            suspicious={metrics.year.suspicious}
+          />
         </div>
       )}
 
@@ -236,6 +252,7 @@ function firstLine(text: string | undefined): string | undefined {
 interface PeriodMetrics {
   analyses: number
   scams: number
+  suspicious: number
 }
 
 interface HistoryMetrics {
@@ -247,16 +264,17 @@ interface HistoryMetrics {
 /// timezone. Entries with `savedAt: 0` (legacy pre-timestamp rows) are
 /// excluded from both buckets — we can't place them on a calendar and
 /// padding them into the month / year window would inflate the totals.
-/// Counts every result as an analysis; "scams" is the strict-`'scam'`
-/// verdict subset (suspicious verdicts aren't included because they're
-/// flagged-as-uncertain, not detected scams).
+/// `analyses` counts every result in the window; `scams` and
+/// `suspicious` are the strict subsets matching those verdict values.
+/// The "safe" bucket is implied (analyses - scams - suspicious) so we
+/// don't surface it as a separate stat.
 function computeMetrics(entries: StoredResult[]): HistoryMetrics {
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
 
-  const month: PeriodMetrics = { analyses: 0, scams: 0 }
-  const year: PeriodMetrics = { analyses: 0, scams: 0 }
+  const month: PeriodMetrics = { analyses: 0, scams: 0, suspicious: 0 }
+  const year: PeriodMetrics = { analyses: 0, scams: 0, suspicious: 0 }
 
   for (const entry of entries) {
     if (!entry.savedAt) continue
@@ -264,38 +282,43 @@ function computeMetrics(entries: StoredResult[]): HistoryMetrics {
     if (d.getFullYear() !== currentYear) continue
 
     const isScam = entry.result.verdict === 'scam'
+    const isSuspicious = entry.result.verdict === 'suspicious'
     year.analyses += 1
     if (isScam) year.scams += 1
+    if (isSuspicious) year.suspicious += 1
 
     if (d.getMonth() === currentMonth) {
       month.analyses += 1
       if (isScam) month.scams += 1
+      if (isSuspicious) month.suspicious += 1
     }
   }
 
   return { month, year }
 }
 
-/// Compact summary tile rendered at the top of the History page. Two
-/// instances sit side-by-side ("This month" and "This year"). Each tile
-/// shows a period label, then two columns: analyses count and scams
-/// count. The scams number turns red whenever it's non-zero so a
-/// quick glance signals "there were scams this month/year" without
-/// having to read the label.
+/// Full-width summary tile rendered at the top of the History page. Two
+/// instances stack vertically ("This month" then "This year"). Each
+/// tile shows a period label, then three columns: analyses, scams, and
+/// suspicious counts. Scam and suspicious numbers pick up their
+/// verdict-pill colour when non-zero, so a quick glance signals
+/// "there's something flagged this period" without reading the label.
+/// Stacked layout (rather than side-by-side tiles) keeps three columns
+/// of stats comfortable on narrow iPhone widths.
 function MetricCard({
   period,
   analyses,
   scams,
+  suspicious,
 }: {
   period: string
   analyses: number
   scams: number
+  suspicious: number
 }) {
   return (
     <div
       style={{
-        flex: 1,
-        minWidth: 0,
         padding: 12,
         borderRadius: 'var(--radius-card)',
         border: '1px solid var(--border)',
@@ -318,7 +341,16 @@ function MetricCard({
       </span>
       <div style={{ display: 'flex', gap: 'var(--gap-element)' }}>
         <Stat label="Analyses" value={analyses} />
-        <Stat label="Scams" value={scams} accent={scams > 0 ? 'var(--scam)' : 'var(--text)'} />
+        <Stat
+          label="Scams"
+          value={scams}
+          accent={scams > 0 ? 'var(--scam)' : 'var(--text)'}
+        />
+        <Stat
+          label="Suspicious"
+          value={suspicious}
+          accent={suspicious > 0 ? 'var(--suspicious)' : 'var(--text)'}
+        />
       </div>
     </div>
   )
@@ -334,7 +366,17 @@ function Stat({
   accent?: string
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        minWidth: 0,
+        // flex:1 so the three stats in a MetricCard split the row
+        // evenly regardless of label width ("Analyses" vs "Suspicious").
+        flex: 1,
+      }}
+    >
       <span
         className="text-title"
         style={{ color: accent, lineHeight: 1, fontSize: '1.5rem' }}
