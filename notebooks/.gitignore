@@ -11,6 +11,9 @@ models/
 
 # Notebook scratch
 .ipynb_checkpoints/
+_archive/
+*_cache.csv
+*baseline_results.zip
 
 # Python
 __pycache__/

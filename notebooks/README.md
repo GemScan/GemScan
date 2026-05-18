@@ -14,6 +14,7 @@ notebooks/
 ├── _data_licenses.md         H9.2 — license registry for every dataset pulled
 ├── _results/                 one results file per notebook run
 │   └── RESULTS_TEMPLATE.md   copy this when starting a new run
+├── prompt_ablation/          curated prompt versions, run notes, and metrics
 ├── data/                     datasets land here (gitignored)
 └── 00_environment.ipynb      H8.5 — pinned library versions; run first
 ```
@@ -78,6 +79,10 @@ comparisons are usually what reveal regressions.
   HF model cards mutate; un-pinned runs from a month ago may not reproduce.
 - Save metric tables as CSV under `_results/csv/` for easy diffing across
   runs.
+- Keep prompt ablation lineage in `prompt_ablation/`: prompt versions belong in
+  `prompts/`, small metric tables in `results/`, and narrative run notes in
+  `runs/`. Imported Drive folders and bulky scratch notebooks belong in the
+  ignored `_archive/` directory.
 
 ## What does NOT belong here
 
