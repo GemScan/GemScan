@@ -733,7 +733,7 @@ npx cap open ios
         type: 'bar',
         data: {
           labels: fraudLossesByYear.labels,
-          datasets: [{\
+          datasets: [{
             label: 'US fraud losses ($B)',
             data: fraudLossesByYear.values,
             backgroundColor: fraudLossesByYear.values.map((_, i, a) => i === a.length - 1 ? brand : brandTint),
@@ -760,7 +760,7 @@ npx cap open ios
         type: 'doughnut',
         data: {
           labels: ['Prompt processing', 'Generation', 'OCR (image only)', 'UI bridge'],
-          datasets: [{\
+          datasets: [{
             data: [600, 1700, 0, 150],
             backgroundColor: ['#7aa1e8', '#004aad', '#cfd8ee', '#0e1626'],
             borderColor: '#ffffff',
