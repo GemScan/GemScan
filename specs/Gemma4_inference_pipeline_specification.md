@@ -4,7 +4,7 @@
 
 This specification converts the notebook `10_6_prompt_ablation_classic_gemma_e2b_4_bit.ipynb` into an implementation plan for the existing GemScan repository.
 
-The target implementation is a native iOS modality-aware scam detection path exposed through the existing Next.js + Capacitor app shell and implemented inside the existing Swift `GemmaKit` package. Text input uses the marker-extraction model call directly. Image input first uses Apple Vision OCR to extract visible text, then uses the same marker-extraction and scoring path. After deterministic scoring, the app performs one additional local Gemma 4 E2B explanation call to produce a user-facing explanation and recommended action.
+The target implementation is a native iOS modality-aware scam detection path exposed through the existing Next.js + Capacitor app shell and implemented inside the existing Swift `GemmaKit` package. Text input uses the marker-extraction model call directly. Image input first uses Apple Vision OCR to extract visible text, then uses the same marker-extraction and scoring path. After deterministic scoring, scam results receive a non-authoritative category label, and then the app performs one additional local Gemma 4 E2B explanation call to produce a user-facing explanation and recommended action.
 
 The notebook was an experiment. The app implementation must be a deterministic production pipeline with a separate explanation stage:
 
@@ -17,17 +17,18 @@ The notebook was an experiment. The app implementation must be a deterministic p
 7. The app applies the notebook's fixed feature weights.
 8. The app sums the weighted score.
 9. The app returns `scam` when `totalScore >= 0.22`; otherwise it returns `safe`.
-10. The app builds a compact explanation input JSON from the input summary, parsed features, weighted score report, and final verdict.
-11. Gemma 4 E2B runs one fixed explanation/action prompt against that JSON.
-12. The app returns the deterministic verdict plus the generated user-facing explanation and recommended action.
+10. If the deterministic verdict is `scam`, Gemma 4 E2B runs one fixed categorization prompt to choose one closed-set scam category.
+11. The app builds a compact explanation input JSON from the input summary, parsed features, weighted score report, optional scam category, and final verdict.
+12. Gemma 4 E2B runs one fixed explanation/action prompt against that JSON.
+13. The app returns the deterministic verdict plus optional scam category, generated user-facing explanation, and recommended action.
 
 Core rule:
 
 ```text
-Stage B decides. Stage C explains.
+Stage B decides. Stage C labels. Stage D explains.
 ```
 
-The Stage C explanation call must never modify the verdict, score, threshold, feature statuses, or weighted-score metadata.
+Stage C and Stage D are metadata/prose stages. They must never modify the verdict, score, threshold, feature statuses, or weighted-score metadata.
 
 ## 1. Source Notebook Behavior to Preserve
 
@@ -40,15 +41,16 @@ Preserve these runtime behaviors from the notebook:
 - Runtime temperature: `0.0` / deterministic generation.
 - Maximum generation size for notebook-equivalent prompts: `700` new tokens unless the native backend requires a higher internal cap.
 - Modality-aware inference flow:
-  - Text input: text-only structured marker extraction call, deterministic scoring, then one text-only explanation/action call.
-  - Image input: Apple Vision OCR first, then text-only structured marker extraction, deterministic scoring, then one text-only explanation/action call.
-  - Future non-text input: modality-specific local context extraction first, then the same marker extraction, scoring, and explanation path.
+  - Text input: text-only structured marker extraction call, deterministic scoring, optional categorization for scam verdicts, then one text-only explanation/action call.
+  - Image input: Apple Vision OCR first, then text-only structured marker extraction, deterministic scoring, optional categorization for scam verdicts, then one text-only explanation/action call.
+  - Future non-text input: modality-specific local context extraction first, then the same marker extraction, scoring, optional categorization, and explanation path.
 - Robust JSON parsing from raw model output.
 - Missing, malformed, absent, false, no, empty, or parse-failed marker values normalize to absent.
 - Nested marker objects with `{ "status": "present" | "absent", "evidence": "..." }` are supported.
 - Score threshold is inclusive: score equal to threshold is `scam`.
 - The weighted score is the only source of truth for the verdict.
-- Stage C may explain the already-decided result but must not reclassify the input.
+- Stage C may label the already-decided scam result but must not reclassify the verdict.
+- Stage D may explain the already-decided result but must not reclassify the input or recategorize the scam.
 
 ### 1.2 Remove
 
@@ -147,16 +149,23 @@ Shared scoring path:
   -> WeightedScamScorer.score(features)
   -> deterministic verdict = scam when totalScore >= 0.22, otherwise safe
 
+Shared categorization path:
+  -> if verdict is scam, build ScamCategorizationInput JSON from INPUT_SUMMARY, present marker observations, evidence, and score report
+  -> InferenceEngine.generate(text-only SCAM_CATEGORIZATION_PROMPT with ScamCategorizationInput JSON)
+  -> ScamCategoryParser.parse(rawCategoryOutput)
+  -> if parsing fails, store no category and continue
+  -> if verdict is safe, skip categorization and store no category
+
 Shared explanation path:
-  -> build ExplanationInput JSON from INPUT_SUMMARY, marker observations, score report, and verdict
+  -> build ExplanationInput JSON from INPUT_SUMMARY, marker observations, score report, optional scam category, and verdict
   -> InferenceEngine.generate(text-only EXPLANATION_ACTION_PROMPT with ExplanationInput JSON)
   -> ScamExplanationParser.parse(rawExplanationOutput)
-  -> build AgentResult(verdict, confidence, explanation, scoring metadata)
+  -> build AgentResult(verdict, confidence, optional scam category, explanation, scoring metadata)
   -> GemmaPlugin returns AgentResult to TypeScript
-  -> VerdictCard renders result, explanation, and recommended action
+  -> VerdictCard renders result, optional category, explanation, and recommended action
 ```
 
-The marker extraction and weighted scoring path remains deterministic. The explanation path is user-facing only.
+The marker extraction and weighted scoring path remains deterministic. Categorization is non-authoritative metadata. The explanation path is user-facing only.
 
 ### 3.2 Image task type
 
@@ -176,10 +185,11 @@ The `base64` field must contain raw base64 only. It must not include the `data:i
 
 ### 3.3 Timeout rules
 
-Text analysis performs two model calls after the user text is available:
+Text analysis performs two model calls for safe verdicts and three model calls for scam verdicts after the user text is available:
 
 1. marker extraction
-2. explanation/action generation
+2. scam categorization, scam verdicts only
+3. explanation/action generation
 
 Recommended text timeout:
 
@@ -187,10 +197,11 @@ Recommended text timeout:
 timeoutMs: 90_000
 ```
 
-Image/screenshot analysis performs Apple Vision OCR and then two model calls:
+Image/screenshot analysis performs Apple Vision OCR and then two model calls for safe verdicts or three model calls for scam verdicts:
 
 1. marker extraction
-2. explanation/action generation
+2. scam categorization, scam verdicts only
+3. explanation/action generation
 
 Recommended screenshot timeout:
 
@@ -204,13 +215,13 @@ The Swift side must still enforce the current `InferenceEngine` timeout guards.
 
 The runtime must route inputs by modality before any prompt is built:
 
-- **Text / "Check this text"**: do not run image OCR, image context extraction, Vision image analysis, or multimodal model inference. Insert the user text directly into the marker extraction prompt as `{{INPUT_SUMMARY}}`, run feature extraction, score present markers, then run the explanation/action prompt.
-- **Image / screenshot**: first run Apple Vision OCR over the image. Treat the OCR text as the input summary for marker extraction. Then run scoring and explanation.
-- **Other future non-text modalities**: first run a modality-specific local context extraction prompt/tool to produce plain text, then pass only that text summary into the same marker extraction prompt. Then run scoring and explanation.
+- **Text / "Check this text"**: do not run image OCR, image context extraction, Vision image analysis, or multimodal model inference. Insert the user text directly into the marker extraction prompt as `{{INPUT_SUMMARY}}`, run feature extraction, score present markers, run scam categorization only for scam verdicts, then run the explanation/action prompt.
+- **Image / screenshot**: first run Apple Vision OCR over the image. Treat the OCR text as the input summary for marker extraction. Then run scoring, optional scam categorization, and explanation.
+- **Other future non-text modalities**: first run a modality-specific local context extraction prompt/tool to produce plain text, then pass only that text summary into the same marker extraction prompt. Then run scoring, optional scam categorization, and explanation.
 
 Only the marker extraction prompt may produce scam-marker JSON. Context extraction and OCR stages must not classify, score, or label the content.
 
-Only the deterministic weighted scoring step may decide the verdict. The explanation/action prompt must not change the verdict, score, threshold, or feature statuses.
+Only the deterministic weighted scoring step may decide the verdict. The categorization and explanation/action prompts must not change the verdict, score, threshold, or feature statuses.
 
 ## 4. Prompts
 
@@ -225,7 +236,8 @@ Do not reuse the existing direct-verdict `ImageAgentPrompts.analyseScreenshot` p
 This file must contain:
 
 1. the fixed Stage B marker extraction prompt
-2. the fixed Stage C explanation/action prompt
+2. the fixed Stage C scam categorization prompt placeholder
+3. the fixed Stage D explanation/action prompt
 
 Stage A image text extraction uses Apple Vision OCR and does not require a Gemma prompt.
 
@@ -335,9 +347,76 @@ Use this exact JSON object and these exact keys. For each "status", replace "pre
 ```
 
 
-### 4.3 Stage C: explanation and recommended action prompt
+### 4.3 Stage C: scam categorization prompt
 
-After deterministic scoring, run one additional text-only Gemma 4 E2B call to generate the user-facing explanation and recommended action.
+After deterministic scoring, run scam categorization only when Stage B returns `scam`.
+
+The categorization call receives compact JSON, not raw model traces. The input should include:
+
+```json
+{
+  "verdict": "scam",
+  "input_text": "{{INPUT_SUMMARY}}",
+  "total_score": 0.2584,
+  "threshold": 0.22,
+  "present_features": [
+    {
+      "key": "pretexting",
+      "evidence": "subscription will renew"
+    },
+    {
+      "key": "external_action",
+      "evidence": "call [phone_number]"
+    }
+  ]
+}
+```
+
+The final `SCAM_CATEGORIZATION_PROMPT` will be supplied later. Reserve a prompt constant with this contract:
+
+- Return only valid JSON.
+- Choose exactly one category from the closed set.
+- Return confidence in `[0, 1]`.
+- Do not change the verdict.
+- Do not question the verdict.
+- Do not recalculate the score.
+- Do not change any feature status.
+- Do not recommend actions.
+- Do not include markdown.
+
+Allowed categories:
+
+```ts
+export type ScamCategory =
+  | 'extortion'
+  | 'imposter'
+  | 'phishing'
+  | 'romance'
+  | 'investment'
+  | 'employment'
+  | 'shopping'
+  | 'malware'
+```
+
+Required output shape:
+
+```json
+{
+  "category": "phishing",
+  "confidence": 0.82
+}
+```
+
+Failure policy:
+
+- Invalid JSON, missing category, unknown category, or confidence outside `[0, 1]` must not fail the scan.
+- Store no category and add `invalid_scam_category` warning metadata where supported.
+- Do not force a nearest category on parser failure.
+- Safe verdicts skip Stage C and store no category.
+
+### 4.4 Stage D: explanation and recommended action prompt
+
+After deterministic scoring and optional scam categorization, run one additional text-only Gemma 4 E2B call to generate the user-facing explanation and recommended action.
 
 The explanation call receives compact JSON, not raw model traces. The input should include:
 
@@ -345,6 +424,7 @@ The explanation call receives compact JSON, not raw model traces. The input shou
 {
   "input_text": "{{INPUT_SUMMARY}}",
   "verdict": "scam",
+  "scam_category": "phishing",
   "total_score": 0.2584,
   "threshold": 0.22,
   "present_features": [
@@ -362,7 +442,7 @@ The explanation call receives compact JSON, not raw model traces. The input shou
 
 The `input_text` value may be the user-entered text or Apple OCR text. It is used only in memory for the local explanation call and must not be persisted.
 
-Use this prompt exactly for Stage C:
+Use this prompt exactly for Stage D:
 
 ```swift
 let EXPLANATION_ACTION_PROMPT = """
@@ -374,8 +454,9 @@ Do not question the verdict.
 Do not recalculate the score.
 Do not change any feature status.
 Do not introduce new scam features.
+Do not recategorize the scam.
 Do not invent facts.
-Use only the provided input text, verdict, score, threshold, present features, and evidence.
+Use only the provided input text, verdict, optional scam category, score, threshold, present features, and evidence.
 Use the original input text to make short evidence easier to understand.
 Write simply and directly.
 
@@ -404,7 +485,7 @@ Input JSON:
 """
 ```
 
-The Stage C explanation must not become a second classifier. Its output is user-facing explanation text only.
+The Stage D explanation must not become a second classifier or category labeler. Its output is user-facing explanation text only.
 
 
 ## 5. Feature Schema and Scoring
@@ -505,24 +586,49 @@ public struct WeightedScamScoreReport: Codable, Sendable {
 }
 ```
 
-### 5.5 Evidence and explanation privacy rule
+### 5.5 Scam category types
 
-The notebook stores extracted summaries and raw outputs in CSV. The app must not persist raw user text, raw OCR text, raw extracted context, raw model outputs, or raw explanation inputs in the normal `AgentResult` because text and screenshots may contain phone numbers, emails, account numbers, or other personal data.
+Add a closed-set category DTO for Stage C:
+
+```swift
+public enum ScamCategory: String, Codable, CaseIterable, Sendable {
+    case extortion
+    case imposter
+    case phishing
+    case romance
+    case investment
+    case employment
+    case shopping
+    case malware
+}
+
+public struct ScamCategoryResult: Codable, Sendable {
+    public let category: ScamCategory
+    public let confidence: Double
+    public let validJSON: Bool
+    public let validationWarnings: [String]
+}
+```
+
+### 5.6 Evidence, categorization, and explanation privacy rule
+
+The notebook stores extracted summaries and raw outputs in CSV. The app must not persist raw user text, raw OCR text, raw extracted context, raw model outputs, raw categorization inputs, raw explanation inputs, or raw categorization/explanation model outputs in the normal `AgentResult` because text and screenshots may contain phone numbers, emails, account numbers, or other personal data.
 
 Implementation rule:
 
-- The text/image agent may keep the full input summary, raw marker output, parsed marker observations, and raw explanation output in local variables while building the result.
+- The text/image agent may keep the full input summary, raw marker output, parsed marker observations, raw categorization output, and raw explanation output in local variables while building the result.
 - `AgentResult` may include `WeightedScamScoreReport` without raw input summary text.
+- `AgentResult` may include `ScamCategoryResult` because it contains closed-set metadata only.
 - `AgentResult` may include `ScamExplanation` because it is user-facing output.
-- Evidence strings may be used in memory for Stage C explanation generation.
+- Evidence strings may be used in memory for Stage C categorization and Stage D explanation generation.
 - Evidence strings must not be persisted unless redacted and truncated.
-- Before building Stage C explanation input JSON, redact obvious sensitive tokens where practical:
+- Before building Stage C categorization or Stage D explanation input JSON, redact obvious sensitive tokens where practical:
   - phone numbers -> `[phone_number]`
   - emails -> `[email]`
   - URLs/domains -> `[url]`
   - long numeric identifiers -> `[number]`
 - Do not over-redact ordinary scam context such as brand names, dollar amounts, or action verbs, because the explanation needs enough context to be useful.
-- Raw image base64, raw OCR text, raw user-entered text, raw marker JSON output, and raw explanation input JSON must not be stored in Zustand, `recentResults`, logs, analytics, or crash metadata.
+- Raw image base64, raw OCR text, raw user-entered text, raw marker JSON output, raw categorization input/output JSON, and raw explanation input/output JSON must not be stored in Zustand, `recentResults`, logs, analytics, or crash metadata.
 
 ## 6. JSON Parsing and Normalization
 
@@ -530,6 +636,7 @@ Create:
 
 ```text
 ios/App/GemmaKit/Sources/Agents/Scoring/ScamMarkerParser.swift
+ios/App/GemmaKit/Sources/Agents/Scoring/ScamCategoryParser.swift
 ```
 
 ### 6.1 Required parser behavior
@@ -570,35 +677,39 @@ Even though the prompt forbids markdown, the parser must handle model output lik
 
 The balanced JSON object extractor is sufficient if implemented correctly.
 
+### 6.4 Category parser behavior
+
+`ScamCategoryParser` must parse the Stage C output with the same robust JSON extraction strategy:
+
+1. Try to parse the full raw output as JSON.
+2. If that fails, extract the first balanced JSON object from the raw string.
+3. Read `category` and `confidence`.
+4. Accept only one of the eight `ScamCategory` raw values.
+5. Accept confidence only when it is numeric and inside `[0, 1]`.
+6. If parsing fails, the category is missing, the category is unknown, or confidence is out of range, return no `ScamCategoryResult` and add `invalid_scam_category` warning metadata where supported.
+7. Do not force the nearest category on parser failure.
+
+Safe verdicts must skip Stage C entirely and store no category.
+
 ## 7. Native Apple Vision OCR Requirement
 
 The image path uses Apple Vision OCR for Stage A text extraction. This replaces the earlier Gemma vision transcription requirement for this implementation.
 
-### 7.1 Add OCR extractor
+### 7.1 Use existing OCR extractor
 
-Create:
+Use the existing OCR implementation:
 
 ```text
-ios/App/GemmaKit/Sources/Agents/OCR/AppleVisionOCRExtractor.swift
+ios/App/GemmaKit/Sources/Inference/ImageOCR.swift
 ```
 
-Suggested interface:
+Required call site:
 
 ```swift
-public protocol ImageTextExtracting: Sendable {
-    func extractText(base64: String, mimeType: ImageMIMEType) async throws -> String
-}
-
-public final class AppleVisionOCRExtractor: ImageTextExtracting, Sendable {
-    public init() {}
-    public func extractText(base64: String, mimeType: ImageMIMEType) async throws -> String {
-        // Decode base64, create CGImage/UIImage, run VNRecognizeTextRequest,
-        // sort observations into stable reading order, and return plain text.
-    }
-}
+ImageOCR.extractText(from:)
 ```
 
-Use the existing `ImageMIMEType` enum from `AgentTask.swift` if visibility allows. If visibility becomes awkward, move `ImageMIMEType` to its own file and keep the raw values unchanged.
+Do not add a second OCR abstraction unless implementation constraints require a thin wrapper around the existing `ImageOCR`.
 
 ### 7.2 OCR behavior
 
@@ -654,26 +765,36 @@ ios/App/GemmaKit/Sources/Agents/ImageAgent.swift
 `ImageAgent.analyse(task:)` must do the following:
 
 1. Validate payload is `.image(base64Data, mimeType)`.
-2. Run Apple Vision OCR through `AppleVisionOCRExtractor`.
+2. Run Apple Vision OCR through the existing `ImageOCR.extractText(from:)` path.
 3. Trim the OCR text and treat it as `inputSummary`.
 4. Build the single marker extraction prompt with `{{INPUT_SUMMARY}}` replaced by `inputSummary`.
 5. Call `inferenceEngine.generate(prompt: markerPrompt, modelTier: .e2b, grammar: markerExtractionGrammar)`.
 6. Parse marker JSON using `ScamMarkerParser`.
 7. Score using `WeightedScamScorer`.
 8. Derive the deterministic verdict from the weighted score.
-9. Build compact `ExplanationInput` JSON from:
+9. If verdict is `.scam`, build compact `ScamCategorizationInput` JSON from:
    - `inputSummary`
    - final verdict
    - `totalScore`
    - threshold
    - present feature observations and redacted evidence
-10. Call `inferenceEngine.generate(prompt: explanationPrompt, modelTier: .e2b, grammar: explanationGrammarOrNil)`.
-11. Parse explanation JSON using `ScamExplanationParser`.
-12. Return `AgentResult` with:
+10. If verdict is `.scam`, call `inferenceEngine.generate(prompt: categorizationPrompt, modelTier: .e2b, grammar: categoryGrammarOrNil)`.
+11. If verdict is `.scam`, parse category JSON using `ScamCategoryParser`; on failure, continue with no category.
+12. Build compact `ExplanationInput` JSON from:
+   - `inputSummary`
+   - final verdict
+   - optional scam category
+   - `totalScore`
+   - threshold
+   - present feature observations and redacted evidence
+13. Call `inferenceEngine.generate(prompt: explanationPrompt, modelTier: .e2b, grammar: explanationGrammarOrNil)`.
+14. Parse explanation JSON using `ScamExplanationParser`.
+15. Return `AgentResult` with:
     - `agentId = AgentID.imageAgent`
     - `verdict = .scam` or `.safe`
     - `confidence = distance-derived decision confidence`
     - `reasoning = explanation.warningSigns` or a fallback summary
+    - `scamCategory = categoryResult` when Stage C succeeds, otherwise `nil`
     - `explanation = ScamExplanation`
     - `language = "en"`
     - `toolCallsLog = []` unless real MCP tools are actually invoked
@@ -692,9 +813,36 @@ The existing `ImageAgent` has placeholder methods for OCR, URL reputation, and v
 
 Future MCP enrichment can be added later, but the scoring algorithm in this spec must remain independent and deterministic.
 
-### 8.3 Stage C explanation generation
+### 8.3 Stage C categorization generation
 
-Run a third local processing stage after deterministic scoring.
+Run Stage C only after deterministic scoring returns `.scam`.
+
+This stage is metadata only. It must use the reserved `SCAM_CATEGORIZATION_PROMPT` contract and return closed-set JSON only.
+
+Input construction rules:
+
+- Include the original `inputSummary` so the model can use OCR text or user-entered text as context.
+- Include only the final verdict determined by `WeightedScamScorer`.
+- Include `totalScore` and `threshold`.
+- Include only present features by default.
+- Include feature evidence after redaction/truncation.
+- Do not include raw marker model output.
+- Do not include absent features unless the categorization prompt later explicitly requires them.
+- Do not include raw image base64.
+
+Output parsing rules:
+
+- Parse the categorization response as JSON.
+- Accept only one of the eight allowed categories.
+- Accept confidence only inside `[0, 1]`.
+- If parsing fails, the category is unknown, the category is missing, or confidence is invalid, store no category and continue.
+- Categorization failure must not change the deterministic verdict, score, threshold, feature statuses, weighted score report, or explanation generation.
+
+Safe verdicts skip Stage C and store no category.
+
+### 8.4 Stage D explanation generation
+
+Run after deterministic scoring and optional Stage C categorization.
 
 This is the only generation step that may produce user-facing prose. It must use the fixed `EXPLANATION_ACTION_PROMPT`.
 
@@ -702,6 +850,7 @@ Input construction rules:
 
 - Include the original `inputSummary` so the model can expand short feature evidence into useful explanation.
 - Include only the final verdict determined by `WeightedScamScorer`.
+- Include the optional scam category when Stage C succeeds.
 - Include `totalScore` and `threshold`.
 - Include only present features by default.
 - Include feature evidence after redaction/truncation.
@@ -715,6 +864,7 @@ Example explanation input:
 {
   "input_text": "Thank you. Your Wells Fargo subscription will renew today for $90. To cancel or dispute, call [phone_number].",
   "verdict": "scam",
+  "scam_category": "phishing",
   "total_score": 0.4251,
   "threshold": 0.22,
   "present_features": [
@@ -739,7 +889,7 @@ Output parsing rules:
 - Parse the explanation response as JSON.
 - If JSON parsing succeeds, use the returned `summary`, `warning_signs`, `recommended_action`, and `safety_note`.
 - If parsing fails, return a fallback explanation without changing the verdict or score.
-- If the explanation contradicts the deterministic verdict, ignore the contradiction and use a fallback explanation.
+- If the explanation contradicts the deterministic verdict or recategorizes the scam, ignore the contradiction and use a fallback explanation.
 
 Fallback explanation for `scam`:
 
@@ -765,7 +915,7 @@ Fallback recommended action for `safe`:
 This is not a guarantee. If anything feels unusual, verify through an official source before acting.
 ```
 
-### 8.4 Confidence formula
+### 8.5 Confidence formula
 
 `AgentResult.confidence` is a display confidence for the deterministic threshold decision, not a calibrated probability.
 
@@ -785,9 +935,9 @@ if report.totalScore >= threshold {
 
 If marker JSON is invalid or Stage B fails but returns text, set confidence to `0.50` after applying the notebook-compatible absent-feature fallback.
 
-Stage C explanation success or failure must not change confidence.
+Stage C categorization success/failure and Stage D explanation success/failure must not change confidence.
 
-### 8.5 Orchestrator low-confidence fallback exception
+### 8.6 Orchestrator low-confidence fallback exception
 
 The current `OrchestratorAgent` forces non-scam results to scam when confidence is below `0.75`. That behavior conflicts with the notebook's deterministic threshold rule.
 
@@ -805,7 +955,7 @@ Place this after specialist routing and before the generic low-confidence fallba
 
 Apply the same exception to text-analysis results using this weighted scoring path if the existing low-confidence fallback would otherwise override them.
 
-### 8.6 Text input refactor for "Check this text"
+### 8.7 Text input refactor for "Check this text"
 
 When the user clicks **Check this text**, the app must not call `ImageAgent`, Apple Vision OCR, image context extraction, Vision image analysis, or any image prompt.
 
@@ -819,12 +969,15 @@ Required text flow:
 6. Parse marker JSON using `ScamMarkerParser`.
 7. Score using `WeightedScamScorer`.
 8. Derive the deterministic verdict from the weighted score.
-9. Build compact `ExplanationInput` JSON from the text, parsed present features, weighted score report, and verdict.
-10. Call `inferenceEngine.generate(prompt: explanationPrompt, modelTier: .e2b, grammar: explanationGrammarOrNil)`.
-11. Parse explanation JSON using `ScamExplanationParser`.
-12. Return `AgentResult` with the same `WeightedScamScoreReport` and `ScamExplanation` contract used by images.
+9. If verdict is `.scam`, build compact `ScamCategorizationInput` JSON from the text, parsed present features, marker evidence, weighted score report, and verdict.
+10. If verdict is `.scam`, call `inferenceEngine.generate(prompt: categorizationPrompt, modelTier: .e2b, grammar: categoryGrammarOrNil)`.
+11. If verdict is `.scam`, parse category JSON using `ScamCategoryParser`; on failure, continue with no category.
+12. Build compact `ExplanationInput` JSON from the text, parsed present features, optional scam category, weighted score report, and verdict.
+13. Call `inferenceEngine.generate(prompt: explanationPrompt, modelTier: .e2b, grammar: explanationGrammarOrNil)`.
+14. Parse explanation JSON using `ScamExplanationParser`.
+15. Return `AgentResult` with the same `WeightedScamScoreReport`, optional `ScamCategoryResult`, and `ScamExplanation` contract used by images.
 
-This means the text path and image path differ only in how `inputSummary` is produced. Feature extraction, parsing, scoring, confidence, explanation generation, and verdict logic must be shared.
+This means the text path and image path differ only in how `inputSummary` is produced. Feature extraction, parsing, scoring, confidence, categorization, explanation generation, and verdict logic must be shared.
 
 Implementation options:
 
@@ -868,11 +1021,12 @@ Update `ios/App/GemmaKit/Sources/Agents/AgentResult.swift`:
 public struct AgentResult: Codable, Sendable {
     ...existing fields...
     public let weightedScoreReport: WeightedScamScoreReport?
+    public let scamCategory: ScamCategoryResult?
     public let explanation: ScamExplanation?
 }
 ```
 
-Default both fields to `nil` in the initializer so all existing agents and tests keep working.
+Default all three fields to `nil` in the initializer so all existing agents and tests keep working.
 
 ### 9.2 Explanation input and parser types
 
@@ -882,6 +1036,7 @@ Create explanation-specific DTOs near the scoring/explanation service:
 public struct ScamExplanationInput: Codable, Sendable {
     public let inputText: String
     public let verdict: ScamVerdict
+    public let scamCategory: ScamCategory?
     public let totalScore: Double
     public let threshold: Double
     public let presentFeatures: [ScamExplanationFeature]
@@ -906,7 +1061,7 @@ Required parser behavior:
 - Read `summary`, `warning_signs`, `recommended_action`, and `safety_note`.
 - Accept camelCase variants only as a fallback, but normalize internally to Swift camelCase.
 - If parsing fails, return the fallback explanation for the already-decided verdict.
-- If the explanation contradicts the verdict, return the fallback explanation.
+- If the explanation contradicts the verdict or recategorizes the scam, return the fallback explanation.
 
 ### 9.3 TypeScript `AgentResult`
 
@@ -942,6 +1097,23 @@ export interface WeightedScamScoreReport {
   validJSON: boolean
 }
 
+export type ScamCategory =
+  | 'extortion'
+  | 'imposter'
+  | 'phishing'
+  | 'romance'
+  | 'investment'
+  | 'employment'
+  | 'shopping'
+  | 'malware'
+
+export interface ScamCategoryResult {
+  category: ScamCategory
+  confidence: number
+  validJSON: boolean
+  validationWarnings: string[]
+}
+
 export interface ScamExplanation {
   summary: string
   warningSigns: string[]
@@ -952,6 +1124,7 @@ export interface ScamExplanation {
 export interface AgentResult {
   ...existing fields...
   weightedScoreReport?: WeightedScamScoreReport
+  scamCategory?: ScamCategoryResult
   explanation?: ScamExplanation
 }
 ```
@@ -960,7 +1133,7 @@ export interface AgentResult {
 
 `src/lib/store.ts` currently persists `recentResults`. Because `weightedScoreReport` contains no raw summary or raw screenshot text, it may be persisted.
 
-`ScamExplanation` may also be persisted because it is the user-facing result shown to the user.
+`ScamCategoryResult` may be persisted because it is closed-set metadata. `ScamExplanation` may also be persisted because it is the user-facing result shown to the user.
 
 Do not persist:
 
@@ -969,6 +1142,7 @@ Do not persist:
 - raw Apple OCR text
 - raw extracted image/modality context
 - raw marker JSON output
+- raw categorization input/output JSON
 - raw explanation input JSON
 - unredacted evidence strings
 
@@ -1015,7 +1189,9 @@ public static func scamExplanationGrammar() -> GrammarConstraint {
 }
 ```
 
-MLX currently performs post-hoc grammar validation. The parser remains the source of truth for robust runtime behavior for both marker extraction and explanation generation.
+Add an optional scam category grammar only if it is practical with the current backend. It must constrain `category` to the eight closed-set values and `confidence` to a JSON number, but `ScamCategoryParser` still remains the source of truth for rejecting invalid category output.
+
+MLX currently performs post-hoc grammar validation. The parser remains the source of truth for robust runtime behavior for marker extraction, scam categorization, and explanation generation.
 
 ## 11. Next.js / Capacitor UI Changes
 
@@ -1106,6 +1282,8 @@ Add an optional compact score line when `result.weightedScoreReport` exists:
 Weighted warning score: 0.31 / threshold 0.22
 ```
 
+Add a compact scam category label when `result.scamCategory` exists. Safe results must not display a category.
+
 Add explanation display when `result.explanation` exists:
 
 - summary
@@ -1115,7 +1293,7 @@ Add explanation display when `result.explanation` exists:
 
 Accessibility:
 
-- The score line, explanation, and recommended action must be readable by VoiceOver.
+- The score line, scam category, explanation, and recommended action must be readable by VoiceOver.
 - Do not rely on color only.
 - Do not display raw model JSON.
 - Do not display raw screenshot summary or raw OCR text.
@@ -1126,8 +1304,9 @@ Accessibility:
 Update `src/lib/gemma/mock.ts`:
 
 - For `task.type === 'analyseScreenshot'`, return deterministic weighted-score fixtures.
-- Include `weightedScoreReport` and `explanation` in at least one scam screenshot fixture and one safe screenshot fixture.
-- For `task.type === 'analyseText'`, return deterministic weighted-score and explanation fixtures.
+- Include `weightedScoreReport`, `scamCategory`, and `explanation` in at least one scam screenshot fixture.
+- Include `weightedScoreReport` and `explanation`, with no `scamCategory`, in at least one safe screenshot fixture.
+- For `task.type === 'analyseText'`, return deterministic weighted-score, optional category, and explanation fixtures.
 - Continue streaming reasoning tokens so UI tests remain useful.
 
 ## 12. Error Handling
@@ -1159,7 +1338,8 @@ Behavior:
 - `validJSON = false`.
 - Add a validation warning.
 - Set display confidence to `0.50`.
-- Continue to Stage C when possible so the user receives a low-confidence explanation.
+- If verdict remains `safe`, skip Stage C categorization.
+- Continue to Stage D when possible so the user receives a low-confidence explanation.
 - Include a warning sign or safety note such as: `"I could not read all warning markers clearly, so this result has low confidence."`
 
 This preserves notebook semantics while making uncertainty visible.
@@ -1172,13 +1352,35 @@ If Apple Vision OCR returns an empty string:
 - Add validation warning: `empty_image_ocr_text`.
 - The Stage B parser will likely return all absent.
 - Set confidence to `0.50`.
-- Continue to Stage C with the empty input summary and the warning metadata if possible.
+- Skip Stage C if the resulting verdict is `safe`.
+- Continue to Stage D with the empty input summary and the warning metadata if possible.
 
 If Apple Vision OCR throws, reject as an infrastructure error.
 
-### 12.4 Stage C explanation failure
+### 12.4 Stage C categorization failure
 
-Stage C explanation failure must not change the deterministic verdict or weighted score.
+Stage C categorization failure must not change the deterministic verdict, weighted score, feature statuses, confidence, or Stage D explanation generation.
+
+If the categorization model call throws:
+
+- Return the deterministic verdict and `weightedScoreReport`.
+- Store no `scamCategory`.
+- Continue to Stage D explanation generation.
+- Add a validation warning such as `scam_category_generation_failed` if the result metadata supports it.
+
+If the categorization model call returns invalid JSON, an unknown category, a missing category, or confidence outside `[0, 1]`:
+
+- Parse failure is not an infrastructure error.
+- Return the deterministic verdict and `weightedScoreReport`.
+- Store no `scamCategory`.
+- Continue to Stage D explanation generation.
+- Add a validation warning such as `invalid_scam_category` if the result metadata supports it.
+
+Safe verdicts skip Stage C entirely and store no `scamCategory`.
+
+### 12.5 Stage D explanation failure
+
+Stage D explanation failure must not change the deterministic verdict, weighted score, or scam category.
 
 If the explanation model call throws:
 
@@ -1197,7 +1399,7 @@ If the explanation contradicts the deterministic verdict:
 
 - Ignore the contradictory explanation.
 - Return a fallback `ScamExplanation`.
-- Do not change verdict, score, threshold, feature statuses, or confidence.
+- Do not change verdict, score, threshold, feature statuses, scam category, or confidence.
 
 ## 13. Testing Requirements
 
@@ -1208,10 +1410,11 @@ Add tests under:
 ```text
 ios/App/GemmaKit/Tests/WeightedScamScorerTests.swift
 ios/App/GemmaKit/Tests/ScamMarkerParserTests.swift
+ios/App/GemmaKit/Tests/ScamCategoryParserTests.swift
 ios/App/GemmaKit/Tests/ScamExplanationParserTests.swift
 ios/App/GemmaKit/Tests/ImageAgentWeightedPipelineTests.swift
 ios/App/GemmaKit/Tests/TextWeightedPipelineTests.swift
-ios/App/GemmaKit/Tests/AppleVisionOCRExtractorTests.swift
+ios/App/GemmaKit/Tests/ImageOCRTests.swift
 ```
 
 Required test cases:
@@ -1234,21 +1437,30 @@ Required test cases:
 8. Invalid JSON returns all absent, `validJSON = false`, warning present.
 9. Missing feature key returns absent and warning present.
 10. `ImageAgent` mock pipeline runs OCR before marker extraction.
-11. `ImageAgent` mock pipeline executes two Gemma text calls in order after OCR:
+11. `ScamCategoryParser` accepts all eight valid categories.
+12. `ScamCategoryParser` rejects unknown category, missing category, and out-of-range confidence.
+13. `ImageAgent` mock scam pipeline executes three Gemma text calls in order after OCR:
     - first returns marker JSON
-    - second returns explanation JSON
-12. Final image result includes `weightedScoreReport` and `explanation`.
-13. Text analysis for **Check this text** executes exactly two Gemma text calls:
+    - second returns category JSON
+    - third returns explanation JSON
+14. `ImageAgent` mock safe pipeline skips categorization and executes marker extraction then explanation only.
+15. Final scam image result includes `weightedScoreReport`, `scamCategory` when Stage C succeeds, and `explanation`.
+16. Final safe image result includes `weightedScoreReport` and `explanation`, and omits `scamCategory`.
+17. Text analysis for **Check this text** scam verdict executes three Gemma text calls:
     - marker extraction
+    - categorization
     - explanation/action generation
-14. Text analysis does not call Apple Vision OCR.
-15. Text analysis uses the raw user text as `{{INPUT_SUMMARY}}` and returns the same weighted report and explanation shape as image analysis.
-16. Explanation input includes verdict, total score, threshold, present features, and redacted evidence.
-17. Explanation parser accepts valid snake_case JSON.
-18. Explanation parser returns fallback explanation for invalid JSON.
-19. Explanation parser ignores output that contradicts the deterministic verdict.
-20. Stage C failure does not change verdict, score, threshold, feature statuses, or confidence.
-21. Raw OCR text is not included in `AgentResult`.
+18. Text analysis for **Check this text** safe verdict skips categorization.
+19. Text analysis does not call Apple Vision OCR.
+20. Text analysis uses the raw user text as `{{INPUT_SUMMARY}}` and returns the same weighted report, category, and explanation shape as image analysis.
+21. Categorization input includes deterministic verdict, input summary/OCR text, present features, marker evidence, and score report.
+22. Stage C failure does not change verdict, score, threshold, feature statuses, confidence, or Stage D explanation generation.
+23. Explanation input includes verdict, optional scam category, total score, threshold, present features, and redacted evidence.
+24. Explanation parser accepts valid snake_case JSON.
+25. Explanation parser returns fallback explanation for invalid JSON.
+26. Explanation parser ignores output that contradicts the deterministic verdict or recategorizes the scam.
+27. Stage D failure does not change verdict, score, threshold, feature statuses, scam category, or confidence.
+28. Raw OCR text is not included in `AgentResult`.
 
 ### 13.2 TypeScript tests
 
@@ -1264,17 +1476,22 @@ src/lib/__tests__/store.test.ts
 Required test cases:
 
 1. `AgentResult` accepts optional `weightedScoreReport`.
-2. `AgentResult` accepts optional `explanation`.
-3. Mock screenshot analysis returns a weighted score report and explanation.
-4. Mock text analysis returns a weighted score report and explanation.
-5. VerdictCard renders weighted score line when present.
-6. VerdictCard renders explanation summary when present.
-7. VerdictCard renders warning signs when present.
-8. VerdictCard renders recommended action when present.
-9. Zustand does not persist `pendingAnalysisInput`.
-10. Zustand does not persist raw image base64.
-11. Image pending input creates `analyseScreenshot` task with timeout `120000`.
-12. Text pending input creates `analyseText` task with timeout `90000`.
+2. `AgentResult` accepts optional `scamCategory`.
+3. `AgentResult` accepts optional `explanation`.
+4. Mock screenshot scam analysis returns a weighted score report, scam category, and explanation.
+5. Mock screenshot safe analysis returns a weighted score report and explanation, with no scam category.
+6. Mock text scam analysis returns a weighted score report, scam category, and explanation.
+7. Mock text safe analysis returns a weighted score report and explanation, with no scam category.
+8. Scam category fixtures cover the eight closed-set category values.
+9. VerdictCard renders weighted score line when present.
+10. VerdictCard renders scam category when present.
+11. VerdictCard renders explanation summary when present.
+12. VerdictCard renders warning signs when present.
+13. VerdictCard renders recommended action when present.
+14. Zustand does not persist `pendingAnalysisInput`.
+15. Zustand does not persist raw image base64.
+16. Image pending input creates `analyseScreenshot` task with timeout `120000`.
+17. Text pending input creates `analyseText` task with timeout `90000`.
 
 ### 13.3 Manual iOS validation
 
@@ -1285,7 +1502,7 @@ Manual smoke test on device:
 3. Upload a screenshot containing a link and urgent bank/account language.
 4. Confirm Apple Vision OCR extracts visible text well enough for analysis.
 5. Confirm result is `scam`.
-6. Confirm result includes an explanation and recommended action.
+6. Confirm scam result includes a scam category, explanation, and recommended action when categorization succeeds.
 7. Upload a normal receipt/order-confirmation screenshot.
 8. Confirm result is `safe` unless visible markers cross threshold.
 9. Confirm safe result does not claim the message is guaranteed safe.
@@ -1303,8 +1520,8 @@ Create:
 ios/App/GemmaKit/Sources/Agents/Prompts/ModalityWeightedScamPrompts.swift
 ios/App/GemmaKit/Sources/Agents/Scoring/WeightedScamScorer.swift
 ios/App/GemmaKit/Sources/Agents/Scoring/ScamMarkerParser.swift
+ios/App/GemmaKit/Sources/Agents/Scoring/ScamCategoryParser.swift
 ios/App/GemmaKit/Sources/Agents/Scoring/ScamExplanationParser.swift
-ios/App/GemmaKit/Sources/Agents/OCR/AppleVisionOCRExtractor.swift
 ```
 
 Optional shared service, if useful:
@@ -1356,19 +1573,29 @@ The implementation is complete when all of the following are true:
 3. The native bridge decodes the nested `{ task }` payload correctly.
 4. Image analysis uses Apple Vision OCR for Stage A text extraction.
 5. Image analysis does not require Gemma vision, `generateVision(...)`, `VisionInput`, or a multimodal projector.
-6. Runtime image analysis performs two Gemma text calls after OCR:
+6. Runtime image analysis performs two Gemma text calls after OCR for safe verdicts:
    - marker extraction
    - explanation/action generation
-7. **Check this text** performs two Gemma text calls:
+7. Runtime image analysis performs three Gemma text calls after OCR for scam verdicts:
+   - marker extraction
+   - scam categorization
+   - explanation/action generation
+8. **Check this text** performs two Gemma text calls for safe verdicts:
    - marker extraction with the user text as `{{INPUT_SUMMARY}}`
    - explanation/action generation
-8. Text input does not call Apple Vision OCR, image context extraction, `generateVision`, or any image prompt.
-9. Only one marker extraction prompt exists in runtime code, and it matches Prompt 2 from `scam_marker_extraction_prompts (2)(1).md`.
-10. The explanation/action prompt is separate from the marker extraction prompt.
-11. The marker extraction prompt is the only prompt allowed to produce feature JSON.
-12. The explanation/action prompt must not change verdict, score, threshold, or feature statuses.
-13. No prompt ablation code exists in runtime code.
-14. The target feature keys exactly match:
+9. **Check this text** performs three Gemma text calls for scam verdicts:
+   - marker extraction with the user text as `{{INPUT_SUMMARY}}`
+   - scam categorization
+   - explanation/action generation
+10. Text input does not call Apple Vision OCR, image context extraction, `generateVision`, or any image prompt.
+11. Only one marker extraction prompt exists in runtime code, and it matches Prompt 2 from `scam_marker_extraction_prompts (2)(1).md`.
+12. The scam categorization prompt is separate from both the marker extraction prompt and the explanation/action prompt.
+13. The explanation/action prompt is separate from the marker extraction prompt.
+14. The marker extraction prompt is the only prompt allowed to produce feature JSON.
+15. Stage C categorization must not change verdict, score, threshold, or feature statuses.
+16. The explanation/action prompt must not change verdict, score, threshold, feature statuses, or scam category.
+17. No prompt ablation code exists in runtime code.
+18. The target feature keys exactly match:
    - `unknown_sender`
    - `foreign_sender`
    - `impersonation`
@@ -1379,23 +1606,29 @@ The implementation is complete when all of the following are true:
    - `sensitive_info`
    - `financial_transfer`
    - `external_action`
-15. The weights exactly match the notebook values.
-16. The threshold is exactly `0.22` and is inclusive.
-17. `pretexting` alone scores `0.2143` and returns `safe`.
-18. `pretexting + external_action` scores `0.2584` and returns `scam`.
-19. Invalid marker JSON does not crash the app.
-20. Invalid explanation JSON does not change the verdict or score.
-21. Final `AgentResult` includes `weightedScoreReport` for the weighted path.
-22. Final `AgentResult` includes `explanation` for the weighted path.
-23. Final explanation includes:
+19. The weights exactly match the notebook values.
+20. The threshold is exactly `0.22` and is inclusive.
+21. `pretexting` alone scores `0.2143` and returns `safe`.
+22. `pretexting + external_action` scores `0.2584` and returns `scam`.
+23. Invalid marker JSON does not crash the app.
+24. Stage C runs only when deterministic verdict is `scam`.
+25. Stage C returns exactly one of `extortion`, `imposter`, `phishing`, `romance`, `investment`, `employment`, `shopping`, or `malware` plus confidence.
+26. Invalid category JSON, unknown category, missing category, or out-of-range confidence stores no category and does not fail analysis.
+27. Safe verdicts omit `scamCategory`.
+28. Invalid explanation JSON does not change the verdict, score, or scam category.
+29. Final `AgentResult` includes `weightedScoreReport` for the weighted path.
+30. Final scam `AgentResult` includes `scamCategory` when Stage C succeeds.
+31. Final `AgentResult` includes `explanation` for the weighted path.
+32. Final explanation includes:
    - summary
    - warning signs
    - recommended action
    - optional safety note
-24. Raw image base64, raw Apple OCR text, raw user text, raw marker output, and raw explanation input JSON are not persisted.
-25. If Stage C fails, the app still returns the deterministic verdict and score report with a fallback explanation.
-26. `npm run typecheck`, `npm run lint`, and `npm run test:unit` pass.
-27. Swift unit tests for OCR, parser, scorer, explanation parser, and weighted pipelines pass in Xcode or `swift test` where applicable.
+33. Raw image base64, raw Apple OCR text, raw user text, raw marker output, raw categorization input/output JSON, and raw explanation input/output JSON are not persisted.
+34. If Stage C fails, the app still returns the deterministic verdict and score report and continues to Stage D.
+35. If Stage D fails, the app still returns the deterministic verdict, score report, optional scam category, and fallback explanation.
+36. `npm run typecheck`, `npm run lint`, and `npm run test:unit` pass.
+37. Swift unit tests for OCR, parser, scorer, category parser, explanation parser, and weighted pipelines pass in Xcode or `swift test` where applicable.
 
 ## 16. Implementation Notes for Claude
 
@@ -1407,14 +1640,15 @@ The implementation is complete when all of the following are true:
 - Do not use Python in the app runtime.
 - Keep the privacy-first local inference design.
 - Prefer typed Swift structs/enums over dictionaries after the JSON boundary.
-- Keep dictionary parsing isolated inside `ScamMarkerParser` and `ScamExplanationParser`.
+- Keep dictionary parsing isolated inside `ScamMarkerParser`, `ScamCategoryParser`, and `ScamExplanationParser`.
 - Keep the scoring function deterministic and side-effect free.
 - Keep prompts in one Swift prompt file so future prompt changes are auditable.
 - Preserve the feature-extraction prompt and scoring behavior unless tests explicitly require a bug fix.
 - Do not make the feature extractor more verbose just to improve explanations.
-- Use Stage C to explain the already-scored result using the original input summary plus extracted feature JSON.
+- Use Stage C only to label already-scored scam results with a closed-set category.
+- Use Stage D to explain the already-scored result using the original input summary plus extracted feature JSON and optional scam category.
 - Apple Vision OCR is the required image text-extraction path for this implementation.
-- Avoid putting raw user content, raw OCR text, raw marker JSON, or raw explanation input JSON in logs.
+- Avoid putting raw user content, raw OCR text, raw marker JSON, raw categorization input/output JSON, or raw explanation input JSON in logs.
 
 ## 17. Future Work Not Included
 
