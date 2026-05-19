@@ -92,6 +92,15 @@
       color: var(--ink-soft);
     }
     .cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .testflight-disclaimer {
+      max-width: 520px; margin: 18px auto 0;
+      font-size: 13px; color: var(--ink-soft); text-align: center;
+      background: var(--paper-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .testflight-disclaimer strong { color: var(--ink); font-weight: 600; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 12px 22px; border-radius: 999px;
@@ -398,9 +407,11 @@
       Every model runs locally on your iPhone — nothing is uploaded, nothing is logged.
     </p>
     <div class="cta-row">
-      <a class="btn btn-primary" href="#demo">See the demo</a>
+      <a class="btn btn-primary" href="https://testflight.apple.com/join/BbrV5uaw">Join the TestFlight beta</a>
+      <a class="btn btn-secondary" href="#demo">See the demo</a>
       <a class="btn btn-secondary" href="https://github.com/GemScan/GemScan">View on GitHub →</a>
     </div>
+    <p class="testflight-disclaimer">TestFlight invite is <strong>pending Apple App Review</strong> as of 18 May 2026, 11 pm PDT — the link will become active once approval clears.</p>
   </header>
 
   <section id="why">
