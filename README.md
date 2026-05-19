@@ -2,6 +2,10 @@
 
 An iOS app that checks suspicious messages, links, and screenshots for scams — fully on-device, in seconds.
 
+Here is a link to test it in beta mode on Apple TestFlight and share feedback: 
+[GemScan on TestFlight](https://testflight.apple.com/join/BbrV5uaw)
+
+
 ## Why this exists
 
 In 2023, a mother in Arizona answered her phone and heard her daughter screaming. The voice was indistinguishable — a three-second clip scraped from social media was all it took to clone it. The daughter was safe at home. That same year, **$16.6 B** was lost to fraud in the US alone, and the people most targeted — elders, teenagers, non-native speakers — are the ones today's defences fail.
