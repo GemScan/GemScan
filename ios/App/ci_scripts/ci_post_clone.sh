@@ -2,6 +2,7 @@
 set -e
 
 echo "==> ci_post_clone.sh starting at $(pwd)"
+echo "==> Script location: $0"
 echo "==> Xcode version: $(xcodebuild -version | head -1)"
 
 # 1. Disable macro / plugin fingerprint validation at the Xcode defaults level.
@@ -14,12 +15,13 @@ echo "==> Xcode defaults set"
 #    on-disk trust record exists before Xcode Cloud's main xcodebuild step runs.
 #    This is what actually unblocks MLXHuggingFaceMacros from mlx-swift-lm.
 #
-#    Xcode Cloud clones into $CI_WORKSPACE; locally $CI_WORKSPACE is unset, so
-#    fall back to the repo root.
-REPO_ROOT="${CI_WORKSPACE:-$(cd "$(dirname "$0")/.." && pwd)}"
-WORKSPACE="$REPO_ROOT/ios/App/App.xcworkspace"
+#    The script lives in ios/App/ci_scripts, so the workspace is the sibling
+#    ios/App/App.xcworkspace directory.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKSPACE="$SCRIPT_DIR/../App.xcworkspace"
 
 echo "==> Resolving SwiftPM packages with macro/plugin validation skipped"
+echo "==> Workspace: $WORKSPACE"
 xcodebuild \
   -resolvePackageDependencies \
   -workspace "$WORKSPACE" \
