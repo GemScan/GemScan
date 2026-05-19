@@ -246,6 +246,27 @@
       overflow-x: auto;
     }
     .arch-wrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .arch-wrap .mermaid { display: flex; justify-content: center; min-height: 240px; }
+    .arch-wrap .mermaid svg { font-family: 'Inter', system-ui, sans-serif !important; }
+    .privacy-band {
+      margin: 20px 0 0;
+      padding: 12px 16px;
+      background: var(--paper-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+      color: var(--ink-soft);
+      text-align: center;
+    }
+    .privacy-band strong {
+      color: var(--ink-soft);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      display: block;
+      margin-bottom: 4px;
+    }
 
     /* Performance */
     .perf-grid {
@@ -543,79 +564,32 @@
         <p>One on-device pipeline. A Swift orchestrator picks the right specialist, runs Gemma 4 E2B through Apple's MLX framework, and renders the structured verdict in the WebView UI.</p>
       </div>
       <div class="arch-wrap">
-        <svg viewBox="0 0 920 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GemScan architecture diagram">
-          <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a5468" />
-            </marker>
-            <style><![CDATA[
-              .box { fill: #ffffff; stroke: #d8d4c8; stroke-width: 1.5; }
-              .box-accent { fill: #e8efff; stroke: #004aad; stroke-width: 1.5; }
-              .box-model { fill: #004aad; stroke: #003782; stroke-width: 1.5; }
-              .label { font: 600 14px Inter, system-ui, sans-serif; fill: #0e1626; }
-              .label-light { font: 600 14px Inter, system-ui, sans-serif; fill: #ffffff; }
-              .sub { font: 500 11px Inter, system-ui, sans-serif; fill: #4a5468; }
-              .sub-light { font: 500 11px Inter, system-ui, sans-serif; fill: #cdd9f0; }
-              .group-label { font: 700 11px Inter, system-ui, sans-serif; fill: #4a5468; letter-spacing: 0.08em; text-transform: uppercase; }
-              .flow { stroke: #4a5468; stroke-width: 1.5; fill: none; }
-            ]]></style>
-          </defs>
+        <pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#ffffff','primaryBorderColor':'#d8d4c8','primaryTextColor':'#0e1626','lineColor':'#4a5468','fontFamily':'Inter, system-ui, sans-serif','fontSize':'14px'}}}%%
+flowchart LR
+  UI["Text / URL / Image\npaste · pick · share"]
+  CAP["Capacitor 6\nTS ⇄ Swift"]
+  ORCH["OrchestratorAgent\npicks specialist"]:::accent
+  TA["TextAgent"]
+  UA["URLAgent"]
+  IA["ImageAgent"]
+  OCR["Apple Vision OCR"]
+  MODEL["Gemma 4 E2B Instruct\n4-bit · MLX-Swift on Apple Silicon GPU\ngrammar-constrained sampling"]:::model
+  V["Verdict\nsafe · suspicious · scam\n+ confidence and reasoning"]
 
-          <text class="group-label" x="20" y="32">User input</text>
-          <rect class="box" x="20" y="44" width="160" height="64" rx="12"/>
-          <text class="label" x="100" y="74" text-anchor="middle">Text / URL / Image</text>
-          <text class="sub" x="100" y="92" text-anchor="middle">paste · pick · share</text>
+  UI --> CAP --> ORCH
+  ORCH --> TA & UA & IA
+  IA --> OCR
+  TA --> MODEL
+  UA --> MODEL
+  OCR --> MODEL
+  MODEL --> V
 
-          <text class="group-label" x="220" y="32">Bridge</text>
-          <rect class="box" x="220" y="44" width="160" height="64" rx="12"/>
-          <text class="label" x="300" y="74" text-anchor="middle">Capacitor 6</text>
-          <text class="sub" x="300" y="92" text-anchor="middle">TS ⇄ Swift</text>
-
-          <text class="group-label" x="420" y="32">Routing</text>
-          <rect class="box-accent" x="420" y="44" width="180" height="64" rx="12"/>
-          <text class="label" x="510" y="74" text-anchor="middle">OrchestratorAgent</text>
-          <text class="sub" x="510" y="92" text-anchor="middle">picks specialist</text>
-
-          <text class="group-label" x="640" y="32">Specialist agents</text>
-          <rect class="box" x="640" y="44" width="120" height="44" rx="10"/>
-          <text class="label" x="700" y="71" text-anchor="middle">TextAgent</text>
-          <rect class="box" x="640" y="98" width="120" height="44" rx="10"/>
-          <text class="label" x="700" y="125" text-anchor="middle">URLAgent</text>
-          <rect class="box" x="640" y="152" width="120" height="44" rx="10"/>
-          <text class="label" x="700" y="179" text-anchor="middle">ImageAgent</text>
-
-          <text class="group-label" x="640" y="222">Image-only</text>
-          <rect class="box" x="640" y="234" width="240" height="44" rx="10"/>
-          <text class="label" x="760" y="261" text-anchor="middle">Apple Vision OCR</text>
-
-          <text class="group-label" x="20" y="170">On-device inference</text>
-          <rect class="box-model" x="20" y="182" width="360" height="86" rx="14"/>
-          <text class="label-light" x="200" y="212" text-anchor="middle">Gemma 4 E2B Instruct</text>
-          <text class="sub-light" x="200" y="232" text-anchor="middle">4-bit · MLX-Swift on Apple Silicon GPU</text>
-          <text class="sub-light" x="200" y="250" text-anchor="middle">grammar-constrained sampling</text>
-
-          <text class="group-label" x="420" y="170">Output</text>
-          <rect class="box" x="420" y="182" width="180" height="86" rx="14"/>
-          <text class="label" x="510" y="212" text-anchor="middle">Verdict</text>
-          <text class="sub" x="510" y="232" text-anchor="middle">safe · suspicious · scam</text>
-          <text class="sub" x="510" y="250" text-anchor="middle">+ confidence &amp; reasoning</text>
-
-          <text class="group-label" x="20" y="298">Privacy boundary</text>
-          <rect x="20" y="310" width="880" height="36" rx="10" fill="#f3f1ea" stroke="#e3e0d6"/>
-          <text class="sub" x="460" y="333" text-anchor="middle">No network calls during analysis · weights cached on-device after one-time download · history stored only in localStorage</text>
-
-          <path class="flow" d="M 180 76 L 220 76" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 380 76 L 420 76" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 600 76 L 640 66" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 600 76 L 640 120" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 600 76 L 640 174" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 700 196 L 700 234" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 760 278 L 760 295 L 200 295 L 200 268" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 640 66 Q 620 180 200 182" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 640 120 Q 410 120 380 215" marker-end="url(#arrow)"/>
-          <path class="flow" d="M 380 225 L 420 225" marker-end="url(#arrow)"/>
-        </svg>
+  classDef accent fill:#e8efff,stroke:#004aad,color:#0e1626,stroke-width:1.5px;
+  classDef model fill:#004aad,stroke:#003782,color:#ffffff,stroke-width:1.5px;
+        </pre>
       </div>
+      <p class="privacy-band"><strong>Privacy boundary</strong>No network calls during analysis · weights cached on-device after one-time download · history stored only in localStorage</p>
     </div>
   </section>
 
@@ -713,6 +687,14 @@ npx cap open ios
     </p>
   </footer>
 
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'loose',
+      flowchart: { htmlLabels: true, curve: 'basis', useMaxWidth: true, padding: 16 }
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script>
     const brand = '#004aad';
