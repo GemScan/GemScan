@@ -317,6 +317,28 @@
     .run-card h3 { display: flex; align-items: center; gap: 8px; }
     .run-card pre { margin: 14px 0 0; }
 
+    /* Privacy */
+    .privacy-content {
+      max-width: 760px; margin: 0 auto;
+      background: white; border-radius: var(--radius);
+      padding: 36px 40px; box-shadow: var(--shadow-sm);
+    }
+    .privacy-content h3 {
+      margin: 32px 0 10px;
+      font-size: 18px; font-weight: 700; color: var(--ink);
+    }
+    .privacy-content h3:first-child { margin-top: 0; }
+    .privacy-content p, .privacy-content li {
+      color: var(--ink-soft); font-size: 15px; line-height: 1.6;
+    }
+    .privacy-content ul { padding-left: 22px; margin: 0 0 16px; }
+    .privacy-content li { margin-bottom: 8px; }
+    .privacy-content strong { color: var(--ink); font-weight: 600; }
+    .privacy-meta {
+      text-align: center; font-size: 13px; color: var(--ink-soft);
+      margin: 16px 0 0;
+    }
+
     /* Team */
     .team-photo-wrap {
       max-width: 228px; margin: 0 auto;
@@ -360,6 +382,7 @@
         <a href="#how">How it works</a>
         <a href="#run">Try it</a>
         <a href="#team">Team</a>
+        <a href="#privacy">Privacy</a>
         <a href="https://github.com/GemScan/GemScan">GitHub</a>
       </div>
     </div>
@@ -688,6 +711,70 @@ npx cap open ios
     </div>
   </section>
 
+  <section id="privacy">
+    <div class="container">
+      <div class="section-head">
+        <h2>Privacy policy</h2>
+        <p>Plain English. Last updated 18 May 2026.</p>
+      </div>
+      <div class="privacy-content">
+
+        <h3>The short version</h3>
+        <p>GemScan analyses everything you check entirely on your iPhone. The content you analyse — messages, links, screenshots, voice clips — is never uploaded, never stored on a server, and never used to train any model. There are no accounts, no analytics, no advertising SDKs, and no third-party trackers.</p>
+
+        <h3>Who runs GemScan</h3>
+        <p>GemScan is an independent research project by two graduate students. There is no company, no marketing pipeline, and no investor relationship. The contact email for privacy questions is <a href="mailto:shashankbl@utexas.edu">shashankbl@utexas.edu</a>.</p>
+
+        <h3>What we collect</h3>
+        <p><strong>Nothing leaves your device.</strong> All scam analysis — text, URL pattern checks, OCR on images, voice-clip features — runs locally on your iPhone using Gemma 4 model weights cached on the device and Apple's on-device Vision and Speech frameworks. We do not operate any server that receives content you analyse.</p>
+
+        <h3>What's stored on your device</h3>
+        <ul>
+          <li><strong>History of checks</strong> — the messages you've analysed, the verdicts, and timestamps are stored in your device's local web storage (localStorage). You can clear the entire history at any time from <em>Settings → Clear history</em>. Uninstalling the app also removes it.</li>
+          <li><strong>Gemma 4 model weights</strong> — roughly 2 GB, downloaded once on first launch and cached in the app's sandbox under <code>Library/Caches/huggingface/hub/</code>. Removed if you uninstall the app.</li>
+          <li><strong>App preferences</strong> — voice toggles, accessibility settings, and Guardian Mode trusted contacts (if you opt in) are stored only on the device.</li>
+        </ul>
+
+        <h3>Network activity</h3>
+        <ul>
+          <li><strong>One-time model download</strong>: on first launch, after you tap <em>Settings → Download model</em>, the app fetches the Gemma 4 E2B weights from <a href="https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit">huggingface.co</a>. This is the only network call the app makes for its core function.</li>
+          <li><strong>No background telemetry, no analytics, no crash reporting.</strong> We do not use Firebase, Google Analytics, Sentry, Adjust, Facebook SDK, Branch, or any other behavioural-tracking SDK.</li>
+          <li><strong>URLs are not fetched.</strong> When you ask GemScan to check a link, the on-device model inspects the URL string for scam patterns; it does not open the page or send the URL to any third party.</li>
+        </ul>
+
+        <h3>Permissions GemScan asks for</h3>
+        <p>iOS prompts you the first time each is needed. You can revoke any of them later in <em>System Settings → GemScan</em>. None of them transmit data off the device.</p>
+        <ul>
+          <li><strong>Photo library</strong> — when you tap <em>Add a picture</em>. Only the image you pick is read; the rest of your library is not enumerated.</li>
+          <li><strong>Camera</strong> — when you choose to snap a picture of a suspicious message in the app.</li>
+          <li><strong>Microphone</strong> — only when you start a voice-call analysis session. Audio is processed on-device and discarded immediately after analysis.</li>
+          <li><strong>Contacts</strong> — only if you opt in to Guardian Mode and choose trusted contacts. Contact data never leaves the device.</li>
+        </ul>
+
+        <h3>Third parties</h3>
+        <ul>
+          <li><strong>Hugging Face</strong> — distributes the Gemma 4 model weights. The one-time download from <code>huggingface.co</code> is subject to <a href="https://huggingface.co/privacy">their privacy policy</a>. They receive only the standard request metadata (IP address, user-agent) needed to serve the download.</li>
+          <li><strong>Apple</strong> — standard App Store distribution and on-device frameworks (Vision, Speech, MLX). Subject to Apple's privacy policy.</li>
+          <li>No other third-party services are integrated into the app.</li>
+        </ul>
+
+        <h3>Children's privacy</h3>
+        <p>The app contains scam-education content (including references to financial, romance, and sextortion scams) that is generally appropriate for users aged 13 and up. We do not knowingly collect any personal information from anyone, including children — because we collect no personal information at all.</p>
+
+        <h3>Your rights</h3>
+        <p>Because we collect, store, and process nothing off your device, there is no account to delete, no profile to export, and no third party to revoke. To fully erase everything GemScan stores, uninstall the app from your iPhone (Settings → General → iPhone Storage → GemScan → Delete App). If you have any privacy question or request regardless, email <a href="mailto:shashankbl@utexas.edu">shashankbl@utexas.edu</a> and we will respond within 30 days.</p>
+
+        <h3>Security</h3>
+        <p>Model weights are downloaded over HTTPS. App Transport Security is enabled with arbitrary loads disabled (no plain-HTTP traffic). The app sandbox isolates the cached model and history from other apps on your device.</p>
+
+        <h3>Changes to this policy</h3>
+        <p>If the policy changes, the updated version will appear at this URL with a new "Last updated" date. Material changes will additionally be surfaced in the app on next launch.</p>
+
+      </div>
+      <p class="privacy-meta">A canonical copy of this policy lives at <a href="https://gemscan.github.io/GemScan/#privacy">gemscan.github.io/GemScan/#privacy</a> — that is the URL to provide to Apple App Store Connect.</p>
+    </div>
+  </section>
+
   <footer>
     <p>
       Built with Gemma 4, MLX-Swift, Capacitor, and Next.js.
@@ -699,6 +786,7 @@ npx cap open ios
       <a href="https://github.com/GemScan/GemScan">GitHub</a> ·
       <a href="https://github.com/GemScan/GemScan/blob/main/CONTRIBUTING.md">Contributing</a> ·
       <a href="architecture.md">Architecture</a> ·
+      <a href="#privacy">Privacy</a> ·
       <a href="https://github.com/GemScan/GemScan/blob/main/LICENSE">License</a>
     </p>
   </footer>
