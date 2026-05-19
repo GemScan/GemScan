@@ -246,8 +246,19 @@
       overflow-x: auto;
     }
     .arch-wrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
-    .arch-wrap .mermaid { display: flex; justify-content: center; min-height: 240px; }
-    .arch-wrap .mermaid svg { font-family: 'Inter', system-ui, sans-serif !important; }
+    .arch-wrap pre.mermaid {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      min-height: 240px;
+      font-size: 14px;
+      line-height: 1.4;
+      overflow: visible;
+    }
+    .arch-wrap .mermaid svg { font-family: 'Inter', system-ui, sans-serif !important; max-width: 100%; height: auto; }
     .privacy-band {
       margin: 20px 0 0;
       padding: 12px 16px;
@@ -588,7 +599,7 @@ flowchart LR
   MODEL --> V
 
   classDef accent fill:#e8efff,stroke:#004aad,color:#0e1626,stroke-width:1.5px;
-  classDef model fill:#004aad,stroke:#003782,color:#ffffff,stroke-width:1.5px;
+  classDef model fill:#dbe6f9,stroke:#003782,color:#0e1626,stroke-width:2.5px;
         </pre>
       </div>
       <p class="privacy-band"><strong>Privacy boundary</strong>No network calls during analysis · weights cached on-device after one-time download · history stored only in localStorage</p>
